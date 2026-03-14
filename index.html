@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Scout</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--blue:#4ECDC4;--blue2:#38B8AF;--bg:#F6F7F5;--card:#FFFFFF;--bubble:#EBF7F6;--border:#DDE3DD;--text:#3D4042;--muted:#6B7280;--dim:#9CA3AF}
+body{min-height:100vh;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Inter',sans-serif;padding:20px}
+.card{width:100%;max-width:520px;height:620px;background:var(--card);border-radius:20px;overflow:hidden;box-shadow:0 0 0 1px rgba(30,63,190,.15),0 40px 80px rgba(0,0,0,.6);display:flex;flex-direction:column}
+.header{background:var(--blue);padding:18px 22px 16px;position:relative;overflow:hidden;flex-shrink:0}
+.header::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;background:rgba(255,255,255,.05);border-radius:50%}
+.htitle{font-family:'Inter',sans-serif;font-size:22px;font-weight:700;letter-spacing:-.01em;color:#fff;line-height:1}
+.hsub{font-size:12px;color:rgba(255,255,255,.65);margin-top:4px}
+.sdot{position:absolute;top:18px;right:22px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.15);padding:5px 10px;border-radius:20px}
+.dgreen{width:9px;height:9px;background:#4ade80;border-radius:50%;box-shadow:0 0 8px #4ade80;animation:pulse2 2s infinite} @keyframes pulse2{0%,100%{opacity:1}50%{opacity:.6}}
+.slabel{font-size:12px;font-weight:600;color:#fff;letter-spacing:.02em}
+.messages{flex:1;overflow-y:auto;padding:18px 18px 8px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.messages::-webkit-scrollbar{width:4px}
+.messages::-webkit-scrollbar-thumb{background:rgba(30,63,190,.3);border-radius:2px}
+.msg-row{display:flex;animation:fadeUp .3s ease forwards}
+.msg-row.user{justify-content:flex-end}
+.msg-row.bot{justify-content:flex-start;align-items:flex-end}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.avatar{width:28px;height:28px;border-radius:50%;background:#1A0066;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;margin-right:8px}
+.bubble{max-width:75%;padding:10px 14px;font-size:13.5px;line-height:1.55}
+.bubble.bot{background:var(--bubble);color:var(--text);border-radius:16px 16px 16px 4px;border:1px solid var(--border)}
+.bubble.user{background:var(--blue);color:#fff;border-radius:16px 16px 4px 16px}
+.typing{display:flex;align-items:center;gap:4px;padding:12px 16px;background:var(--bubble);border:1px solid var(--border);border-radius:16px 16px 16px 4px}
+.typing span{width:6px;height:6px;background:var(--blue);border-radius:50%;animation:pulse 1.2s ease infinite}
+.typing span:nth-child(2){animation-delay:.2s}
+.typing span:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.suggested{margin-top:8px}
+.slbl{font-size:11px;color:var(--dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{padding:6px 12px;background:transparent;border:1px solid rgba(30,63,190,.4);border-radius:20px;color:var(--muted);font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;transition:all .15s}
+.chip:hover{background:var(--blue);color:#fff;border-color:var(--blue)}
+.map-wrap{border-radius:10px;overflow:hidden;border:1px solid var(--border);width:260px}
+.map-wrap iframe{width:100%;height:140px;border:none;display:block}
+.map-addr{background:var(--bubble);padding:7px 10px;font-size:12px;color:var(--muted)}
+.input-area{padding:12px 16px 16px;border-top:1px solid var(--border);display:flex;gap:8px;background:var(--card);flex-shrink:0}
+.input-area input{flex:1;padding:11px 14px;background:var(--bubble);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-family:'Inter',sans-serif;outline:none;transition:border-color .2s}
+.input-area input:focus{border-color:var(--blue)}
+.input-area input::placeholder{color:var(--dim)}
+.send-btn{padding:11px 16px;background:var(--blue);border:none;border-radius:10px;color:#1A0066;font-size:16px;cursor:pointer;transition:background .15s}
+.send-btn:hover{background:var(--blue2)}
+.footer{margin-top:16px;font-size:11px;color:#2a2a3e;letter-spacing:.06em;text-transform:uppercase;text-align:center}
+@media(max-width:560px){.card{height:100vh;border-radius:0}body{padding:0;justify-content:flex-start}.footer{display:none}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="htitle">I'm Scout</div>
+    <div class="hsub">Your Hiring Assistant</div>
+    <div class="sdot"><div class="dgreen"></div><span class="slabel">Online</span></div>
+  </div>
+  <div class="messages" id="messages"></div>
+  <div class="input-area">
+    <input type="text" id="userInput" placeholder="Ask a question..." autocomplete="off"/>
+    <button class="send-btn" id="sendBtn">&#8593;</button>
+  </div>
+</div>
+
+<script>
+var OFFICES = {
+  hq:        {address:"Your HQ Address",        query:"New+York+NY"},
+  west:      {address:"Your West Coast Office",  query:"Los+Angeles+CA"},
+  south:     {address:"Your Southern Office",    query:"Nashville+TN"}
+};
+
+var SUGGESTED = [
+  "What's the interview process?",
+  "What are the benefits?",
+  "What's the in-office policy?",
+  "Do you use AI in interviews?",
+  "Where are your offices?"
+];
+
+var STOP = ["the","and","for","are","but","not","you","all","can","was","one","our","out","get","has","how","its","who","did","let","say","she","too","use","way","will","with","this","that","have","from","they","been","more","also","into","your","what","when","which","some","would","there","their","about","than","then","these","those","come","could","does","each","just","like","make","many","most","much","only","over","such","take","well","were"];
+
+var faqs = [
+  {q:"interview process hiring steps rounds stages overview",a:"The interview process varies by role, but typically includes a call with a recruiter, a hiring manager, and members of the team. In some instances, you may also be asked to complete a presentation or task. Your recruiter will keep you informed every step of the way regarding next steps or an offer!"},
+  {q:"PTO vacation days off time unlimited policy",a:"Our PTO policy varies by employee type. For salaried employees, we offer flexible PTO with no cap on the number of days - what some companies call unlimited! For hourly employees, PTO details will be shared by your recruiter."},
+  {q:"AI artificial intelligence interview process use",a:"We are not currently using AI for the interview process. We like to get to know our candidates in the most human way possible. We also ask that you don't use AI either as we want to get to know the real you."},
+  {q:"office policy hybrid in person days week work from home WFH onsite",a:"Our in-office policy varies by location and team. We recommend discussing the specifics with your recruiter."},
+  {q:"benefits dental vision 401k perks compensation package insurance coverage",a:"We offer a comprehensive benefits package including flexible PTO, Health, Dental, Vision, and 401k matching, among other supplemental benefits. Benefits may vary by employee type, so we recommend discussing the details with your recruiter.",link:"https://yourcompany.com/benefits",label:"View Benefits Guide"},
+  {q:"teams hiring jobs openings roles positions available opportunities open",a:"Check out our careers page for the most up-to-date job postings!",link:"https://careers.yourcompany.com",label:"View Careers Page"},
+  {q:"how long hiring process take timeline duration weeks months turnaround response time",a:"Timelines can vary based on a number of factors including the role and team, but your recruiter will keep you informed every step of the way!"},
+  {q:"interview remote virtual zoom phone video call in person visit office",a:"Our interview process is a mix of in-person and virtual interviews. In many cases, we love having candidates visit one of our offices to meet the team before a final decision is made - however this can vary by circumstance. Your recruiter will walk you through what to expect!"},
+  {q:"company about who you are products services overview",a:"We're a growing company with a mission to build great products and teams. Check out our website to learn more about what we do!",link:"https://yourcompany.com",label:"Learn More"},
+  {q:"internship intern program student early career entry level emerging talent",a:"Yes! We have a robust internship and emerging talent program offering opportunities across various teams and divisions. Check out the link below to learn more and apply!",link:"https://careers.yourcompany.com/internships",label:"View Internship Program"},
+  {q:"how do I apply application submit job process start steps where begin",a:"It's easy! Head to our careers page, find a role that excites you, and submit your application directly. A recruiter will be in touch if there's a fit!",link:"https://careers.yourcompany.com",label:"View Careers Page"},
+  {q:"recruiter contact reach talk speak ahold get touch",a:"The best way to connect with our team is by applying to one of our open roles on our careers page. If there's a great fit, a recruiter will be in touch!",link:"https://careers.yourcompany.com",label:"View Careers Page"},
+  {q:"apply multiple roles positions jobs same time more than one several",a:"Absolutely! We encourage you to apply to any roles that align with your experience and interests. Just keep in mind that each application is reviewed individually, so make sure each one is tailored to the specific role."},
+  {q:"application confidential private secure personal information data kept",a:"Yes, your application and personal information are kept strictly confidential. Only the relevant hiring team members involved in the process will have access to your information."},
+  {q:"visa sponsorship work authorization H1B work permit immigration sponsor",a:"Our visa sponsorship eligibility varies by role and location. We recommend applying to roles that interest you, and your recruiter will be able to discuss sponsorship options during the process."},
+  {q:"headquarters main office primary location HQ address",a:"Our main office location details will be shared by your recruiter once you're in the process!",map:"hq"},
+  {q:"southern regional office location south address",a:"Our regional office details will be shared by your recruiter once you're in the process!",map:"south"},
+  {q:"west coast office california location address",a:"Our west coast office details will be shared by your recruiter once you're in the process!",map:"west"}
+];
+
+// Load from sheet (TSV to avoid comma issues)
+var TSV_URL = ""; // Connect your own Google Sheet here
+var PERMANENT = faqs.slice(10); // keep office + practical FAQs always
+
+if(TSV_URL) fetch(TSV_URL).then(function(r){return r.text();}).then(function(text){
+  var lines = text.trim().split("\n").slice(1);
+  var parsed = lines.map(function(line){
+    var cols = line.split("\t");
+    var q = (cols[0]||"").trim();
+    var a = (cols[1]||"").trim();
+    var c3 = (cols[2]||"").trim();
+    var c4 = (cols[3]||"").trim();
+    var map = ["nyc","la","nashville"].indexOf(c3.toLowerCase()) > -1 ? c3.toLowerCase() : null;
+    var link = c3.indexOf("http") === 0 ? c3 : null;
+    var label = c4 || "View Document";
+    return (q && a) ? {q:q,a:a,map:map,link:link,label:label} : null;
+  }).filter(Boolean);
+  if(parsed.length >= 3){ faqs = parsed.concat(PERMANENT); }
+}).catch(function(){}); // end TSV fetch
+
+function tokenize(str){
+  return str.toLowerCase().replace(/[^a-z0-9\s]/g," ").split(/\s+/).filter(function(w){
+    return w.length > 1 && STOP.indexOf(w) === -1;
+  });
+}
+
+function findBestMatch(query){
+  var ut = tokenize(query);
+  if(!ut.length) return null;
+  var best = null, top = 0;
+  for(var i=0;i<faqs.length;i++){
+    var ft = tokenize(faqs[i].q);
+    var s = 0;
+    for(var j=0;j<ut.length;j++){
+      if(ft.indexOf(ut[j]) > -1) s += 3;
+      else { for(var k=0;k<ft.length;k++){ if(ft[k].indexOf(ut[j])>-1||ut[j].indexOf(ft[k])>-1){s+=1;break;} } }
+    }
+    if(s > top){ top = s; best = faqs[i]; }
+  }
+  var min = ut.length >= 3 ? 3 : 2;
+  return top >= min ? best : null;
+}
+
+var msgEl = document.getElementById("messages");
+var inputEl = document.getElementById("userInput");
+var sendBtn = document.getElementById("sendBtn");
+
+function scroll(){ msgEl.scrollTop = msgEl.scrollHeight; }
+
+function addMsg(role, text){
+  var row = document.createElement("div");
+  row.className = "msg-row " + role;
+  if(role === "bot"){
+    var av = document.createElement("div");
+    av.className = "avatar"; av.textContent = "S";
+    row.appendChild(av);
+  }
+  var b = document.createElement("div");
+  b.className = "bubble " + role;
+  b.textContent = text;
+  row.appendChild(b);
+  msgEl.appendChild(row); scroll();
+}
+
+function addLink(url, label){
+  var row = document.createElement("div");
+  row.className = "msg-row bot";
+  var av = document.createElement("div");
+  av.className = "avatar"; av.textContent = "S";
+  row.appendChild(av);
+  var a = document.createElement("a");
+  a.href = url; a.target = "_blank";
+  a.style.cssText = "display:inline-block;padding:9px 16px;background:var(--blue);color:#fff;border-radius:8px;font-size:13px;font-family:'Inter',sans-serif;font-weight:600;text-decoration:none;";
+  a.textContent = (label||"View Document") + " →";
+  row.appendChild(a);
+  msgEl.appendChild(row); scroll();
+}
+
+function addMap(key){
+  var o = OFFICES[key]; if(!o) return;
+  var row = document.createElement("div");
+  row.className = "msg-row bot";
+  var av = document.createElement("div");
+  av.className = "avatar"; av.textContent = "S";
+  row.appendChild(av);
+  var wrap = document.createElement("div");
+  wrap.className = "map-wrap";
+  var iframe = document.createElement("iframe");
+  iframe.loading = "lazy";
+  iframe.src = "https://maps.google.com/maps?q=" + o.query + "&output=embed&z=15";
+  var addr = document.createElement("div");
+  addr.className = "map-addr"; addr.textContent = o.address;
+  wrap.appendChild(iframe); wrap.appendChild(addr);
+  row.appendChild(wrap); msgEl.appendChild(row); scroll();
+}
+
+function showTyping(){
+  var row = document.createElement("div");
+  row.className = "msg-row bot"; row.id = "typing";
+  var av = document.createElement("div");
+  av.className = "avatar"; av.textContent = "S";
+  var t = document.createElement("div");
+  t.className = "typing";
+  t.innerHTML = "<span></span><span></span><span></span>";
+  row.appendChild(av); row.appendChild(t);
+  msgEl.appendChild(row); scroll();
+}
+function hideTyping(){ var e=document.getElementById("typing"); if(e) e.remove(); }
+
+function showChips(){
+  var wrap = document.createElement("div");
+  wrap.className = "suggested"; wrap.id = "chips";
+  var lbl = document.createElement("div");
+  lbl.className = "slbl"; lbl.textContent = "Suggested questions";
+  wrap.appendChild(lbl);
+  var chips = document.createElement("div"); chips.className = "chips";
+  for(var i=0;i<SUGGESTED.length;i++){
+    (function(s){
+      var c = document.createElement("button");
+      c.className = "chip"; c.textContent = s;
+      c.onclick = function(){ send(s); };
+      chips.appendChild(c);
+    })(SUGGESTED[i]);
+  }
+  wrap.appendChild(chips); msgEl.appendChild(wrap); scroll();
+}
+function hideChips(){ var e=document.getElementById("chips"); if(e) e.remove(); }
+
+function send(text){
+  text = text.trim(); if(!text) return;
+  hideChips();
+  addMsg("user", text);
+  inputEl.value = ""; inputEl.disabled = true; sendBtn.disabled = true;
+  showTyping();
+  setTimeout(function(){
+    hideTyping();
+    var match = findBestMatch(text);
+    if(match){
+      addMsg("bot", match.a);
+      if(match.map) addMap(match.map);
+      if(match.link) addLink(match.link, match.label);
+    } else {
+      var q = text.toLowerCase();
+      var isOffice = ["office","location","address","where","hq","headquarter"].some(function(k){ return q.indexOf(k) > -1; });
+      if(isOffice){
+        addMsg("bot","We have offices in NYC, LA, and Nashville. Here's where to find us:");
+        addMap("nyc"); addMap("la"); addMap("nashville");
+      } else {
+        addMsg("bot","Great question! If you haven't applied yet, check out our careers page to explore open roles. If you're already in the process, we recommend reaching out to your recruiter directly for the most up-to-date information.");
+        addLink("https://careers.yourcompany.com","View Careers Page");
+      }
+    }
+    inputEl.disabled = false; sendBtn.disabled = false; inputEl.focus();
+  }, 700);
+}
+
+addMsg("bot","Hi! I'm Scout 👋 Ask me anything about the interview process, benefits, or what it's like to work here. This assistant is customizable for any company.");
+showChips();
+sendBtn.addEventListener("click", function(){ send(inputEl.value); });
+inputEl.addEventListener("keydown", function(e){ if(e.key==="Enter") send(inputEl.value); });
+</script>
+</body>
+</html>
