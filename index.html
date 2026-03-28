@@ -157,7 +157,7 @@ function addMsg(role, text){
   row.className = "msg-row " + role;
   if(role === "bot"){
     var av = document.createElement("div");
-    av.className = "avatar"; av.textContent = "S";
+    av.className = "avatar"; av.innerHTML = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#4ECDC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     row.appendChild(av);
   }
   var b = document.createElement("div");
@@ -171,7 +171,7 @@ function addLink(url, label){
   var row = document.createElement("div");
   row.className = "msg-row bot";
   var av = document.createElement("div");
-  av.className = "avatar"; av.textContent = "S";
+  av.className = "avatar"; av.innerHTML = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#4ECDC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   row.appendChild(av);
   var a = document.createElement("a");
   a.href = url; a.target = "_blank";
@@ -186,7 +186,7 @@ function addMap(key){
   var row = document.createElement("div");
   row.className = "msg-row bot";
   var av = document.createElement("div");
-  av.className = "avatar"; av.textContent = "S";
+  av.className = "avatar"; av.innerHTML = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#4ECDC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   row.appendChild(av);
   var wrap = document.createElement("div");
   wrap.className = "map-wrap";
@@ -203,7 +203,7 @@ function showTyping(){
   var row = document.createElement("div");
   row.className = "msg-row bot"; row.id = "typing";
   var av = document.createElement("div");
-  av.className = "avatar"; av.textContent = "S";
+  av.className = "avatar"; av.innerHTML = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#4ECDC4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var t = document.createElement("div");
   t.className = "typing";
   t.innerHTML = "<span></span><span></span><span></span>";
