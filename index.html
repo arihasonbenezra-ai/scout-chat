@@ -121,7 +121,7 @@ var PROXY_URL = 'https://scout-chat.vercel.app/api/chat';
 var MODE = null;
 var ROLE = null;
 var TRAINER_MODE = null;
-var history = [];
+var convoHistory = [];
 var msgEl = document.getElementById('messages');
 var inputEl = document.getElementById('user-input');
 var sendBtn = document.getElementById('send-btn');
@@ -221,7 +221,7 @@ function pickMode(modeId,modeTitle){
   showTyping();
   callClaude(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
     hideTyping();
-    history.push({role:'assistant',content:reply});
+    convoHistory.push({role:'assistant',content:reply});
     addMsg('bot',reply);
   });
 }
@@ -261,29 +261,29 @@ function handleSendText(text){
         showTyping();
         callClaude(FAQ_SYSTEM,[{role:'user',content:text}],function(reply){
           hideTyping();
-          history.push({role:'assistant',content:reply});
+          convoHistory.push({role:'assistant',content:reply});
           addMsg('bot',reply);
         });
       }
     });
   } else if(MODE==='faq'){
     addMsg('user',text);
-    history.push({role:'user',content:text});
+    convoHistory.push({role:'user',content:text});
     sendBtn.disabled=true;
     showTyping();
-    callClaude(FAQ_SYSTEM,history,function(reply){
+    callClaude(FAQ_SYSTEM,convoHistory,function(reply){
       hideTyping();sendBtn.disabled=false;
-      history.push({role:'assistant',content:reply});
+      convoHistory.push({role:'assistant',content:reply});
       addMsg('bot',reply);
     });
   } else if(MODE==='trainer'){
     addMsg('user',text);
-    history.push({role:'user',content:text});
+    convoHistory.push({role:'user',content:text});
     sendBtn.disabled=true;
     showTyping();
-    callClaude(getSystemPrompt(),history,function(reply){
+    callClaude(getSystemPrompt(),convoHistory,function(reply){
       hideTyping();sendBtn.disabled=false;
-      history.push({role:'assistant',content:reply});
+      convoHistory.push({role:'assistant',content:reply});
       addMsg('bot',reply);
     });
   }
