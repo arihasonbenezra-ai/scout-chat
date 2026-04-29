@@ -354,11 +354,72 @@ async function callClaude(system,messages,cb){
     var res=await fetch(PROXY_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:system,messages:messages})
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:system,messages:messages})
     });
     var data=await res.json();
     var text=(data.content&&data.content[0]&&data.content[0].text)||'Sorry, something went wrong.';
     cb(text);
+  }catch(e){
+    hideTyping();
+    addMsg('bot','Something went wrong. Please try again.');
+    sendBtn.disabled=false;
+  }
+}
+
+function streamBotReply(system,messages,afterDone){
+  var bubbleEl=null;
+  var rowEl=null;
+  callClaudeStream(system,messages,function(deltaText,fullText){
+    if(!bubbleEl){
+      hideTyping();
+      rowEl=document.createElement('div');rowEl.className='msg-row bot';
+      var av=document.createElement('div');av.className='avatar';
+      av.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>';
+      bubbleEl=document.createElement('div');bubbleEl.className='bubble bot';
+      rowEl.appendChild(av);rowEl.appendChild(bubbleEl);
+      messagesEl.appendChild(rowEl);
+    }
+    bubbleEl.textContent=fullText;
+    messagesEl.scrollTop=messagesEl.scrollHeight;
+  },function(fullText){
+    if(afterDone)afterDone(fullText);
+    sendBtn.disabled=false;
+  });
+}
+
+async function callClaudeStream(system,messages,onChunk,onDone){
+  try{
+    var res=await fetch(PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,stream:true,system:system,messages:messages})
+    });
+    if(!res.ok||!res.body){throw new Error('Stream failed: '+res.status);}
+    var reader=res.body.getReader();
+    var decoder=new TextDecoder();
+    var buffer='';
+    var fullText='';
+    while(true){
+      var chunk=await reader.read();
+      if(chunk.done)break;
+      buffer+=decoder.decode(chunk.value,{stream:true});
+      var lines=buffer.split('\n');
+      buffer=lines.pop();
+      for(var i=0;i<lines.length;i++){
+        var line=lines[i].trim();
+        if(!line||!line.startsWith('data:'))continue;
+        var payload=line.slice(5).trim();
+        if(!payload)continue;
+        try{
+          var evt=JSON.parse(payload);
+          if(evt.type==='content_block_delta'&&evt.delta&&evt.delta.type==='text_delta'){
+            fullText+=evt.delta.text;
+            onChunk(evt.delta.text,fullText);
+          }
+        }catch(e){}
+      }
+    }
+    if(onDone)onDone(fullText);
   }catch(e){
     hideTyping();
     addMsg('bot','Something went wrong. Please try again.');
