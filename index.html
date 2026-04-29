@@ -144,7 +144,7 @@ body{
   <div class="header">
     <div class="header-brand">
       <svg width="22" height="22" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#7EB3F5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div><div class="htitle">Scout.</div><div class="hsub">Your Hiring Assistant</div></div>
+      <div><div class="htitle">Scout.</div><div class="hsub">Your AI Interview Coach</div></div>
     </div>
     <div class="header-right">
       <div class="mode-pill" id="mode-pill"></div>
@@ -338,10 +338,8 @@ function handleSendText(text){
     convoHistory.push({role:'user',content:text});
     sendBtn.disabled=true;
     showTyping();
-    callClaude(getSystemPrompt(),convoHistory,function(reply){
-      hideTyping();sendBtn.disabled=false;
+    streamBotReply(getSystemPrompt(),convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
-      addMsg('bot',reply);
     });
   }
 }
