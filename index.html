@@ -370,14 +370,13 @@ function streamBotReply(system,messages,afterDone){
     if(!bubbleEl){
       hideTyping();
       rowEl=document.createElement('div');rowEl.className='msg-row bot';
-      var av=document.createElement('div');av.className='avatar';
-      av.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>';
+      rowEl.appendChild(avatarEl());
       bubbleEl=document.createElement('div');bubbleEl.className='bubble bot';
-      rowEl.appendChild(av);rowEl.appendChild(bubbleEl);
-      messagesEl.appendChild(rowEl);
+      rowEl.appendChild(bubbleEl);
+      msgEl.appendChild(rowEl);
     }
-    bubbleEl.textContent=fullText;
-    messagesEl.scrollTop=messagesEl.scrollHeight;
+    setBubbleText(bubbleEl,fullText);
+    scroll();
   },function(fullText){
     if(afterDone)afterDone(fullText);
     sendBtn.disabled=false;
