@@ -208,7 +208,7 @@ function showTyping(){
 function hideTyping(){var e=document.getElementById('typing');if(e)e.remove();}
 
 function setModePill(mode){
-  var labels={faq:'💬 Company FAQ',practice:'🎯 Practice Q&A',star:'⭐ STAR Coaching',mock:'🎬 Mock Interview'};
+  var labels={practice:'🎯 Practice Q&A',star:'⭐ STAR Coaching',mock:'🎬 Mock Interview'};
   modePill.textContent=labels[mode]||'';
   modePill.style.display='flex';
   modePill.className='mode-pill '+(mode==='faq'?'faq':'trainer');
@@ -423,8 +423,9 @@ async function callClaudeStream(system,messages,onChunk,onDone){
   }
 }
 
-addMsg('bot','Hi! I\'m Scout 👋 What can I help you with today?');
-showQuickReplies(['I have questions about the company','I want to prep for an interview']);
+addMsg('bot','Hi! I\'m Scout 👋 Your AI interview coach. What role are you preparing for?');
+MODE='routing-trainer';
+showRolePicker();
 </script>
 </body>
 </html>
