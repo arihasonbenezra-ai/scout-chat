@@ -279,10 +279,8 @@ function pickMode(modeId,modeTitle){
   setModePill(modeId);
   history=[];
   showTyping();
-  callClaude(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
-    hideTyping();
+  streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
-    addMsg('bot',reply);
   });
 }
 
@@ -319,10 +317,9 @@ function handleSendText(text){
         setModePill('faq');
         history=[];
         showTyping();
-        callClaude(FAQ_SYSTEM,[{role:'user',content:text}],function(reply){
-          hideTyping();
+        convoHistory.push({role:'user',content:text});
+        streamBotReply(FAQ_SYSTEM,convoHistory.slice(),function(reply){
           convoHistory.push({role:'assistant',content:reply});
-          addMsg('bot',reply);
         });
       }
     });
