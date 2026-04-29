@@ -1,4 +1,4 @@
-export const maxDuration = 30;
+export const runtime = 'edge';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
