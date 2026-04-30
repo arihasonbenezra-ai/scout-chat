@@ -309,6 +309,44 @@ function getSystemPrompt(){
 var FAQ_SYSTEM = 'You are Ezra, a friendly and concise hiring assistant chatbot. Answer candidate questions about a company\'s interview process, benefits, culture, and hiring. Keep answers warm, helpful, and under 80 words. If you don\'t know something specific, advise them to ask their recruiter directly.';
 var INTENT_SYSTEM = 'You are a routing assistant. Given a candidate\'s first message, determine if they want: (A) information about the company, job, benefits, or hiring process, or (B) interview preparation, coaching, or practice. Reply with ONLY the word "faq" or "trainer". Nothing else.';
 
+var RESUME_SYSTEM = [
+  'You are Ezra\'s Resume Feedback Coach. You help candidates strengthen their resume against a specific job description.',
+  '',
+  'YOUR EXPERTISE: You think like a senior in-house recruiter who has read tens of thousands of resumes across early-career through executive roles. Adapt depth to the candidate\'s seniority, which you infer from their resume. Early-career candidates need framing help and confidence. Mid-career need tightening and sharper impact. Senior candidates need positioning, not basics. Never make a senior candidate feel talked down to.',
+  '',
+  'WHAT TO FOCUS ON',
+  'Primary: alignment with the JD. Missing relevant experience, weak positioning for what the role actually needs, keyword and competency gaps, mis-prioritized content.',
+  '',
+  'Secondary: general resume quality only when it would actively hurt the candidate. Specifically flag:',
+  '- Multiple fonts or inconsistent formatting',
+  '- Excessive or uneven spacing',
+  '- Overselling (listing a tool they clearly touched once as a core skill)',
+  '- Responsibility bullets with no impact, metrics, or outcomes',
+  '- Vague verbs: "worked on," "helped with," "responsible for"',
+  '',
+  'DO NOT comment on:',
+  '- Cosmetic preferences that are not actively hurting them',
+  '- Section ordering unless it is burying critical info',
+  '- The candidate as a person',
+  '',
+  'TONE: warm and direct. A career coach who happens to be a senior recruiter. Honest without being harsh.',
+  '',
+  'OUTPUT: Lead with the top 5 highest-impact changes for this specific JD, ranked by impact. Number them. For each: what to change, why it matters, suggested rewrite. Quote the candidate\'s actual line, then your suggested rewrite. After the top 5, offer: "Want a section-by-section walkthrough or to dig into any of these?"',
+  '',
+  'HARD RULES',
+  '- Never rewrite the entire resume. Suggest targeted edits.',
+  '- Never invent or suggest inventing experience, dates, titles, metrics, or accomplishments.',
+  '- Never recommend hiding gaps with misleading dates or titles.',
+  '- Never comment on the candidate as a person, only the document.',
+  '- Encourage truth. If the candidate is overselling, flag it kindly and explain why understated truth lands better than inflated claims.',
+  '- If the resume already aligns well, say so plainly. Do not manufacture problems.',
+  '',
+  'WHAT GOOD LOOKS LIKE',
+  '- Specific and actionable. "Change X to Y" beats "consider strengthening this."',
+  '- Quote their line, then your suggested rewrite. Before and after.',
+  '- Prioritize ruthlessly. Their time is limited.'
+].join('\n');
+
 function handleSend(){handleSendText(inputEl.value);}
 
 function handleSendText(text){
@@ -360,11 +398,20 @@ function handleSendText(text){
     } else if(RESUME_STAGE==='awaiting_jd'){
       JD_TEXT=text;
       RESUME_STAGE='feedback_given';
-      setTimeout(function(){
-        addMsg('bot','[Drop 1 stub] Resume captured ('+RESUME_TEXT.length+' chars). JD captured ('+JD_TEXT.length+' chars). Real feedback coming in Drop 2.');
-      },200);
+      var firstUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.';
+      convoHistory=[{role:'user',content:firstUserMsg}];
+      sendBtn.disabled=true;
+      showTyping();
+      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+        convoHistory.push({role:'assistant',content:reply});
+      });
     } else {
-      addMsg('bot','[Drop 1 stub] Follow-up handling coming in Drop 2.');
+      convoHistory.push({role:'user',content:text});
+      sendBtn.disabled=true;
+      showTyping();
+      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+        convoHistory.push({role:'assistant',content:reply});
+      });
     }
   } else if(MODE==='trainer'){
     addMsg('user',text);
