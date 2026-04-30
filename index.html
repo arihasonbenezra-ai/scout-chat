@@ -174,6 +174,9 @@ var msgEl = document.getElementById('messages');
 var inputEl = document.getElementById('user-input');
 var sendBtn = document.getElementById('send-btn');
 var modePill = document.getElementById('mode-pill');
+var RESUME_STAGE=null;
+var RESUME_TEXT='';
+var JD_TEXT='';
 var AVATAR_SVG = '<svg width="14" height="14" viewBox="0 0 20 20" fill="none"><path d="M4 4h12a1 1 0 011 1v7a1 1 0 01-1 1H7l-4 3V5a1 1 0 011-1z" stroke="#7EB3F5" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 function scroll(){msgEl.scrollTop=msgEl.scrollHeight;}
@@ -208,7 +211,7 @@ function showTyping(){
 function hideTyping(){var e=document.getElementById('typing');if(e)e.remove();}
 
 function setModePill(mode){
-  var labels={practice:'🎯 Practice Q&A',star:'⭐ STAR Coaching',mock:'🎬 Mock Interview'};
+  var labels={practice:'🎯 Practice Q&A',star:'⭐ STAR Coaching',mock:'🎬 Mock Interview',resume:'📄 Resume Feedback'};
   modePill.textContent=labels[mode]||'';
   modePill.style.display='flex';
   modePill.className='mode-pill '+(mode==='faq'?'faq':'trainer');
@@ -262,7 +265,8 @@ function showModePicker(){
   var list=document.createElement('div');list.className='mode-list';
   [{id:'practice',title:'🎯 Practice Q&A',sub:'Answer questions and get AI feedback on each response'},
    {id:'star',title:'⭐ STAR Coaching',sub:'Structure answers using Situation, Task, Action, Result'},
-   {id:'mock',title:'🎬 Mock Interview',sub:'Full simulation with a debrief at the end'}
+   {id:'mock',title:'🎬 Mock Interview',sub:'Full simulation with a debrief at the end'},
+   {id:'resume',title:'📄 Resume Feedback',sub:'Get tailored feedback on your resume against a target job description'}
   ].forEach(function(m){
     var b=document.createElement('button');b.className='mode-btn';
     b.innerHTML='<div class="mode-btn-title">'+m.title+'</div><div class="mode-btn-sub">'+m.sub+'</div>';
@@ -274,10 +278,22 @@ function showModePicker(){
 function removeModePicker(){var e=document.getElementById('mode-picker');if(e)e.remove();}
 
 function pickMode(modeId,modeTitle){
-  TRAINER_MODE=modeId;MODE='trainer';
+  TRAINER_MODE=modeId;
   addMsg('user',modeTitle);
   setModePill(modeId);
   history=[];
+  convoHistory=[];
+  if(modeId==='resume'){
+    MODE='resume';
+    RESUME_STAGE='awaiting_resume';
+    RESUME_TEXT='';
+    JD_TEXT='';
+    setTimeout(function(){
+      addMsg('bot','Paste your resume below — plain text is fine, formatting will be ignored.');
+    },200);
+    return;
+  }
+  MODE='trainer';
   showTyping();
   streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
@@ -333,6 +349,23 @@ function handleSendText(text){
       convoHistory.push({role:'assistant',content:reply});
       addMsg('bot',reply);
     });
+  } else if(MODE==='resume'){
+    addMsg('user',text);
+    if(RESUME_STAGE==='awaiting_resume'){
+      RESUME_TEXT=text;
+      RESUME_STAGE='awaiting_jd';
+      setTimeout(function(){
+        addMsg('bot','Got it. Now paste the job description you\'re targeting.');
+      },200);
+    } else if(RESUME_STAGE==='awaiting_jd'){
+      JD_TEXT=text;
+      RESUME_STAGE='feedback_given';
+      setTimeout(function(){
+        addMsg('bot','[Drop 1 stub] Resume captured ('+RESUME_TEXT.length+' chars). JD captured ('+JD_TEXT.length+' chars). Real feedback coming in Drop 2.');
+      },200);
+    } else {
+      addMsg('bot','[Drop 1 stub] Follow-up handling coming in Drop 2.');
+    }
   } else if(MODE==='trainer'){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
