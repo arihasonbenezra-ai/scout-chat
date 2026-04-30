@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Ezra</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -97,6 +98,9 @@ body{
 .typing-dots span{width:6px;height:6px;background:var(--accent-soft);border-radius:50%;animation:tp 1.2s ease infinite}
 .typing-dots span:nth-child(2){animation-delay:.2s}
 .typing-dots span:nth-child(3){animation-delay:.4s}
+.download-btn{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:8px 14px;background:rgba(58,111,212,.08);border:1px solid rgba(58,111,212,.25);border-radius:8px;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
+.download-btn:hover{background:rgba(58,111,212,.15);border-color:var(--teal);transform:translateY(-1px)}
+.download-btn:active{transform:translateY(0)}
 @keyframes tp{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
 
 /* ── QUICK REPLIES ── */
@@ -404,6 +408,7 @@ function handleSendText(text){
       showTyping();
       streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
+        appendDownloadButton();
       });
     } else {
       convoHistory.push({role:'user',content:text});
@@ -411,6 +416,7 @@ function handleSendText(text){
       showTyping();
       streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
+        appendDownloadButton();
       });
     }
   } else if(MODE==='trainer'){
@@ -422,6 +428,130 @@ function handleSendText(text){
       convoHistory.push({role:'assistant',content:reply});
     });
   }
+}
+
+function downloadFeedbackPDF(){
+  if(typeof window.jspdf==='undefined'){alert('PDF library still loading. Try again in a moment.');return;}
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'pt',format:'letter'});
+  var date=new Date();
+  var dateStr=date.toISOString().split('T')[0];
+  var dateDisplay=date.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  var pageW=doc.internal.pageSize.getWidth();
+  var pageH=doc.internal.pageSize.getHeight();
+  var margin=54;
+  var contentW=pageW-(margin*2);
+  var y=margin;
+
+  // Branded header bar
+  doc.setFillColor(30,58,110);
+  doc.rect(0,0,pageW,80,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(22);
+  doc.text('Ezra.',margin,42);
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10);
+  doc.setTextColor(235,242,253);
+  doc.text('Your AI Interview Coach',margin,60);
+  doc.setFontSize(9);
+  doc.text('Resume Feedback  •  '+dateDisplay,pageW-margin,60,{align:'right'});
+
+  y=110;
+  doc.setTextColor(26,34,51);
+
+  function ensureSpace(needed){
+    if(y+needed>pageH-margin){
+      doc.addPage();
+      y=margin;
+    }
+  }
+
+  function writeSectionTitle(title){
+    ensureSpace(40);
+    doc.setFont('helvetica','bold');
+    doc.setFontSize(13);
+    doc.setTextColor(30,58,110);
+    doc.text(title,margin,y);
+    y+=8;
+    doc.setDrawColor(208,216,232);
+    doc.setLineWidth(0.5);
+    doc.line(margin,y,pageW-margin,y);
+    y+=18;
+    doc.setTextColor(26,34,51);
+  }
+
+  function writeBody(text){
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10.5);
+    var paras=text.split(/\n\n+/);
+    for(var p=0;p<paras.length;p++){
+      var para=paras[p].trim();
+      if(!para)continue;
+      // Strip markdown bold for PDF readability
+      var clean=para.replace(/\*\*(.+?)\*\*/g,'$1');
+      var lines=doc.splitTextToSize(clean,contentW);
+      for(var i=0;i<lines.length;i++){
+        ensureSpace(16);
+        doc.text(lines[i],margin,y);
+        y+=14;
+      }
+      y+=8;
+    }
+    y+=6;
+  }
+
+  // Submitted intro
+  writeSectionTitle('Submitted');
+  doc.setFont('helvetica','italic');
+  doc.setFontSize(10);
+  doc.setTextColor(107,122,153);
+  ensureSpace(16);
+  doc.text('Resume and target job description submitted to Ezra.',margin,y);
+  y+=22;
+  doc.setTextColor(26,34,51);
+
+  // Walk conversation history
+  for(var i=0;i<convoHistory.length;i++){
+    var m=convoHistory[i];
+    if(m.role==='user'&&i===0)continue; // skip the resume+JD dump
+    if(m.role==='user'){
+      writeSectionTitle('Your follow-up');
+      writeBody(m.content);
+    }else if(m.role==='assistant'){
+      writeSectionTitle(i===1?'Ezra\'s feedback':'Ezra\'s response');
+      writeBody(m.content);
+    }
+  }
+
+  // Footer on every page
+  var pageCount=doc.internal.getNumberOfPages();
+  for(var pn=1;pn<=pageCount;pn++){
+    doc.setPage(pn);
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(8);
+    doc.setTextColor(107,122,153);
+    doc.text('Generated by Ezra  •  Page '+pn+' of '+pageCount,pageW/2,pageH-24,{align:'center'});
+  }
+
+  doc.save('ezra-resume-feedback-'+dateStr+'.pdf');
+}
+
+function appendDownloadButton(){
+  var existing=document.getElementById('download-btn');
+  if(existing)existing.remove();
+  var rows=msgEl.querySelectorAll('.msg-row.bot');
+  if(rows.length===0)return;
+  var lastBubble=rows[rows.length-1].querySelector('.bubble');
+  if(!lastBubble)return;
+  var btn=document.createElement('button');
+  btn.id='download-btn';
+  btn.className='download-btn';
+  btn.innerHTML='⬇ Download as PDF';
+  btn.onclick=downloadFeedbackPDF;
+  lastBubble.appendChild(document.createElement('br'));
+  lastBubble.appendChild(btn);
+  scroll();
 }
 
 async function callClaude(system,messages,cb){
