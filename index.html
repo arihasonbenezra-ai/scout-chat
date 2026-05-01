@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js"></script>
 <style>
 :root{
   --font-sans:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -120,6 +121,15 @@ button,input,textarea{font-family:inherit}
 /* Resume PDF download button */
 .download-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 32px}
 .download-btn:hover{background:#222}
+    .msg-bot p{margin:0 0 10px}
+    .msg-bot p:last-child{margin-bottom:0}
+    .msg-bot strong{font-weight:600;color:var(--black)}
+    .msg-bot ul,.msg-bot ol{margin:8px 0 10px;padding-left:22px}
+    .msg-bot li{margin-bottom:4px}
+    .msg-bot h1,.msg-bot h2,.msg-bot h3,.msg-bot h4{font-size:15px;font-weight:600;margin:12px 0 8px;line-height:1.3}
+    .msg-bot h1:first-child,.msg-bot h2:first-child,.msg-bot h3:first-child,.msg-bot h4:first-child{margin-top:0}
+    .msg-bot code{background:rgba(0,0,0,.08);padding:1px 5px;border-radius:4px;font-size:13px;font-family:ui-monospace,monospace}
+    .msg-bot hr{border:none;border-top:0.5px solid rgba(0,0,0,.15);margin:12px 0}
 </style>
 </head>
 <body>
@@ -356,7 +366,7 @@ function addMsg(role,text){
     av.textContent='E';
     var bub=document.createElement('div');
     bub.className='msg-bot';
-    bub.textContent=text;
+    if(text){try{bub.innerHTML=marked.parse(text);}catch(e){bub.textContent=text;}}
     node.appendChild(av);
     node.appendChild(bub);
   }
@@ -367,8 +377,11 @@ function addMsg(role,text){
 
 function setBubbleText(node,text){
   var bub=node.querySelector('.msg-bot');
-  if(bub)bub.textContent=text;
-  else node.textContent=text;
+  if(bub){
+    try{bub.innerHTML=marked.parse(text);}catch(e){bub.textContent=text;}
+  } else {
+    node.textContent=text;
+  }
   scrollMain();
 }
 
@@ -382,8 +395,8 @@ function showTyping(){
 function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();}
 
 function getSystemPrompt(){
-  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Write naturally as a coach speaking to a candidate. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
-  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Write naturally as a coach speaking to a candidate. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
+  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
+  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
   if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
   return '';
 }
