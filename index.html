@@ -1,297 +1,293 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Ezzy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
 :root{
   --font-sans:'Inter',system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-  --navy:#000000;--navy2:#000000;--navy-deep:#000000;
-  --teal:#F26B5E;--teal2:#F26B5E;--teal-light:#FCEAE6;--teal-mid:#F5C4B3;
-  --accent-soft:#F5C4B3;
-  --bg:#FFFFFF;--card:#FFFFFF;--border:#E5E5E5;--border2:#D0D0D0;
-  --text:#000000;--muted:#666666;--dim:#999999;
-  --green:#4ade80;
+  --coral:#F26B5E;
+  --coral-pale:#FCEAE6;
+  --coral-mid:#F5C4B3;
+  --coral-dark:#D9554A;
+  --black:#000000;
+  --white:#FFFFFF;
+  --text:#000000;
+  --muted:#666666;
+  --dim:#999999;
+  --border:#E5E5E5;
+  --border-strong:#D0D0D0;
 }
-html{font-family:var(--font-sans)}
-button,input,textarea,select{font-family:inherit}
-body{
-  min-height:100vh;
-  background:
-    linear-gradient(175deg, #FFFFFF 0%, #FAFAFA 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  font-family:var(--font-sans);padding:24px 20px;
-}
-.card{
-  font-family:var(--font-sans);
-  width:100%;max-width:540px;height:680px;
-  background:var(--card);
-  border-radius:26px;overflow:hidden;
-  border:1px solid rgba(255,255,255,.85);
-  box-shadow:
-    0 1px 1px rgba(30,58,110,.04),
-    0 8px 28px rgba(30,58,110,.09),
-    0 28px 56px rgba(0,0,0,.12),
-    0 64px 100px rgba(30,58,110,.06),
-    inset 0 1px 0 rgba(255,255,255,.95);
-  display:flex;flex-direction:column;
-}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%;font-family:var(--font-sans);background:var(--white);color:var(--text)}
+button,input,textarea{font-family:inherit}
 
-/* ── HEADER ── */
-.header{
-  background:#000000;
-  padding:18px 20px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
-  box-shadow:0 4px 20px rgba(30,58,110,.35),inset 0 1px 0 rgba(255,255,255,.08);
-}
-.header-brand{display:flex;align-items:center;gap:10px}
-.htitle{font-size:19px;font-weight:700;color:#fff;letter-spacing:-.02em}
-.hsub{font-size:11px;color:#F5C4B3;margin-top:2px;opacity:.95;font-weight:500;letter-spacing:.01em}
-.header-right{display:flex;align-items:center;gap:8px}
-.online-pill{display:flex;align-items:center;gap:5px;background:rgba(255,255,255,.12);padding:4px 10px;border-radius:20px}
-.dgreen{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse2 2s infinite}
-@keyframes pulse2{0%,100%{opacity:1}50%{opacity:.5}}
-.online-label{font-size:11px;font-weight:600;color:#fff}
-.mode-pill{display:none;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;animation:fadeIn .3s ease}
-.mode-pill.faq{background:rgba(58,111,212,.22);color:var(--teal)}
-.mode-pill.trainer{background:rgba(255,255,255,.15);color:#fff}
-@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+/* App shell */
+.app{display:flex;flex-direction:column;height:100vh;background:var(--white)}
 
-/* ── MESSAGES ── */
-.messages{
-  flex:1;overflow-y:auto;padding:22px 20px 16px;display:flex;flex-direction:column;gap:18px;scroll-behavior:smooth;
-  background:linear-gradient(180deg,rgba(255,252,250,.95) 0%,rgba(245,248,246,.65) 100%);
-}
-.messages::-webkit-scrollbar{width:4px}
-.messages::-webkit-scrollbar-thumb{background:rgba(30,58,110,.15);border-radius:2px}
-.msg-row{display:flex;animation:fadeUp .25s ease forwards}
-.msg-row.user{justify-content:flex-end}
-.msg-row.bot{justify-content:flex-start;align-items:flex-start;gap:12px}
-@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
-.avatar{width:28px;height:28px;border-radius:50%;background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(30,58,110,.25);border:1px solid rgba(255,255,255,.12);margin-top:14px}
-.bubble{
-  max-width:min(88%,28rem);padding:17px 22px;font-size:14px;line-height:1.68;letter-spacing:.01em;
-  white-space:pre-wrap;overflow-wrap:break-word;word-wrap:break-word;
-}
-.bubble.bot{
-  background:#FCEAE6;color:var(--text);
-  border-radius:22px 22px 22px 8px;
-  border:1px solid rgba(126,179,245,.38);
-  box-shadow:0 3px 12px rgba(58,111,212,.12),0 12px 28px rgba(30,58,110,.05);
-}
-.bubble.bot strong{font-weight:600;color:#000000}
-.bubble.user strong{font-weight:600}
-.bubble.user{
-  background:#000000;
-  color:#fff;border-radius:22px 22px 8px 22px;
-  box-shadow:0 2px 10px rgba(30,58,110,.2),0 10px 28px rgba(30,58,110,.18);
-}
-.typing-row{display:flex;align-items:center;gap:12px;animation:fadeUp .25s ease forwards}
-.typing-row .avatar{margin-top:0}
-.typing-dots{display:flex;align-items:center;gap:4px;padding:15px 20px;background:#FCEAE6;border:1px solid rgba(242,107,94,.2);border-radius:22px 22px 22px 8px;box-shadow:0 3px 12px rg(242,107,94,.1)}
-.typing-dots span{width:6px;height:6px;background:var(--accent-soft);border-radius:50%;animation:tp 1.2s ease infinite}
-.typing-dots span:nth-child(2){animation-delay:.2s}
-.typing-dots span:nth-child(3){animation-delay:.4s}
-.download-btn{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:8px 14px;background:rgba(58,111,212,.08);border:1px solid rgba(58,111,212,.25);border-radius:8px;color:var(--navy);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
-.download-btn:hover{background:rgba(58,111,212,.15);border-color:var(--teal);transform:translateY(-1px)}
-.download-btn:active{transform:translateY(0)}
-@keyframes tp{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:0.5px solid var(--border);background:var(--white);flex-shrink:0}
+.header-left{display:flex;align-items:center;gap:8px;position:relative}
+.brand{display:flex;align-items:center;gap:8px}
+.brand-name{font-weight:500;font-size:15px;color:var(--black)}
+.dot-sep{font-size:13px;color:var(--muted);margin:0 2px}
+.mode-pill{display:none;align-items:center;gap:6px;padding:5px 10px;border:0.5px solid var(--border-strong);border-radius:999px;font-size:12px;color:var(--black);background:var(--white);cursor:pointer;transition:border-color .15s,background .15s}
+.mode-pill:hover{border-color:var(--black)}
+.mode-pill.open{border-color:var(--black)}
+.mode-pill svg{width:10px;height:10px;flex-shrink:0}
+.role-label{display:none;font-size:12px;color:var(--dim)}
 
-/* ── QUICK REPLIES ── */
-.quick-wrap{padding:4px 18px 10px;display:flex;flex-wrap:wrap;gap:8px}
-.qr{padding:7px 14px;background:rgba(255,255,255,.7);border:1px solid rgba(30,58,110,.14);border-radius:999px;color:var(--muted);font-size:12px;cursor:pointer;transition:background .15s,border-color .15s,box-shadow .15s,transform .15s;box-shadow:0 1px 3px rgba(30,58,110,.06)}
-.qr:hover{background:var(--teal);color:#fff;border-color:var(--teal2);box-shadow:0 4px 14px rgba(58,111,212,.3);transform:translateY(-1px)}
+/* Mode popover */
+.mode-popover{display:none;position:absolute;top:42px;left:80px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;padding:6px;min-width:240px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.08)}
+.mode-popover.show{display:block}
+.mode-option{padding:10px 12px;border-radius:8px;display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:background .15s}
+.mode-option:hover{background:#FAFAFA}
+.mode-option.active{background:var(--coral-pale)}
+.mode-option-title{font-size:13px;font-weight:500;color:var(--black)}
+.mode-option-sub{font-size:11px;color:var(--muted)}
 
-/* ── ROLE PICKER ── */
-.role-picker-wrap{padding:4px 0 4px 36px}
-.role-picker{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:18px;padding:14px;max-width:88%;box-shadow:0 4px 20px rgba(30,58,110,.06)}
-.role-picker-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px}
-.role-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px}
-.role-btn{padding:8px 10px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:500;color:var(--text);cursor:pointer;transition:all .15s;text-align:left}
-.role-btn:hover{border-color:var(--teal);background:var(--teal-light);color:var(--navy)}
-.other-row{display:flex;gap:6px;margin-top:2px}
-.other-input{flex:1;padding:7px 11px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;font-size:12px;color:var(--text);outline:none;transition:border-color .15s}
-.other-input:focus{border-color:var(--teal)}
-.other-input::placeholder{color:var(--dim)}
-.other-go{padding:7px 13px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
-.other-go:hover{background:var(--navy2)}
+/* Main chat area */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.main-inner{flex:1;display:flex;flex-direction:column;width:100%;max-width:720px;margin:0 auto;padding:24px;gap:14px}
 
-/* ── MODE PICKER ── */
-.mode-picker-wrap{padding:4px 0 4px 36px}
-.mode-picker{background:rgba(255,255,255,.92);border:1px solid var(--border);border-radius:18px;padding:14px;max-width:88%;box-shadow:0 4px 20px rgba(30,58,110,.06)}
-.mode-picker-label{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px}
-.mode-list{display:flex;flex-direction:column;gap:6px}
-.mode-btn{padding:10px 12px;background:var(--card);border:1.5px solid var(--border);border-radius:8px;cursor:pointer;text-align:left;transition:all .15s}
-.mode-btn:hover{border-color:var(--teal);background:var(--teal-light)}
-.mode-btn-title{font-size:12px;font-weight:600;color:var(--text)}
-.mode-btn-sub{font-size:11px;color:var(--muted);margin-top:2px}
-.mode-btn:hover .mode-btn-title{color:var(--navy)}
+/* Empty state */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:24px;animation:fadeIn .4s ease}
+.empty-face{margin-bottom:16px;opacity:0;transform:translateY(8px);animation:emptyFaceIn .5s ease forwards}
+.empty-headline{font-size:24px;font-weight:500;color:var(--black);margin:0 0 6px;line-height:1.3;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease .8s forwards}
+.empty-sub{font-size:14px;color:var(--muted);margin:0 0 28px;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease 1s forwards}
+.empty-pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:440px;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease 1.3s forwards}
+.empty-pill{padding:9px 16px;border:0.5px solid var(--border-strong);border-radius:999px;font-size:13px;color:var(--black);background:var(--white);cursor:pointer;transition:border-color .15s,background .15s}
+.empty-pill:hover{border-color:var(--black);background:#FAFAFA}
+.empty-pill.fade{opacity:.3;pointer-events:none}
 
-/* ── INPUT ── */
-.input-area{padding:14px 18px 18px;border-top:1px solid rgba(226,232,228,.9);display:flex;gap:12px;background:linear-gradient(180deg,rgba(255,252,250,.98) 0%,var(--card) 100%);flex-shrink:0;box-shadow:0 -12px 28px rgba(0,0,0,.04)}
-.input-area textarea{flex:1;padding:13px 18px;background:#FFFFFF;border:1px solid #E5E5E5;border-radius:16px;color:var(--text);font-size:14px;outline:none;transition:border-color .2s,box-shadow .2s;resize:none;height:48px;line-height:1.5;overflow:hidden;box-shadow:inset 0 1px 2px rgba(255,255,255,.85)}
-.input-area textarea:focus{border-color:var(--teal);box-shadow:inset 0 1px 2px rgba(255,255,255,.8),0 0 0 3px rgba(58,111,212,.18)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes emptyFaceIn{to{opacity:1;transform:translateY(0)}}
+@keyframes emptyTextIn{to{opacity:1;transform:translateY(0)}}
+
+/* Other input row */
+.other-input-row{display:none;gap:6px;align-items:center;max-width:340px;width:100%;margin-top:12px}
+.other-input-row.show{display:flex}
+.other-input{flex:1;height:38px;border:0.5px solid var(--coral);border-radius:999px;padding:0 14px;font-size:13px;outline:none;box-shadow:0 0 0 3px rgba(242,107,94,.18);background:var(--white);color:var(--black)}
+.other-confirm{padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.other-confirm:hover{background:#222}
+
+/* Messages */
+.msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
+@keyframes msgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.msg-user{align-self:flex-end;background:var(--black);color:var(--white)}
+.msg-bot-row{display:flex;gap:8px;align-items:flex-start;align-self:flex-start;max-width:80%}
+.msg-bot-avatar{width:24px;height:24px;border-radius:50%;background:var(--coral-pale);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:500;color:var(--black);margin-top:2px}
+.msg-bot{background:var(--coral-pale);color:var(--black);padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5}
+
+/* Typing indicator */
+.typing{display:flex;align-items:center;gap:6px;padding:12px 16px;background:var(--coral-pale);border-radius:12px;width:fit-content;margin-left:32px}
+.typing-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);animation:bounce 1.2s ease-in-out infinite}
+.typing-dot:nth-child(2){animation-delay:.15s}
+.typing-dot:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-4px);opacity:1}}
+
+/* Input area */
+.input-area{padding:16px 24px;border-top:0.5px solid var(--border);background:var(--white);display:flex;gap:10px;align-items:center;flex-shrink:0}
+.input-inner{flex:1;display:flex;gap:10px;align-items:center;max-width:720px;margin:0 auto;width:100%}
+.input-area textarea{flex:1;padding:11px 16px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;color:var(--black);font-size:14px;outline:none;resize:none;height:42px;line-height:1.4;transition:border-color .2s,box-shadow .2s}
+.input-area textarea:focus{border-color:var(--coral);box-shadow:0 0 0 3px rgba(242,107,94,.18)}
 .input-area textarea::placeholder{color:var(--dim)}
-.send-btn{width:48px;height:48px;background:#F26B5E;border:none;border-radius:16px;color:var(--navy);font-size:17px;font-weight:700;cursor:pointer;transition:transform .15s,box-shadow .15s,filter .15s;flex-shrink:0;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(58,111,212,.3),0 6px 16px rgba(30,58,110,.1)}
-.send-btn:hover{filter:brightness(1.03);box-shadow:0 4px 12px rgba(58,111,212,.35),0 10px 24px rgba(30,58,110,.12);transform:translateY(-1px)}
-.send-btn:disabled{opacity:.35;cursor:not-allowed}
+.input-area textarea:disabled{background:#FAFAFA;cursor:not-allowed}
+.send-btn{width:42px;height:42px;background:var(--coral);border:none;border-radius:12px;color:var(--white);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,transform .15s;flex-shrink:0}
+.send-btn:hover:not(:disabled){background:var(--coral-dark)}
+.send-btn:active:not(:disabled){transform:scale(.95)}
+.send-btn:disabled{background:var(--coral-mid);cursor:not-allowed}
+
+/* Mode switch modal */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:24px}
+.modal-overlay.show{display:flex}
+.modal{background:var(--white);border-radius:12px;padding:24px;max-width:380px;width:100%;text-align:center;animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
+.modal-title{font-size:16px;font-weight:500;color:var(--black);margin:0 0 8px}
+.modal-desc{font-size:13px;color:var(--muted);margin:0 0 20px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;justify-content:center}
+.modal-btn{padding:9px 18px;border-radius:999px;font-size:13px;cursor:pointer;border:none}
+.modal-btn-cancel{border:0.5px solid var(--border-strong);background:var(--white);color:var(--black)}
+.modal-btn-cancel:hover{border-color:var(--black)}
+.modal-btn-confirm{background:var(--black);color:var(--white);font-weight:500}
+.modal-btn-confirm:hover{background:#222}
+
+/* Resume PDF download button */
+.download-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 32px}
+.download-btn:hover{background:#222}
 </style>
 </head>
 <body>
-<div class="card">
-  <div class="header">
-    <div class="header-brand">
-      <svg viewBox="0 0 32 32" width="56" height="56" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle><path d="M 9.2 14 Q 11 12.5 12.8 14" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path><circle cx="21" cy="15" r="1.8" fill="#000"><anima attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle><path d="M 19.2 15 Q 21 13.5 22.8 15" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" opacity="1"><animate attributeName="opacity" values="1;1;1;0.3;0.3;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path></svg>
-      <div><div class="htitle">Ezzy.</div><div class="hsub">Your AI Interview Coach</div></div>
-    </div>
-    <div class="header-right">
-      <div class="mode-pill" id="mode-pill"></div>
-      <div class="online-pill"><div class="dgreen"></div><span class="online-label">Online</span></div>
-    </div>
-  </div>
+<div class="app">
 
-  <div class="messages" id="messages"></div>
+  <header class="header">
+    <div class="header-left">
+      <div class="brand">
+        <svg viewBox="0 0 32 32" width="28" height="28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" fill="#F26B5E"/>
+          <circle cx="11" cy="14" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
+          <path d="M 9.2 14 Q 11 12.5 12.8 14" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+          <circle cx="21" cy="15" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
+          <path d="M 19.2 15 Q 21 13.5 22.8 15" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+          <path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" opacity="1"><animate attributeName="opacity" values="1;1;1;0.3;0.3;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+        </svg>
+        <span class="brand-name">Ezzy.</span>
+      </div>
+      <span class="dot-sep" id="dotSep" style="display:none">&middot;</span>
+      <span class="mode-pill" id="modePill" onclick="toggleModePopover()">
+        <span id="modePillLabel">Practice Q&amp;A</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+      </span>
+      <span class="role-label" id="roleLabel"></span>
+
+      <div class="mode-popover" id="modePopover">
+        <div class="mode-option" data-mode="practice" onclick="requestModeSwitch('practice','Practice Q&amp;A')">
+          <span class="mode-option-title">Practice Q&amp;A</span>
+          <span class="mode-option-sub">Answer questions, get feedback</span>
+        </div>
+        <div class="mode-option" data-mode="star" onclick="requestModeSwitch('star','STAR Coaching')">
+          <span class="mode-option-title">STAR Coaching</span>
+          <span class="mode-option-sub">Structure behavioral answers</span>
+        </div>
+        <div class="mode-option" data-mode="mock" onclick="requestModeSwitch('mock','Mock Interview')">
+          <span class="mode-option-title">Mock Interview</span>
+          <span class="mode-option-sub">Full simulated interview</span>
+        </div>
+        <div class="mode-option" data-mode="resume" onclick="requestModeSwitch('resume','Resume Feedback')">
+          <span class="mode-option-title">Resume Feedback</span>
+          <span class="mode-option-sub">Paste resume + JD for feedback</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="main" id="main">
+    <div class="main-inner" id="mainInner">
+
+      <div class="empty" id="emptyState">
+        <svg class="empty-face" viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="16" cy="16" r="14" fill="#F26B5E"/>
+          <circle cx="11" cy="14" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
+          <path d="M 9.2 14 Q 11 12.5 12.8 14" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+          <circle cx="21" cy="15" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
+          <path d="M 19.2 15 Q 21 13.5 22.8 15" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+          <path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" opacity="1"><animate attributeName="opacity" values="1;1;1;0.3;0.3;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
+        </svg>
+        <p class="empty-headline">Hi, I'm Ezzy.</p>
+        <p class="empty-sub">What role are you preparing for?</p>
+        <div class="empty-pills" id="rolePills">
+          <button class="empty-pill" onclick="pickRole('Software Engineer')">Software Engineer</button>
+          <button class="empty-pill" onclick="pickRole('Product Manager')">Product Manager</button>
+          <button class="empty-pill" onclick="pickRole('Designer')">Designer</button>
+          <button class="empty-pill" onclick="pickRole('Recruiter / HR')">Recruiter / HR</button>
+          <button class="empty-pill" onclick="pickRole('Marketing')">Marketing</button>
+          <button class="empty-pill" onclick="showOtherInput()">Other</button>
+        </div>
+        <div class="other-input-row" id="otherRow">
+          <input type="text" class="other-input" id="otherInput" placeholder="Type your role..." onkeydown="if(event.key==='Enter'){confirmOtherRole();}"/>
+          <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
+        </div>
+      </div>
+
+      <div id="messages"></div>
+
+    </div>
+  </main>
 
   <div class="input-area">
-    <textarea id="user-input" placeholder="Type a message..." rows="1"
-      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend()}"
-      oninput="this.style.height='48px';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
-    <button class="send-btn" id="send-btn" onclick="handleSend()">↑</button>
+    <div class="input-inner">
+      <textarea id="input" placeholder="Pick a role to begin..." disabled rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend();}"></textarea>
+      <button class="send-btn" id="sendBtn" disabled onclick="handleSend()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+      </button>
+    </div>
   </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <p class="modal-title" id="modalTitle">Switch mode?</p>
+      <p class="modal-desc" id="modalDesc">This will start a new conversation. Your current session won't be saved.</p>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" onclick="cancelModeSwitch()">Cancel</button>
+        <button class="modal-btn modal-btn-confirm" onclick="confirmModeSwitch()">Switch mode</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
-// !! Replace this with your deployed Vercel URL !!
-var PROXY_URL = 'https://scout-chat.vercel.app/api/chat';
-
-var MODE = null;
-var ROLE = null;
-var TRAINER_MODE = null;
-var convoHistory = [];
-var msgEl = document.getElementById('messages');
-var inputEl = document.getElementById('user-input');
-var sendBtn = document.getElementById('send-btn');
-var modePill = document.getElementById('mode-pill');
+var PROXY_URL='https://scout-chat.vercel.app/api/chat';
+var ROLE=null;
+var MODE=null;
+var TRAINER_MODE=null;
 var RESUME_STAGE=null;
 var RESUME_TEXT='';
 var JD_TEXT='';
-var AVATAR_SVG = '<svg viewBox="0 0 32 32" width="22" height="22" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#FCEAE6"/><text x="16" y="22" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#000">E</text></svg>';
+var convoHistory=[];
+var pendingModeSwitch=null;
 
-function scroll(){msgEl.scrollTop=msgEl.scrollHeight;}
-function avatarEl(){var a=document.createElement('div');a.className='avatar';a.innerHTML=AVATAR_SVG;return a;}
+var msgEl=document.getElementById('messages');
+var inputEl=document.getElementById('input');
+var sendBtn=document.getElementById('sendBtn');
+var emptyState=document.getElementById('emptyState');
+var modePill=document.getElementById('modePill');
+var modePopover=document.getElementById('modePopover');
+var modePillLabel=document.getElementById('modePillLabel');
+var roleLabel=document.getElementById('roleLabel');
+var dotSep=document.getElementById('dotSep');
+var rolePills=document.getElementById('rolePills');
+var otherRow=document.getElementById('otherRow');
+var otherInput=document.getElementById('otherInput');
+var modalOverlay=document.getElementById('modalOverlay');
+var mainEl=document.getElementById('main');
 
-function setBubbleText(el,text){
-  el.textContent='';
-  var re=/\*\*([^*]+)\*\*/g,last=0,m;
-  while((m=re.exec(text))!==null){
-    el.appendChild(document.createTextNode(text.slice(last,m.index)));
-    var s=document.createElement('strong');s.textContent=m[1];el.appendChild(s);
-    last=re.lastIndex;
-  }
-  el.appendChild(document.createTextNode(text.slice(last)));
+var AVATAR_HTML='<svg viewBox="0 0 32 32" width="22" height="22" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#FCEAE6"/><text x="16" y="22" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#000">E</text></svg>';
+
+function scrollMain(){mainEl.scrollTop=mainEl.scrollHeight;}
+
+function showOtherInput(){
+  Array.from(rolePills.querySelectorAll('.empty-pill')).forEach(function(b){if(b.textContent!=='Other')b.classList.add('fade');});
+  otherRow.classList.add('show');
+  otherInput.focus();
 }
 
-function addMsg(role,text){
-  var row=document.createElement('div');row.className='msg-row '+role;
-  if(role==='bot')row.appendChild(avatarEl());
-  var b=document.createElement('div');b.className='bubble '+role;
-  setBubbleText(b,text);
-  row.appendChild(b);msgEl.appendChild(row);scroll();
+function confirmOtherRole(){
+  var v=otherInput.value.trim();
+  if(!v)return;
+  pickRole(v);
 }
-
-function showTyping(){
-  var row=document.createElement('div');row.className='typing-row';row.id='typing';
-  row.appendChild(avatarEl());
-  var d=document.createElement('div');d.className='typing-dots';
-  d.innerHTML='<span></span><span></span><span></span>';
-  row.appendChild(d);msgEl.appendChild(row);scroll();
-}
-function hideTyping(){var e=document.getElementById('typing');if(e)e.remove();}
-
-function setModePill(mode){
-  var labels={practice:'🎯 Practice Q&A',star:'⭐ STAR Coaching',mock:'🎬 Mock Interview',resume:'📄 Resume Feedback'};
-  modePill.textContent=labels[mode]||'';
-  modePill.style.display='flex';
-  modePill.className='mode-pill '+(mode==='faq'?'faq':'trainer');
-}
-
-function showQuickReplies(options){
-  var wrap=document.createElement('div');wrap.className='quick-wrap';wrap.id='quick-replies';
-  options.forEach(function(o){
-    var b=document.createElement('button');b.className='qr';b.textContent=o;
-    b.onclick=function(){removeQuickReplies();handleSendText(o);};
-    wrap.appendChild(b);
-  });
-  msgEl.appendChild(wrap);scroll();
-}
-function removeQuickReplies(){var e=document.getElementById('quick-replies');if(e)e.remove();}
-
-function showRolePicker(){
-  var wrap=document.createElement('div');wrap.className='role-picker-wrap';wrap.id='role-picker';
-  var card=document.createElement('div');card.className='role-picker';
-  var lbl=document.createElement('div');lbl.className='role-picker-label';lbl.textContent='Select your role';
-  card.appendChild(lbl);
-  var grid=document.createElement('div');grid.className='role-grid';
-  ['💻 Software Engineer','📦 Product Manager','📊 Data Analyst','🤝 Recruiter / HR','🎨 Designer','📣 Marketing'].forEach(function(r){
-    var b=document.createElement('button');b.className='role-btn';b.textContent=r;
-    b.onclick=function(){removeRolePicker();pickRole(r.replace(/^..\s/,''));};
-    grid.appendChild(b);
-  });
-  card.appendChild(grid);
-  var otherRow=document.createElement('div');otherRow.className='other-row';
-  var inp=document.createElement('input');inp.className='other-input';inp.placeholder='Other — type your role...';
-  var go=document.createElement('button');go.className='other-go';go.textContent='Go';
-  go.onclick=function(){if(inp.value.trim()){removeRolePicker();pickRole(inp.value.trim());}};
-  inp.onkeydown=function(e){if(e.key==='Enter'&&inp.value.trim()){removeRolePicker();pickRole(inp.value.trim());}};
-  otherRow.appendChild(inp);otherRow.appendChild(go);card.appendChild(otherRow);
-  wrap.appendChild(card);msgEl.appendChild(wrap);scroll();
-}
-function removeRolePicker(){var e=document.getElementById('role-picker');if(e)e.remove();}
 
 function pickRole(role){
   ROLE=role;
-  addMsg('user',role);
-  addMsg('bot','Got it — '+role+'. Now pick a mode:');
-  showModePicker();
+  emptyState.style.display='none';
+  roleLabel.textContent=role;
+  roleLabel.style.display='inline';
+  dotSep.style.display='inline';
+  modePill.style.display='inline-flex';
+  inputEl.disabled=false;
+  sendBtn.disabled=false;
+  inputEl.placeholder='Type your answer...';
+  inputEl.focus();
+  startMode('practice','Practice Q&A');
 }
 
-function showModePicker(){
-  var wrap=document.createElement('div');wrap.className='mode-picker-wrap';wrap.id='mode-picker';
-  var card=document.createElement('div');card.className='mode-picker';
-  var lbl=document.createElement('div');lbl.className='mode-picker-label';lbl.textContent='Choose a mode';
-  card.appendChild(lbl);
-  var list=document.createElement('div');list.className='mode-list';
-  [{id:'practice',title:'🎯 Practice Q&A',sub:'Answer questions and get AI feedback on each response'},
-   {id:'star',title:'⭐ STAR Coaching',sub:'Structure answers using Situation, Task, Action, Result'},
-   {id:'mock',title:'🎬 Mock Interview',sub:'Full simulation with a debrief at the end'},
-   {id:'resume',title:'📄 Resume Feedback',sub:'Get tailored feedback on your resume against a target job description'}
-  ].forEach(function(m){
-    var b=document.createElement('button');b.className='mode-btn';
-    b.innerHTML='<div class="mode-btn-title">'+m.title+'</div><div class="mode-btn-sub">'+m.sub+'</div>';
-    b.onclick=function(){removeModePicker();pickMode(m.id,m.title);};
-    list.appendChild(b);
-  });
-  card.appendChild(list);wrap.appendChild(card);msgEl.appendChild(wrap);scroll();
-}
-function removeModePicker(){var e=document.getElementById('mode-picker');if(e)e.remove();}
-
-function pickMode(modeId,modeTitle){
+function startMode(modeId,modeTitle){
   TRAINER_MODE=modeId;
-  addMsg('user',modeTitle);
-  setModePill(modeId);
-  history=[];
+  modePillLabel.textContent=modeTitle;
+  setActiveMode(modeId);
+  msgEl.innerHTML='';
   convoHistory=[];
   if(modeId==='resume'){
     MODE='resume';
     RESUME_STAGE='awaiting_resume';
-    RESUME_TEXT='';
-    JD_TEXT='';
-    setTimeout(function(){
-      addMsg('bot','Paste your resume below — plain text is fine, formatting will be ignored.');
-    },200);
+    RESUME_TEXT='';JD_TEXT='';
+    addMsg('bot','Paste your resume below. Plain text is fine, formatting will be ignored.');
     return;
   }
   MODE='trainer';
@@ -301,101 +297,127 @@ function pickMode(modeId,modeTitle){
   });
 }
 
+function setActiveMode(modeId){
+  document.querySelectorAll('.mode-option').forEach(function(o){
+    o.classList.toggle('active',o.getAttribute('data-mode')===modeId);
+  });
+}
+
+function toggleModePopover(){
+  var open=modePopover.classList.toggle('show');
+  modePill.classList.toggle('open',open);
+}
+
+function closeModePopover(){
+  modePopover.classList.remove('show');
+  modePill.classList.remove('open');
+}
+
+document.addEventListener('click',function(e){
+  if(!modePill.contains(e.target)&&!modePopover.contains(e.target))closeModePopover();
+});
+
+function requestModeSwitch(modeId,modeTitle){
+  closeModePopover();
+  if(modeId===TRAINER_MODE)return;
+  if(convoHistory.length===0){
+    startMode(modeId,modeTitle);
+    return;
+  }
+  pendingModeSwitch={id:modeId,title:modeTitle};
+  document.getElementById('modalTitle').textContent='Switch to '+modeTitle+'?';
+  modalOverlay.classList.add('show');
+}
+
+function cancelModeSwitch(){
+  pendingModeSwitch=null;
+  modalOverlay.classList.remove('show');
+}
+
+function confirmModeSwitch(){
+  if(!pendingModeSwitch)return;
+  var p=pendingModeSwitch;
+  pendingModeSwitch=null;
+  modalOverlay.classList.remove('show');
+  startMode(p.id,p.title);
+}
+
+function addMsg(role,text){
+  var node;
+  if(role==='user'){
+    node=document.createElement('div');
+    node.className='msg msg-user';
+    node.textContent=text;
+  } else {
+    node=document.createElement('div');
+    node.className='msg-bot-row';
+    var av=document.createElement('div');
+    av.className='msg-bot-avatar';
+    av.textContent='E';
+    var bub=document.createElement('div');
+    bub.className='msg-bot';
+    bub.textContent=text;
+    node.appendChild(av);
+    node.appendChild(bub);
+  }
+  msgEl.appendChild(node);
+  scrollMain();
+  return node;
+}
+
+function setBubbleText(node,text){
+  var bub=node.querySelector('.msg-bot');
+  if(bub)bub.textContent=text;
+  else node.textContent=text;
+  scrollMain();
+}
+
+function showTyping(){
+  var t=document.createElement('div');
+  t.className='typing';t.id='typing';
+  t.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  msgEl.appendChild(t);scrollMain();
+}
+
+function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();}
+
 function getSystemPrompt(){
   if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
   if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
-  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Introduce yourself briefly and set the scene — in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
+  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
+  return '';
 }
 
-var FAQ_SYSTEM = 'You are Ezzy, a friendly and concise hiring assistant chatbot. Answer candidate questions about a company\'s interview process, benefits, culture, and hiring. Keep answers warm, helpful, and under 80 words. If you don\'t know something specific, advise them to ask their recruiter directly.';
-var INTENT_SYSTEM = 'You are a routing assistant. Given a candidate\'s first message, determine if they want: (A) information about the company, job, benefits, or hiring process, or (B) interview preparation, coaching, or practice. Reply with ONLY the word "faq" or "trainer". Nothing else.';
-
-var RESUME_SYSTEM = [
-  'You are Ezzy\'s Resume Feedback Coach. You help candidates strengthen their resume against a specific job description.',
-  '',
-  'YOUR EXPERTISE: You think like a senior in-house recruiter who has read tens of thousands of resumes across early-career through executive roles. Adapt depth to the candidate\'s seniority, which you infer from their resume. Early-career candidates need framing help and confidence. Mid-career need tightening and sharper impact. Senior candidates need positioning, not basics. Never make a senior candidate feel talked down to.',
-  '',
-  'WHAT TO FOCUS ON',
-  'Primary: alignment with the JD. Missing relevant experience, weak positioning for what the role actually needs, keyword and competency gaps, mis-prioritized content.',
-  '',
-  'Secondary: general resume quality only when it would actively hurt the candidate. Specifically flag:',
-  '- Multiple fonts or inconsistent formatting',
-  '- Excessive or uneven spacing',
-  '- Overselling (listing a tool they clearly touched once as a core skill)',
-  '- Responsibility bullets with no impact, metrics, or outcomes',
-  '- Vague verbs: "worked on," "helped with," "responsible for"',
-  '',
-  'DO NOT comment on:',
-  '- Cosmetic preferences that are not actively hurting them',
-  '- Section ordering unless it is burying critical info',
-  '- The candidate as a person',
-  '',
-  'TONE: warm and direct. A career coach who happens to be a senior recruiter. Honest without being harsh.',
-  '',
-  'OUTPUT: Lead with the top 5 highest-impact changes for this specific JD, ranked by impact. Number them. For each: what to change, why it matters, suggested rewrite. Quote the candidate\'s actual line, then your suggested rewrite. After the top 5, offer: "Want a section-by-section walkthrough or to dig into any of these?"',
-  '',
-  'HARD RULES',
-  '- Never rewrite the entire resume. Suggest targeted edits.',
-  '- Never invent or suggest inventing experience, dates, titles, metrics, or accomplishments.',
-  '- Never recommend hiding gaps with misleading dates or titles.',
-  '- Never comment on the candidate as a person, only the document.',
-  '- Encourage truth. If the candidate is overselling, flag it kindly and explain why understated truth lands better than inflated claims.',
-  '- If the resume already aligns well, say so plainly. Do not manufacture problems.',
-  '',
-  'WHAT GOOD LOOKS LIKE',
-  '- Specific and actionable. "Change X to Y" beats "consider strengthening this."',
-  '- Quote their line, then your suggested rewrite. Before and after.',
-  '- Prioritize ruthlessly. Their time is limited.'
+var RESUME_SYSTEM=[
+'You are Ezzy, a senior recruiting partner giving direct, specific resume feedback.',
+'',
+'You will receive: (1) the candidate\'s resume, (2) the target job description.',
+'',
+'Your job: identify the TOP 5 highest-impact changes the candidate should make, ranked by impact. For each change:',
+'1. Quote the exact line or phrase from their resume that needs work.',
+'2. Explain in 1-2 sentences why it is hurting them for this specific role.',
+'3. Give a concrete suggested rewrite they can copy-paste.',
+'',
+'Hard rules:',
+'- Never invent experience, metrics, skills, or accomplishments the candidate did not state.',
+'- If the resume is missing something the JD requires, say so explicitly. Do not fabricate.',
+'- Be specific to the JD. Generic resume tips are useless.',
+'- Total response under 600 words. Use clear headers like "Change 1:" through "Change 5:".',
+'- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
 ].join('\n');
 
 function handleSend(){handleSendText(inputEl.value);}
 
 function handleSendText(text){
   text=text.trim();if(!text)return;
-  inputEl.value='';inputEl.style.height='48px';
-  removeQuickReplies();
+  inputEl.value='';
 
-  if(MODE===null){
-    addMsg('user',text);
-    sendBtn.disabled=true;
-    showTyping();
-    callClaude(INTENT_SYSTEM,[{role:'user',content:text}],function(intent){
-      hideTyping();
-      sendBtn.disabled=false;
-      intent=intent.trim().toLowerCase();
-      if(intent==='trainer'){
-        MODE='routing-trainer';
-        addMsg('bot','Love it — let\'s get you ready. What role are you interviewing for?');
-        showRolePicker();
-      } else {
-        MODE='faq';
-        setModePill('faq');
-        history=[];
-        showTyping();
-        convoHistory.push({role:'user',content:text});
-        streamBotReply(FAQ_SYSTEM,convoHistory.slice(),function(reply){
-          convoHistory.push({role:'assistant',content:reply});
-        });
-      }
-    });
-  } else if(MODE==='faq'){
-    addMsg('user',text);
-    convoHistory.push({role:'user',content:text});
-    sendBtn.disabled=true;
-    showTyping();
-    callClaude(FAQ_SYSTEM,convoHistory,function(reply){
-      hideTyping();sendBtn.disabled=false;
-      convoHistory.push({role:'assistant',content:reply});
-      addMsg('bot',reply);
-    });
-  } else if(MODE==='resume'){
+  if(MODE==='resume'){
     addMsg('user',text);
     if(RESUME_STAGE==='awaiting_resume'){
       RESUME_TEXT=text;
       RESUME_STAGE='awaiting_jd';
-      setTimeout(function(){
-        addMsg('bot','Got it. Now paste the job description you\'re targeting.');
-      },200);
+      setTimeout(function(){addMsg('bot','Got it. Now paste the job description you\'re targeting.');},200);
     } else if(RESUME_STAGE==='awaiting_jd'){
       JD_TEXT=text;
       RESUME_STAGE='feedback_given';
@@ -409,197 +431,48 @@ function handleSendText(text){
       });
     } else {
       convoHistory.push({role:'user',content:text});
-      sendBtn.disabled=true;
-      showTyping();
+      sendBtn.disabled=true;showTyping();
       streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
-        appendDownloadButton();
       });
     }
   } else if(MODE==='trainer'){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
-    sendBtn.disabled=true;
-    showTyping();
+    sendBtn.disabled=true;showTyping();
     streamBotReply(getSystemPrompt(),convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
     });
   }
 }
 
-function downloadFeedbackPDF(){
-  if(typeof window.jspdf==='undefined'){alert('PDF library still loading. Try again in a moment.');return;}
-  var jsPDF=window.jspdf.jsPDF;
-  var doc=new jsPDF({unit:'pt',format:'letter'});
-  var date=new Date();
-  var dateStr=date.toISOString().split('T')[0];
-  var dateDisplay=date.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  var pageW=doc.internal.pageSize.getWidth();
-  var pageH=doc.internal.pageSize.getHeight();
-  var margin=54;
-  var contentW=pageW-(margin*2);
-  var y=margin;
-
-  // Branded header bar
-  doc.setFillColor(30,58,110);
-  doc.rect(0,0,pageW,80,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');
-  doc.setFontSize(22);
-  doc.text('Ezzy.',margin,42);
-  doc.setFont('helvetica','normal');
-  doc.setFontSize(10);
-  doc.setTextColor(235,242,253);
-  doc.text('Your AI Interview Coach',margin,60);
-  doc.setFontSize(9);
-  doc.text('Resume Feedback  •  '+dateDisplay,pageW-margin,60,{align:'right'});
-
-  y=110;
-  doc.setTextColor(26,34,51);
-
-  function ensureSpace(needed){
-    if(y+needed>pageH-margin){
-      doc.addPage();
-      y=margin;
-    }
-  }
-
-  function writeSectionTitle(title){
-    ensureSpace(40);
-    doc.setFont('helvetica','bold');
-    doc.setFontSize(13);
-    doc.setTextColor(30,58,110);
-    doc.text(title,margin,y);
-    y+=8;
-    doc.setDrawColor(208,216,232);
-    doc.setLineWidth(0.5);
-    doc.line(margin,y,pageW-margin,y);
-    y+=18;
-    doc.setTextColor(26,34,51);
-  }
-
-  function writeBody(text){
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10.5);
-    var paras=text.split(/\n\n+/);
-    for(var p=0;p<paras.length;p++){
-      var para=paras[p].trim();
-      if(!para)continue;
-      // Strip markdown bold for PDF readability
-      var clean=para.replace(/\*\*(.+?)\*\*/g,'$1');
-      var lines=doc.splitTextToSize(clean,contentW);
-      for(var i=0;i<lines.length;i++){
-        ensureSpace(16);
-        doc.text(lines[i],margin,y);
-        y+=14;
-      }
-      y+=8;
-    }
-    y+=6;
-  }
-
-  // Submitted intro
-  writeSectionTitle('Submitted');
-  doc.setFont('helvetica','italic');
-  doc.setFontSize(10);
-  doc.setTextColor(107,122,153);
-  ensureSpace(16);
-  doc.text('Resume and target job description submitted to Ezzy.',margin,y);
-  y+=22;
-  doc.setTextColor(26,34,51);
-
-  // Walk conversation history
-  for(var i=0;i<convoHistory.length;i++){
-    var m=convoHistory[i];
-    if(m.role==='user'&&i===0)continue; // skip the resume+JD dump
-    if(m.role==='user'){
-      writeSectionTitle('Your follow-up');
-      writeBody(m.content);
-    }else if(m.role==='assistant'){
-      writeSectionTitle(i===1?'Ezzy\'s feedback':'Ezzy\'s response');
-      writeBody(m.content);
-    }
-  }
-
-  // Footer on every page
-  var pageCount=doc.internal.getNumberOfPages();
-  for(var pn=1;pn<=pageCount;pn++){
-    doc.setPage(pn);
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(8);
-    doc.setTextColor(107,122,153);
-    doc.text('Generated by Ezzy  •  Page '+pn+' of '+pageCount,pageW/2,pageH-24,{align:'center'});
-  }
-
-  doc.save('ezra-resume-feedback-'+dateStr+'.pdf');
-}
-
-function appendDownloadButton(){
-  var existing=document.getElementById('download-btn');
-  if(existing)existing.remove();
-  var rows=msgEl.querySelectorAll('.msg-row.bot');
-  if(rows.length===0)return;
-  var lastBubble=rows[rows.length-1].querySelector('.bubble');
-  if(!lastBubble)return;
-  var btn=document.createElement('button');
-  btn.id='download-btn';
-  btn.className='download-btn';
-  btn.innerHTML='⬇ Download as PDF';
-  btn.onclick=downloadFeedbackPDF;
-  lastBubble.appendChild(document.createElement('br'));
-  lastBubble.appendChild(btn);
-  scroll();
-}
-
 async function callClaude(system,messages,cb){
   try{
-    var res=await fetch(PROXY_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:system,messages:messages})
-    });
+    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:system,messages:messages})});
     var data=await res.json();
-    var text=(data.content&&data.content[0]&&data.content[0].text)||'Sorry, something went wrong.';
+    var text=data.content&&data.content[0]&&data.content[0].text||'';
     cb(text);
-  }catch(e){
-    hideTyping();
-    addMsg('bot','Something went wrong. Please try again.');
-    sendBtn.disabled=false;
-  }
+  }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
 
 function streamBotReply(system,messages,afterDone){
-  var bubbleEl=null;
-  var rowEl=null;
-  callClaudeStream(system,messages,function(deltaText,fullText){
-    if(!bubbleEl){
-      hideTyping();
-      rowEl=document.createElement('div');rowEl.className='msg-row bot';
-      rowEl.appendChild(avatarEl());
-      bubbleEl=document.createElement('div');bubbleEl.className='bubble bot';
-      rowEl.appendChild(bubbleEl);
-      msgEl.appendChild(rowEl);
-    }
-    setBubbleText(bubbleEl,fullText);
-    scroll();
-  },function(fullText){
-    if(afterDone)afterDone(fullText);
+  var bubbleNode=null;var fullText='';
+  callClaudeStream(system,messages,function(deltaText,fullSoFar){
+    if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
+    fullText=fullSoFar;
+    setBubbleText(bubbleNode,fullSoFar);
+  },function(){
     sendBtn.disabled=false;
+    if(afterDone)afterDone(fullText);
   });
 }
 
 async function callClaudeStream(system,messages,onChunk,onDone){
   try{
-    var res=await fetch(PROXY_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,stream:true,system:system,messages:messages})
-    });
-    if(!res.ok||!res.body){throw new Error('Stream failed: '+res.status);}
+    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,stream:true,system:system,messages:messages})});
     var reader=res.body.getReader();
     var decoder=new TextDecoder();
-    var buffer='';
-    var fullText='';
+    var fullText='';var buffer='';
     while(true){
       var chunk=await reader.read();
       if(chunk.done)break;
@@ -608,29 +481,73 @@ async function callClaudeStream(system,messages,onChunk,onDone){
       buffer=lines.pop();
       for(var i=0;i<lines.length;i++){
         var line=lines[i].trim();
-        if(!line||!line.startsWith('data:'))continue;
-        var payload=line.slice(5).trim();
-        if(!payload)continue;
+        if(!line||!line.startsWith('data: '))continue;
+        var data=line.slice(6);
+        if(data==='[DONE]')continue;
         try{
-          var evt=JSON.parse(payload);
-          if(evt.type==='content_block_delta'&&evt.delta&&evt.delta.type==='text_delta'){
-            fullText+=evt.delta.text;
-            onChunk(evt.delta.text,fullText);
+          var json=JSON.parse(data);
+          if(json.type==='content_block_delta'&&json.delta&&json.delta.text){
+            fullText+=json.delta.text;
+            onChunk(json.delta.text,fullText);
           }
         }catch(e){}
       }
     }
-    if(onDone)onDone(fullText);
+    if(onDone)onDone();
   }catch(e){
     hideTyping();
-    addMsg('bot','Something went wrong. Please try again.');
-    sendBtn.disabled=false;
+    addMsg('bot','Sorry, something went wrong. Please try again.');
+    if(onDone)onDone();
   }
 }
 
-addMsg('bot','Hi, I\'m Ezzy. Your AI interview coach. What role are you preparing for?');
-MODE='routing-trainer';
-showRolePicker();
+function appendDownloadButton(){
+  var btn=document.createElement('button');
+  btn.className='download-btn';
+  btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download PDF';
+  btn.onclick=downloadFeedbackPDF;
+  msgEl.appendChild(btn);
+  scrollMain();
+}
+
+function downloadFeedbackPDF(){
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({unit:'pt',format:'letter'});
+  var pageW=612;var pageH=792;var margin=54;
+  var y=margin;var lineH=14;
+  doc.setFillColor(242,107,94);
+  doc.rect(0,0,pageW,40,'F');
+  doc.setTextColor(255,255,255);
+  doc.setFont('helvetica','bold');doc.setFontSize(14);
+  doc.text('Ezzy. Resume Feedback',margin,26);
+  y=80;
+  doc.setTextColor(0,0,0);
+  function ensureSpace(needed){if(y+needed>pageH-margin){doc.addPage();y=margin;}}
+  function writeSectionTitle(title){
+    ensureSpace(28);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);
+    doc.text(title,margin,y);y+=18;
+  }
+  function writeBody(text){
+    doc.setFont('helvetica','normal');doc.setFontSize(10);
+    var lines=doc.splitTextToSize(text,pageW-margin*2);
+    for(var i=0;i<lines.length;i++){ensureSpace(lineH);doc.text(lines[i],margin,y);y+=lineH;}
+  }
+  for(var i=0;i<convoHistory.length;i++){
+    var m=convoHistory[i];
+    if(m.role==='user'){
+      writeSectionTitle('You said:');
+      writeBody(m.content.replace(/\n+/g,' ').slice(0,500)+(m.content.length>500?'...':''));
+      y+=8;
+    } else {
+      writeSectionTitle('Ezzy:');
+      writeBody(m.content);
+      y+=12;
+    }
+  }
+  var d=new Date();var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  doc.save('ezzy-resume-feedback-'+stamp+'.pdf');
+}
 </script>
 </body>
 </html>
