@@ -34,7 +34,7 @@ button,input,textarea{font-family:inherit}
 .header{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:0.5px solid var(--border);background:var(--white);flex-shrink:0}
 .header-left{display:flex;align-items:center;gap:8px;position:relative}
 .brand{display:flex;align-items:center;gap:8px}
-.brand-name{font-weight:500;font-size:15px;color:var(--black)}
+.brand-name{font-weight:600;font-size:18px;color:var(--black)}
 .dot-sep{font-size:13px;color:var(--muted);margin:0 2px}
 .mode-pill{display:none;align-items:center;gap:6px;padding:5px 10px;border:0.5px solid var(--border-strong);border-radius:999px;font-size:12px;color:var(--black);background:var(--white);cursor:pointer;transition:border-color .15s,background .15s}
 .mode-pill:hover{border-color:var(--black)}
@@ -58,8 +58,8 @@ button,input,textarea{font-family:inherit}
 /* Empty state */
 .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;text-align:center;padding:24px;animation:fadeIn .4s ease}
 .empty-face{margin-bottom:16px;opacity:0;transform:translateY(8px);animation:emptyFaceIn .5s ease forwards}
-.empty-headline{font-size:24px;font-weight:500;color:var(--black);margin:0 0 6px;line-height:1.3;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease .8s forwards}
-.empty-sub{font-size:14px;color:var(--muted);margin:0 0 28px;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease 1s forwards}
+.empty-headline{font-size:32px;font-weight:600;color:var(--black);margin:0 0 8px;line-height:1.2;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease .8s forwards}
+.empty-sub{font-size:16px;color:var(--muted);margin:0 0 32px;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease 1s forwards}
 .empty-pills{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:440px;opacity:0;transform:translateY(8px);animation:emptyTextIn .5s ease 1.3s forwards}
 .empty-pill{padding:9px 16px;border:0.5px solid var(--border-strong);border-radius:999px;font-size:13px;color:var(--black);background:var(--white);cursor:pointer;transition:border-color .15s,background .15s}
 .empty-pill:hover{border-color:var(--black);background:#FAFAFA}
@@ -128,7 +128,7 @@ button,input,textarea{font-family:inherit}
   <header class="header">
     <div class="header-left">
       <div class="brand">
-        <svg viewBox="0 0 32 32" width="28" height="28" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="36" height="36" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="#F26B5E"/>
           <circle cx="11" cy="14" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
           <path d="M 9.2 14 Q 11 12.5 12.8 14" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
@@ -170,7 +170,7 @@ button,input,textarea{font-family:inherit}
     <div class="main-inner" id="mainInner">
 
       <div class="empty" id="emptyState">
-        <svg class="empty-face" viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <svg class="empty-face" viewBox="0 0 32 32" width="140" height="140" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <circle cx="16" cy="16" r="14" fill="#F26B5E"/>
           <circle cx="11" cy="14" r="1.8" fill="#000"><animate attributeName="opacity" values="1;1;1;0;0;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></circle>
           <path d="M 9.2 14 Q 11 12.5 12.8 14" fill="none" stroke="#000" stroke-width="1.5" stroke-linecap="round" opacity="0"><animate attributeName="opacity" values="0;0;0;1;1;0;0" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
@@ -382,9 +382,9 @@ function showTyping(){
 function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();}
 
 function getSystemPrompt(){
-  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
-  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
-  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
+  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Write naturally as a coach speaking to a candidate. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
+  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Write naturally as a coach speaking to a candidate. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
+  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
   return '';
 }
 
