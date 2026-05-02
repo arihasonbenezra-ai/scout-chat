@@ -165,6 +165,30 @@ button,input,textarea{font-family:inherit}
 .choice-bubbles{display:flex;gap:8px;flex-wrap:wrap;align-self:flex-start;margin-left:32px;margin-top:-8px}
 .choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
 .choice-pill:hover{border-color:#F26B5E;background:#FCEAE6}
+.auth-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)}
+.auth-modal.active{display:flex}
+.auth-modal-card{background:#FFFFFF;border-radius:20px;padding:40px 32px 28px;max-width:420px;width:100%;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.auth-face{margin-bottom:18px;display:flex;justify-content:center}
+.auth-modal-card h3{color:#000;font-size:24px;margin:0 0 6px;font-weight:600;letter-spacing:-0.01em}
+.auth-modal-card p{color:#666;font-size:14px;margin:0 0 24px;line-height:1.5}
+.auth-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:#888;font-size:28px;cursor:pointer;line-height:1;padding:4px 8px;transition:color .15s}
+.auth-modal-close:hover{color:#000}
+.auth-google-btn{width:100%;background:#fff;color:#000;border:0.5px solid #2A2020;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s;margin-bottom:18px}
+.auth-google-btn:hover{background:#FAFAFA}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#999;font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:0.5px;background:#E0E0E0}
+.auth-form{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.auth-input{width:100%;padding:11px 14px;border:0.5px solid #D0D0D0;border-radius:8px;font-size:14px;font-family:inherit;transition:border-color .15s;box-sizing:border-box}
+.auth-input:focus{outline:none;border-color:#F26B5E}
+.auth-input#authName{display:block}
+.auth-modal.signin-mode #authName{display:none}
+.auth-submit-btn{background:#F26B5E;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+.auth-submit-btn:hover{background:#D9554A}
+.auth-submit-btn:disabled{background:#FCAF9F;cursor:not-allowed}
+.auth-error{color:#D9554A;font-size:13px;min-height:18px;margin:8px 0 0}
+.auth-error:empty{margin:0}
+.auth-toggle{color:#666;font-size:13px;margin-top:18px}
+.auth-toggle a{color:#F26B5E;cursor:pointer;text-decoration:underline;font-weight:500}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -877,6 +901,50 @@ setTimeout(updateDropZoneVisibility, 200);
     handleSendText(text);
   }
 })();
+</script>
+<div id="authModal" class="auth-modal" onclick="if(event.target===this) hideAuthModal();"><div class="auth-modal-card"><button class="auth-modal-close" onclick="hideAuthModal();">×</button><div class="auth-face"><svg viewBox="0 0 32 32" width="56" height="56" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3 id="authModalTitle">Welcome to Ezzy</h3><p id="authModalSub">Sign up to save your progress</p><button class="auth-google-btn" onclick="signInWithGoogle();"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg><span>Continue with Google</span></button><div class="auth-divider"><span>or</span></div><form id="authForm" class="auth-form" onsubmit="handleAuthSubmit(event)"><input type="text" id="authName" class="auth-input" placeholder="Your name" autocomplete="name"><input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="email" required><input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password" required><button type="submit" class="auth-submit-btn" id="authSubmitBtn">Sign Up</button></form><p class="auth-error" id="authError"></p><p class="auth-toggle">Already have an account? <a id="authToggleLink" onclick="toggleAuthMode();">Sign in</a></p></div></div>
+<script>
+function showAuthModal(mode){
+  var m = document.getElementById('authModal');
+  if(!m) return;
+  if(mode === 'signin'){ m.classList.add('signin-mode'); }
+  else { m.classList.remove('signin-mode'); }
+  updateAuthCopy();
+  m.classList.add('active');
+  setTimeout(function(){
+    var emailEl = document.getElementById('authEmail');
+    if(emailEl) emailEl.focus();
+  }, 100);
+}
+function hideAuthModal(){
+  var m = document.getElementById('authModal');
+  if(m) m.classList.remove('active');
+  var err = document.getElementById('authError');
+  if(err) err.textContent = '';
+}
+function toggleAuthMode(){
+  var m = document.getElementById('authModal');
+  if(!m) return;
+  m.classList.toggle('signin-mode');
+  updateAuthCopy();
+  var err = document.getElementById('authError');
+  if(err) err.textContent = '';
+}
+function updateAuthCopy(){
+  var m = document.getElementById('authMal');
+  var isSignin = m.classList.contains('signin-mode');
+  document.getElementById('authModalTitle').textContent = isSignin ? 'Welcome back' : 'Welcome to Ezzy';
+  document.getElementById('authModalSub').textContent = isSignin ? 'Sign in to keep going' : 'Sign up to save your progress';
+  document.getElementById('authSubmitBtn').textContent = isSignin ? 'Sign In' : 'Sign Up';
+  var toggleLink = document.getElementById('authToggleLink');
+  toggleLink.textContent = isSignin ? 'Sign up' : 'Sign in';
+  toggleLink.parentElement.firstChild.textContent = isSignin ? "Don't have an account? " : 'Already have an account? ';
+  var pwField = document.getElementById('authPassword');
+  if(pwField) pwField.setAttribute('autocomplete', isSignin ? 'current-password' : 'new-password');
+}
+// Stubs for now - wired up in next phases
+function handleAuthSubmit(e){ e.preventDefault(); console.log('TODO: handle submit'); }
+function signInWithGoogle(){ console.log('TODO: Google sign-in'); }
 </script>
 </body>
 </html>
