@@ -1162,7 +1162,7 @@ function onAuthSuccess(user){
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
 <script>
 async function checkAndShowOnboarding(user){
-  if(!user || !windosupabaseClient) return;
+  if(!user || !window.supabaseClient) return;
   try {
     var result = await window.supabaseClient.from('profiles').select('name').eq('id', user.id).maybeSingle();
     if(result.error) {
