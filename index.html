@@ -1354,7 +1354,7 @@ async function loadConversationForMode(modeId){
     .from('messages')
     .select('role, content, created_at')
     .eq('conversation_id', convo.id)
-    .order('created_a, { ascending: true });
+    .order('created_at', { ascending: true });
   
   if(msgRes.error || !msgRes.data || msgRes.data.length === 0){
     // Conversation exists but no messages — treat as fresh
