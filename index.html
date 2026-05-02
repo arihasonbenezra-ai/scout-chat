@@ -378,6 +378,7 @@ function pickIntent(intent){
   var bubbles = document.getElementById('choiceBubbles');
   if(bubbles) bubbles.remove();
   if(intent==='resume'){
+    resumeDropDismissed = false;
     inputEl.disabled=false;
     inputEl.placeholder='Type your answer...';
     startMode('resume','Resume Feedback');
@@ -682,18 +683,22 @@ function downloadFeedbackPDF(){
 }
 
 // Resume drop zone visibility
+var resumeDropDismissed = false;
 function updateDropZoneVisibility(){
   var dz=document.getElementById('dropZone');
   if(!dz)return;
-  var shouldShow = (MODE==='resume' && RESUME_STAGE==='awaiting_resume');
+  var shouldShow = (MODE==='resume' && RESUME_STAGE==='awaiting_resume' && !resumeDropDismissed);
   if(shouldShow){ dz.classList.add('active'); }
   else { dz.classList.remove('active'); }
 }
+// Reset dismissed flag when entering resume mode fresh
+function resetDropZoneDismissal(){ resumeDropDismissed = false; }
 // Poll for state changes (cheap & reliable; avoids monkey-patching addMsg)
 setInterval(updateDropZoneVisibility, 300);
 // Allow user to dismiss drop zone and paste instead
 document.addEventListener('click', function(e){
   if(e.target && e.target.id==='pasteResumeLink'){
+    resumeDropDismissed = true;
     var dz=document.getElementById('dropZone');
     if(dz) dz.classList.remove('active');
     var inputEl=document.getElementById('input');
@@ -749,8 +754,18 @@ setTimeout(updateDropZoneVisibility, 200);
       };
       reader.readAsText(file);
     } else if(isPdf){
+      resumeDropDismissed = true;
+      var dzEl = document.getElementById('dropZone');
+      if(dzEl) dzEl.classList.remove('active');
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Type your answer...';
       addMsg('bot','PDF support is coming soon. For now, please paste your resume as text or save it as a TXT file.');
     } else {
+      resumeDropDismissed = true;
+      var dzEl2 = document.getElementById('dropZone');
+      if(dzEl2) dzEl2.classList.remove('active');
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Type your answer...';
       addMsg('bot','That file type is not supported. Drop a PDF or TXT file, or paste your resume as text.');
     }
   }
@@ -760,7 +775,8 @@ setTimeout(updateDropZoneVisibility, 200);
       addMsg('bot','That file looked empty. Try a different file or paste your resume as text.');
       return;
     }
-    // Hide drop zone
+    // Hide drop zone permanently
+    resumeDropDismissed = true;
     dz.classList.remove('active');
     inputEl.disabled = false;
     inputEl.placeholder = 'Type your answer...';
