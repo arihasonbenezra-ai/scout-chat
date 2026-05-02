@@ -793,7 +793,7 @@ setTimeout(updateDropZoneVisibility, 200);
       addMsg('bot','That PDF is over 5MB. Try a smaller file or paste the text below.');
       return;
     }
-    vareader = new FileReader();
+    var reader = new FileReader();
     reader.onload = function(ev){
       var typedArray = new Uint8Array(ev.target.result);
       window.pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
