@@ -931,7 +931,7 @@ function toggleAuthMode(){
   if(err) err.textContent = '';
 }
 function updateAuthCopy(){
-  var m = document.getElementById('authMal');
+  var m = document.getElementById('authModal');
   var isSignin = m.classList.contains('signin-mode');
   document.getElementById('authModalTitle').textContent = isSignin ? 'Welcome back' : 'Welcome to Ezzy';
   document.getElementById('authModalSub').textContent = isSignin ? 'Sign in to keep going' : 'Sign up to save your progress';
