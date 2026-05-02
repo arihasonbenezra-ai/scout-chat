@@ -642,9 +642,8 @@ function updateDropZoneVisibility(){
   if(shouldShow){ dz.classList.add('active'); }
   else { dz.classList.remove('active'); }
 }
-// Hook into mode/stage changes by patching addMsg (any state change triggers a UI update)
-var _originalAddMsg = addMsg;
-addMsg = function(role,text){_originalAddMsg(role,text); updateDropZoneVisibility();};
+// Poll for state changes (cheap & reliable; avoids monkey-patching addMsg)
+setInterval(updateDropZoneVisibility, 300);
 // Allow user to dismiss drop zone and paste instead
 document.addEventListener('click', function(e){
   if(e.target && e.target.id==='pasteResumeLink'){
