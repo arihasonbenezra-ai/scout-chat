@@ -702,6 +702,72 @@ document.addEventListener('click', function(e){
 });
 // Initial check
 setTimeout(updateDropZoneVisibility, 200);
+
+// Drop zone file handling
+(function(){
+  var dz = document.getElementById('dropZone');
+  var dzBox = document.getElementById('dropZoneBox');
+  if(!dz || !dzBox) return;
+
+  // Prevent default browser behavior for any drag/drop on the page
+  ['dragenter','dragover','dragleave','drop'].forEach(function(evt){
+    document.addEventListener(evt, function(e){
+      if(dz.classList.contains('active')){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, false);
+  });
+
+  // Visual feedback on the drop box
+  dzBox.addEventListener('dragenter', function(e){ dzBox.classList.add('dragging'); });
+  dzBox.addEventListener('dragover', function(e){ dzBox.classList.add('dragging'); });
+  dzBox.addEventListener('dragleave', function(e){
+    if(e.target === dzBox) dzBox.classList.remove('dragging');
+  });
+
+  dzBox.addEventListener('drop', function(e){
+    dzBox.classList.remove('dragging');
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if(!files || files.length === 0) return;
+    handleDroppedFile(files[0]);
+  });
+
+  function handleDroppedFile(file){
+    var name = (file.name || '').toLowerCase();
+    var isText = name.endsWith('.txt') || file.type === 'text/plain';
+    var isPdf = name.endsWith('.pdf') || file.type === 'application/pdf';
+
+    if(isText){
+      var reader = new FileReader();
+      reader.onload = function(ev){
+        var text = ev.target.result || '';
+        injectResumeText(text, file.name);
+      };
+      reader.onerror = function(){
+        addMsg('bot','I had trouble reading that file. Try pasting the text instead.');
+      };
+      reader.readAsText(file);
+    } else if(isPdf){
+      addMsg('bot','PDF support is coming soon. For now, please paste your resume as text or save it as a TXT file.');
+    } else {
+      addMsg('bot','That file type is not supported. Drop a PDF or TXT file, or paste your resume as text.');
+    }
+  }
+
+  function injectResumeText(text, fileName){
+    if(!text || text.trim().length < 20){
+      addMsg('bot','That file looked empty. Try a different file or paste your resume as text.');
+      return;
+    }
+    // Hide drop zone
+    dz.classList.remove('active');
+    inputEl.disabled = false;
+    inputEl.placeholder = 'Type your answer...';
+    // Send the parsed text through the existing flow
+    handleSendText(text);
+  }
+})();
 </script>
 </body>
 </html>
