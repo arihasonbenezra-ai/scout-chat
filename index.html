@@ -199,6 +199,15 @@ button,input,textarea{font-family:inherit}
   </header>
 
   <main class="main" id="main">
+    <div class="drop-zone-overlay" id="dropZone">
+      <div class="drop-zone-box" id="dropZoneBox">
+        <div class="drop-zone-icon">↑</div>
+        <div class="drop-zone-title">Drop your resume here</div>
+        <div class="drop-zone-sub">PDF or TXT</div>
+        <div class="drop-zone-paste">or <a id="pasteResumeLink">paste it as text instead</a></div>
+        <div class="drop-zone-helper">Got a Word doc? Open it in Word, choose File → Save As → PDF.</div>
+      </div>
+    </div>
     <div class="main-inner" id="mainInner">
 
       <div class="empty" id="emptyState">
@@ -614,6 +623,29 @@ function downloadFeedbackPDF(){
   var d=new Date();var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   doc.save('ezzy-resume-feedback-'+stamp+'.pdf');
 }
+
+// Resume drop zone visibility
+function updateDropZoneVisibility(){
+  var dz=document.getElementById('dropZone');
+  if(!dz)return;
+  var shouldShow = (MODE==='resume' && RESUME_STAGE==='awaiting_resume');
+  if(shouldShow){ dz.classList.add('active'); }
+  else { dz.classList.remove('active'); }
+}
+// Hook into mode/stage changes by patching addMsg (any state change triggers a UI update)
+var _originalAddMsg = addMsg;
+addMsg = function(role,text){_originalAddMsg(role,text); updateDropZoneVisibility();};
+// Allow user to dismiss drop zone and paste instead
+document.addEventListener('click', function(e){
+  if(e.target && e.target.id==='pasteResumeLink'){
+    var dz=document.getElementById('dropZone');
+    if(dz) dz.classList.remove('active');
+    var inputEl=document.getElementById('input');
+    if(inputEl) inputEl.focus();
+  }
+});
+// Initial check
+setTimeout(updateDropZoneVisibility, 200);
 </script>
 </body>
 </html>
