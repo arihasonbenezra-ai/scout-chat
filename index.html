@@ -1261,13 +1261,16 @@ async function ensureConversation(){
   var userId = session.data.session.user.id;
   var mode = (window.MODE === 'resume') ? 'resume' : (window.TRAINER_MODE || 'practice');
   
-  // Try to fetch existing conversation
-  var existing = await window.supabaseClient
+  var role = window.ROLE || null;
+  // Try to fetch existing conversation for this user+mode+role combo
+  var query = window.supabaseClient
     .from('conversations')
     .select('id')
     .eq('user_id', userId)
-    .eq('mode', mode)
-    .maybeSingle();
+    .eq('mode', mode);
+  if(role){ query = query.eq('role', role); }
+  else { query = query.is('role', null); }
+  var existing = await query.maybeSingle();
   
   if(existing.data && existing.data.id){
     window._currentConversationId = existing.data.id;
@@ -1338,13 +1341,16 @@ async function loadConversationForMode(modeId){
   
   var dbMode = (modeId === 'resume') ? 'resume' : modeId;
   
-  // Fetch conversation row
-  var convoRes = await window.supabaseClient
+  var role = window.ROLE || null;
+  // Fetch conversation row for user+mode+role
+  var query = window.supabaseClient
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
-    .eq('mode', dbMode)
-    .maybeSingle();
+    .eq('mode', dbMode);
+  if(role){ query = query.eq('role', role); }
+  else { query = query.is('role', null); }
+  var convoRes = await query.maybeSingle();
   
   if(convoRes.error || !convoRes.data) return false;
   var convo = convoRes.data;
