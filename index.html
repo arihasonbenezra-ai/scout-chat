@@ -189,6 +189,21 @@ button,input,textarea{font-family:inherit}
 .auth-error:empty{margin:0}
 .auth-toggle{color:#666;font-size:13px;margin-top:18px}
 .auth-toggle a{color:#F26B5E;cursor:pointer;text-decoration:underline;font-weight:500}
+.header{display:flex;align-items:center;justify-content:space-between}
+.header-right{display:flex;align-items:center;gap:8px;position:relative}
+.header-signin-btn{background:#000;color:#fff;border:none;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
+.header-signin-btn:hover{background:#222}
+.header-user-menu{position:relative}
+.header-user-btn{background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:999px;transition:background .15s}
+.header-user-btn:hover{background:#F5F5F5}
+.header-user-initial{width:30px;height:30px;border-radius:50%;background:#F26B5E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.header-user-name{font-size:13px;color:#000;font-weight:500}
+.header-user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:0.5px solid #E0E0E0;border-radius:10px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.08);overflow:hidden;z-index:50}
+.header-user-dropdown.active{display:block}
+.header-user-dropdown-email{padding:12px 14px;font-size:12px;color:#666;word-break:break-all}
+.header-user-dropdown-sep{margin:0;border:none;border-top:0.5px solid #F0F0F0}
+.header-user-dropdown-item{display:block;width:100%;background:none;border:none;text-align:left;padding:10px 14px;font-size:13px;color:#000;cursor:pointer;font-family:inherit}
+.header-user-dropdown-item:hover{background:#F5F5F5}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -251,7 +266,21 @@ button,input,textarea{font-family:inherit}
         </div>
       </div>
     </div>
-  </header>
+        <div class="header-right">
+        <button id="authSignInBtn" class="header-signin-btn" onclick="showAuthModal('signin')">Sign In</button>
+        <div id="authUserMenu" class="header-user-menu" style="display:none">
+          <button id="authUserBtn" class="header-user-btn" onclick="toggleUserDropdown()">
+            <span id="authUserInitial" class="header-user-initial">?</span>
+            <span id="authUserName" class="header-user-name"></span>
+          </button>
+          <div id="authUserDropdown" class="header-user-dropdown">
+            <div class="header-user-dropdown-email" id="authUserEmail"></div>
+            <hr class="header-user-dropdown-sep">
+            <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </header>
 
   <main class="main" id="main">
     <div class="drop-zone-overlay" id="dropZone">
@@ -1010,6 +1039,78 @@ function onAuthSuccess(user){
 }
 
 function signInWithGoogle(){ console.log('TODO: Google sign-in'); }
+</script>
+<script>
+(function(){
+  if(!window.supabaseClient) return;
+  
+  // Check on page load
+  window.supabaseClient.auth.getSession().then(function(res){
+    var session = res.data.session;
+    if(session && session.user){
+      updateAuthUI(session.user);
+    } else {
+      updateAuthUI(null);
+    }
+  });
+  
+  // Listen for auth changes (sign in, sign out)
+  window.supabaseClient.auth.onAuthStateChange(function(event, session){
+    if(session && session.user){
+      updateAuthUI(session.user);
+    } else {
+      updateAuthUI(null);
+    }
+  });
+  
+  // Close dropdown on outside click
+  document.addEventListener('click', function(e){
+    var dropdown = document.getElementById('authUserDropdown');
+    var userBtn = document.getElementById('authUserBtn');
+    if(!dropdown || !userBtn) return;
+    if(dropdown.classList.contains('active') && !userBtn.contains(e.target) && !dropdown.contains(e.target)){
+      dropdown.classList.remove('active');
+    }
+  });
+})();
+
+function updateAuthUI(user){
+  var signInBtn = document.getElementById('authSignInBtn');
+  var userMenu = document.getElementById('authUserMenu');
+  if(!signInBtn || !userMenu) return;
+  
+  if(user){
+    var name = (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0];
+    var initial = name.charAt(0).toUpperCase();
+    document.getElementById('authUserInitial').textContent = initial;
+    document.getElementById('authUserName').textContent = name;
+    document.getElementById('authUserEmail').textContent = user.email;
+    signInBtn.style.display = 'none';
+    userMenu.style.display = 'block';
+  } else {
+    signInBtn.style.display = 'inline-flex';
+    userMenu.style.display = 'none';
+  }
+}
+
+function toggleUserDropdown(){
+  var d = document.getElementById('authUserDropdown');
+  if(d) d.classList.toggle('active');
+}
+
+async function signOut(){
+  if(!window.supabaseClient) return;
+  var d = document.getElementById('authUserDropdown');
+  if(d) d.classList.remove('active');
+  await window.supabaseClient.auth.signOut();
+  // updateAuthUI gets called automatically via onAuthStateChange
+}
+
+// Override onAuthSuccess from earlier to update UI
+function onAuthSuccess(user){
+  hideAuthModal();
+  updateAuthUI(user);
+}
 </script>
 </body>
 </html>
