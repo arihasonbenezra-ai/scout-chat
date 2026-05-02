@@ -166,6 +166,8 @@ button,input,textarea{font-family:inherit}
 .choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
 .choice-pill:hover{border-color:#F26B5E;background:#FCEAE6}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
 </head>
 <body>
 <div class="app">
@@ -766,12 +768,7 @@ setTimeout(updateDropZoneVisibility, 200);
       };
       reader.readAsText(file);
     } else if(isPdf){
-      resumeDropDismissed = true;
-      var dzEl = document.getElementById('dropZone');
-      if(dzEl) dzEl.classList.remove('active');
-      inputEl.disabled = false;
-      inputEl.placeholder = 'Type your answer...';
-      addMsg('bot','PDF support is coming soon. For now, please paste your resume as text or save it as a TXT file.');
+      parsePdf(file);
     } else {
       resumeDropDismissed = true;
       var dzEl2 = document.getElementById('dropZone');
@@ -780,6 +777,74 @@ setTimeout(updateDropZoneVisibility, 200);
       inputEl.placeholder = 'Type your answer...';
       addMsg('bot','That file type is not supported. Drop a PDF or TXT file, or paste your resume as text.');
     }
+  }
+
+  function parsePdf(file){
+    if(!window.pdfjsLib){
+      addMsg('bot','PDF reader is still loading — give it a moment and try again.');
+      return;
+    }
+    if(file.size > 5 * 1024 * 1024){
+      resumeDropDismissed = true;
+      var dzL = document.getElementById('dropZone');
+      if(dzL) dzL.classList.remove('active');
+      inputEl.disabled = false;
+      inputEl.placeholder = 'Type your answer...';
+      addMsg('bot','That PDF is over 5MB. Try a smaller file or paste the text below.');
+      return;
+    }
+    vareader = new FileReader();
+    reader.onload = function(ev){
+      var typedArray = new Uint8Array(ev.target.result);
+      window.pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
+        var allText = [];
+        var pagePromises = [];
+        for(var p = 1; p <= pdf.numPages; p++){
+          pagePromises.push(pdf.getPage(p).then(function(page){
+            return page.getTextContent().then(function(content){
+              return content.items.map(function(item){return item.str;}).join(' ');
+            });
+          }));
+        }
+        Promise.all(pagePromises).then(function(pages){
+          var fullText = pages.join('\n\n').trim();
+          if(!fullText || fullText.length < 30){
+            resumeDropDismissed = true;
+            var dzS = document.getElementById('dropZone');
+            if(dzS) dzS.classList.remove('active');
+            inputEl.disabled = false;
+            inputEl.placeholder = 'Type your answer...';
+            addMsg('bot','This looks like a scanned PDF. We can only read PDFs with selectable text (like ones exported from Word or Google Docs). Try pasting your resume as text instead.');
+            return;
+          }
+          injectResumeText(fullText, file.name);
+        }).catch(function(err){
+          console.error('PDF page error:', err);
+          resumeDropDismissed = true;
+          var dzE = document.getElementById('dropZone');
+          if(dzE) dzE.classList.remove('active');
+          inputEl.disabled = false;
+          inputEl.placeholder = 'Type your answer...';
+          addMsg('bot','I had trouble reading that PDF. Try pasting the text instead.');
+        });
+      }).catch(function(err){
+        console.error('PDF load error:', err);
+        resumeDropDismissed = true;
+        var dzP = document.getElementById('dropZone');
+        if(dzP) dzP.classList.remove('active');
+        inputEl.disabled = false;
+        inputEl.placeholder = 'Type your answer...';
+        if(err && err.name === 'PasswordException'){
+          addMsg('bot','That PDF is password-protected. Please remove the password or paste the resume as text.');
+        } else {
+          addMsg('bot','I could not open that PDF. Try a different file or paste the text below.');
+        }
+      });
+    };
+    reader.onerror = function(){
+      addMsg('bot','I had trouble reading that file. Try pasting the text instead.');
+    };
+    reader.readAsArrayBuffer(file);
   }
 
   function injectResumeText(text, fileName){
