@@ -1038,7 +1038,26 @@ function onAuthSuccess(user){
   // For now, just log - we'll handle UI updates in Phase 2C
 }
 
-function signInWithGoogle(){ console.log('TODO: Google sign-in'); }
+async function signInWithGoogle(){
+  if(!window.supabaseClient){
+    showAuthError('Auth is not ready yet — try again in a moment.');
+    return;
+  }
+  showAuthError('');
+  try {
+    var result = await window.supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if(result.error) throw result.error;
+    // Browser redirects to Google, then back here. onAuthStateChange handles the rest.
+  } catch(err){
+    console.error('Google OAuth error:', err);
+    showAuthError(err.message || 'Could not start Google sign-in.');
+  }
+}
 </script>
 <script>
 (function(){
