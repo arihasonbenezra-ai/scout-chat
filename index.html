@@ -493,11 +493,20 @@ function pickPracticeType(modeId, modeTitle){
   startMode(modeId, modeTitle);
 }
 
-function startMode(modeId,modeTitle){
+async function startMode(modeId,modeTitle){
   if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
   modePillLabel.textContent=modeTitle;
   setActiveMode(modeId);
+  
+  // Try to restore saved conversation first
+  var restored = await loadConversationForMode(modeId);
+  if(restored){
+    if(modeI= 'resume'){ MODE = 'resume'; }
+    else { MODE = 'trainer'; }
+    return;
+  }
+  
   msgEl.innerHTML='';
   convoHistory=[];
   if(modeId==='resume'){
@@ -1319,6 +1328,85 @@ async function saveMessage(role, content){
 window.resetConversationTracking = function(){
   window._currentConversationId = null;
 };
+</script>
+<script>
+async function loadConversationForMode(modeId){
+  if(!window.supabaseClient) return false;
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return false;
+  var userId = session.data.session.user.id;
+  
+  var dbMode = (modeId === 'resume') ? 'resume' : modeId;
+  
+  // Fetch conversation row
+  var convoRes = await window.supabaseClient
+    .from('conversations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('mode', dbMode)
+    .maybeSingle();
+  
+  if(convoRes.error || !convoRes.data) return false;
+  var convo = convoRes.data;
+  
+  // Fetch messages for this conversation
+  var msgRes = await window.supabaseClient
+    .from('messages')
+    .select('role, content, created_at')
+    .eq('conversation_id', convo.id)
+    .order('created_a, { ascending: true });
+  
+  if(msgRes.error || !msgRes.data || msgRes.data.length === 0){
+    // Conversation exists but no messages — treat as fresh
+    return false;
+  }
+  
+  // Restore state variables
+  window.ROLE = convo.role || window.ROLE;
+  window._currentConversationId = convo.id;
+  
+  if(modeId === 'resume'){
+    window.RESUME_TEXT = convo.resume_text || '';
+    window.JD_TEXT = convo.jd_text || '';
+    window.RESUME_STAGE = convo.resume_stage || 'awaiting_resume';
+    window.resumeDropDismissed = (window.RESUME_STAGE !== 'awaiting_resume');
+  }
+  
+  // Clear current UI and rebuild from saved messages
+  msgEl.innerHTML = '';
+  convoHistory = [];
+  
+  msgRes.data.forEach(function(m){
+    var displayRole = (m.role === 'assistant') ? 'bot' : 'user';
+    addMsgWithoutSave(displayRole, m.content);
+    convoHistory.push({role: m.role, content: m.content});
+  });
+  
+  return true;
+}
+
+// Version of addMsg that skips the saveMessage hook (so loaded messages don't re-save)
+function addMsgWithoutSave(roletext){
+  var node;
+  if(role === 'user'){
+    node = document.createElement('div');
+    node.className = 'msg msg-user';
+    node.textContent = text;
+  } else {
+    node = document.createElement('div');
+    node.className = 'msg-bot-row';
+    var av = document.createElement('div');
+    av.className = 'msg-bot-avatar';
+    av.textContent = 'E';
+    var bub = document.createElement('div');
+    bub.className = 'msg-bot';
+    if(text){ try{ bub.innerHTML = marked.parse(text); }catch(e){ bub.textContent = text; } }
+    node.appendChild(av);
+    node.appendChild(bub);
+  }
+  msgEl.appendChild(node);
+  if(typeof scrollMain === 'function') scrollMain();
+}
 </script>
 </body>
 </html>
