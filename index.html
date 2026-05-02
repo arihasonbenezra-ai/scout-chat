@@ -493,22 +493,22 @@ function pickPracticeType(modeId, modeTitle){
   startMode(modeId, modeTitle);
 }
 
-async function startMode(modeId,modeTitle){
+function startMode(modeId,modeTitle){
   if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
   modePillLabel.textContent=modeTitle;
   setActiveMode(modeId);
-  
-  // Try to restore saved conversation first
-  var restored = await loadConversationForMode(modeId);
-  if(restored){
-    if(modeI= 'resume'){ MODE = 'resume'; }
-    else { MODE = 'trainer'; }
-    return;
-  }
-  
   msgEl.innerHTML='';
   convoHistory=[];
+  
+  // Fire-and-forget: try to restore saved conversation in background
+  loadConversationForMode(modeId).then(function(restored){
+    if(restored){
+      if(modeId === 'resume'){ window.MODE = 'resume'; }
+      else { window.MODE = 'trainer'; }
+    }
+  }).catch(function(e){ console.error('Restore error:', e); });
+  
   if(modeId==='resume'){
     MODE='resume';
     RESUME_STAGE='awaiting_resume';
