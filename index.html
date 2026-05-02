@@ -494,6 +494,7 @@ function pickPracticeType(modeId, modeTitle){
 }
 
 function startMode(modeId,modeTitle){
+  if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
   modePillLabel.textContent=modeTitle;
   setActiveMode(modeId);
@@ -510,6 +511,7 @@ function startMode(modeId,modeTitle){
   showTyping();
   streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
   });
 }
 
@@ -646,21 +648,26 @@ function handleSendText(text){
       showTyping();
       streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
         appendDownloadButton();
       });
     } else {
       convoHistory.push({role:'user',content:text});
+      saveMessage('user', text);
       sendBtn.disabled=true;showTyping();
       streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
       });
     }
   } else if(MODE==='trainer'){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
+      saveMessage('user', text);
     sendBtn.disabled=true;showTyping();
     streamBotReply(getSystemPrompt(),convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
     });
   }
 }
@@ -1232,6 +1239,86 @@ async function handleOnboardingSubmit(e){
     btn.textContent = 'Continue';
   }
 }
+</script>
+<script>
+// Conversation persistence
+
+window._currentConversationId = null;
+
+async function ensureConversation(){
+  if(!window.supabaseClient) return null;
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return null;
+  var userId = session.data.session.user.id;
+  var mode = (window.MODE === 'resume') ? 'resume' : (window.TRAINER_MODE || 'practice');
+  
+  // Try to fetch existing conversation
+  var existing = await window.supabaseClient
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('mode', mode)
+    .maybeSingle();
+  
+  if(existing.data && existing.data.id){
+    window._currentConversationId = existing.data.id;
+    return existing.data.id;
+  }
+  
+  // Create new conversation row
+  var insertData = {
+    user_id: userId,
+    mode: mode,
+    role: window.ROLE || null,
+    resume_text: window.RESUME_TEXT || null,
+    jd_text: window.JD_TEXT || null,
+    resume_stage: window.RESUME_STAGE || null
+  };
+  
+  var created = await window.supabaseClient
+    .from('conversations')
+    .insert(insertData)
+    .select('id')
+    .single();
+  
+  if(created.data && created.data.id){
+    window._currentConversationId = created.data.id;
+    return created.data.id;
+  }
+  return null;
+}
+
+async function saveMessage(role, content){
+  if(!window.supabaseClient || !content) return;
+  if(role !== 'user' && role !== 'assistant') return;
+  
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return; // not signed in - skip save
+  var userId = session.data.session.user.id;
+  
+  var conversationId = await ensureConversation();
+  if(!conversationId) return;
+  
+  await window.supabaseClient.from('messages').insert({
+    conversation_id: conversationId,
+    user_id: userId,
+    role: role,
+    content: content
+  });
+  
+  // Update conversation's updated_at + resume fields if changed
+  await window.supabaseClient.from('conversations').update({
+    role: window.ROLE || null,
+    resume_text: window.RESUME_TEXT || null,
+    jd_text: window.JD_TEXT || null,
+    resume_stage: window.RESUME_STAGE || null
+  }).eq('id', conversationId);
+}
+
+// Reset conversation tracking when mode changes
+window.resetConversationTracking = function(){
+  window._currentConversationId = null;
+};
 </script>
 </body>
 </html>
