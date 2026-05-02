@@ -168,6 +168,22 @@ button,input,textarea{font-family:inherit}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  // Supabase config - REPLACE WITH YOUR VALUES
+  var SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
+  var SUPABASE_PUBLISHABLE_KEY = 'YOUR_PUBLISHABLE_KEY_HERE';
+  
+  if(SUPABASE_URL.indexOf('YOUR_') === 0 || SUPABASE_PUBLISHABLE_KEY.indexOf('YOUR_') === 0){
+    console.warn('Supabase not configured yet - replace placeholders in index.html');
+    return;
+  }
+  
+  window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  console.log('Supabase initialized');
+})();
+</script>
 </head>
 <body>
 <div class="app">
