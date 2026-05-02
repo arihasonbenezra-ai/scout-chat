@@ -942,8 +942,73 @@ function updateAuthCopy(){
   var pwField = document.getElementById('authPassword');
   if(pwField) pwField.setAttribute('autocomplete', isSignin ? 'current-password' : 'new-password');
 }
-// Stubs for now - wired up in next phases
-function handleAuthSubmit(e){ e.preventDefault(); console.log('TODO: handle submit'); }
+// Auth submit handler — handles both sign up and sign in
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  if(!window.supabaseClient){
+    showAuthError('Auth is not ready yet — try again in a moment.');
+    return;
+  }
+  var modal = document.getElementById('authModal');
+  var isSignin = modal.classList.contains('signin-mode');
+  var email = document.getElementById('authEmail').value.trim();
+  var password = document.getElementById('authPassword').value;
+  var name = document.getElementById('authName').value.trim();
+  var submitBtn = document.getElementById('authSubmitBtn');
+  
+  if(!email || !password){
+    showAuthError('Please fin email and password.');
+    return;
+  }
+  if(!isSignin && password.length < 6){
+    showAuthError('Password must be at least 6 characters.');
+    return;
+  }
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = isSignin ? 'Signing in...' : 'Creating account...';
+  showAuthError('');
+  
+  try {
+    if(isSignin){
+      var result = await window.supabaseClient.auth.signInWithPassword({email: email, password: password});
+      if(result.error) throw result.error;
+      onAuthSuccess(result.data.user);
+    } else {
+      var result = await window.supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: { data: { name: name || '' } }
+      });
+      if(result.error) throw result.error;
+      // If email confirmation is required, user.session will be null
+      if(result.data.user && !result.data.session){
+        showAuthError('Check your email to confirm your account.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign Up';
+        return;
+      }
+      onAuthSuccess(result.data.user);
+    }
+  } catch(err){
+    console.error('Auth error:', err);
+    showAuthError(err.message || 'Something went wrong. Try again.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = isSignin ? 'Sign In' : 'Sign Up';
+  }
+}
+
+function showAuthError(msg){
+  var el = document.getElementById('authError');
+  if(el) el.textContent = msg;
+}
+
+function onAuthSuccess(user){
+  console.log('Auth success:', user);
+  hideAuthModal();
+  // For now, just log - we'll handle UI updates in Phase 2C
+}
+
 function signInWithGoogle(){ console.log('TODO: Google sign-in'); }
 </script>
 </body>
