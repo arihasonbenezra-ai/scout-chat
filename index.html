@@ -162,6 +162,9 @@ button,input,textarea{font-family:inherit}
 .drop-zone-paste{font-size:13px;color:#666;margin-top:14px}
 .drop-zone-paste a{color:#F26B5E;cursor:pointer;text-decoration:underline}
 .drop-zone-helper{font-size:12px;color:#888;margin-top:18px;line-height:1.5}
+.choice-bubbles{display:flex;gap:8px;flex-wrap:wrap;align-self:flex-start;margin-left:32px;margin-top:-8px}
+.choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
+.choice-pill:hover{border-color:#F26B5E;background:#FCEAE6}
 </style>
 </head>
 <body>
@@ -352,11 +355,55 @@ function pickRole(role){
   roleLabel.style.display='inline';
   dotSep.style.display='inline';
   modePill.style.display='inline-flex';
+  inputEl.disabled=true;
+  inputEl.placeholder='Pick what you want to do first...';
+  showIntentPicker();
+}
+
+function showIntentPicker(){
+  msgEl.innerHTML='';
+  convoHistory=[];
+  addMsg('bot','Great. What do you want to do first?');
+  setTimeout(function(){
+    var div = document.createElement('div');
+    div.className = 'choice-bubbles';
+    div.id = 'choiceBubbles';
+    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button>';
+    msgEl.appendChild(div);
+    msgEl.scrollTop = msgEl.scrollHeight;
+  }, 400);
+}
+
+function pickIntent(intent){
+  var bubbles = document.getElementById('choiceBubbles');
+  if(bubbles) bubbles.remove();
+  if(intent==='resume'){
+    inputEl.disabled=false;
+    inputEl.placeholder='Type your answer...';
+    startMode('resume','Resume Feedback');
+  } else {
+    showPracticeTypePicker();
+  }
+}
+
+function showPracticeTypePicker(){
+  addMsg('bot','What kind of practice?');
+  setTimeout(function(){
+    var div = document.createElement('div');
+    div.className = 'choice-bubbles';
+    div.id = 'choiceBubbles';
+    div.innerHTML = '<button class="choice-pill" onclick="pickPracticeType(\'practice\',\'Practice Q&amp;A\')">Practice Q&A</button><button class="choice-pill" onclick="pickPracticeType(\'star\',\'STAR Coaching\')">STAR Coaching</button><button class="choice-pill" onclick="pickPracticeType(\'mock\',\'Mock Interview\')">Mock Interview</button>';
+    msgEl.appendChild(div);
+    msgEl.scrollTop = msgEl.scrollHeight;
+  }, 400);
+}
+
+function pickPracticeType(modeId, modeTitle){
+  var bubbles = document.getElementById('choiceBubbles');
+  if(bubbles) bubbles.remove();
   inputEl.disabled=false;
-  sendBtn.disabled=false;
   inputEl.placeholder='Type your answer...';
-  inputEl.focus();
-  startMode('practice','Practice Q&A');
+  startMode(modeId, modeTitle);
 }
 
 function startMode(modeId,modeTitle){
