@@ -745,11 +745,9 @@ setTimeout(updateDropZoneVisibility, 200);
     if(e.target === dzBox) dzBox.classList.remove('dragging');
   });
 
+  // Drop is handled on the overlay (dz) — don't duplicate here, just visual cleanup
   dzBox.addEventListener('drop', function(e){
     dzBox.classList.remove('dragging');
-    var files = e.dataTransfer && e.dataTransfer.files;
-    if(!files || files.length === 0) return;
-    handleDroppedFile(files[0]);
   });
 
   function handleDroppedFile(file){
