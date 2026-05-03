@@ -89,6 +89,7 @@ button,input,textarea{font-family:inherit}
 
 /* Typing indicator */
 .typing{display:flex;align-items:center;gap:6px;padding:12px 16px;background:var(--coral-pale);border-radius:12px;width:fit-content;margin-left:32px}
+.typing-label{font-size:13px;color:var(--muted);margin-right:8px;font-style:italic}
 .typing-dot{width:6px;height:6px;border-radius:50%;background:var(--coral);animation:bounce 1.2s ease-in-out infinite}
 .typing-dot:nth-child(2){animation-delay:.15s}
 .typing-dot:nth-child(3){animation-delay:.3s}
@@ -636,10 +637,15 @@ function setBubbleText(node,text){
   scrollMain();
 }
 
-function showTyping(){
+function showTyping(label){
   var t=document.createElement('div');
   t.className='typing';t.id='typing';
-  t.innerHTML='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  var dots='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
+  if(label){
+    t.innerHTML='<span class="typing-label">'+label+'</span>'+dots;
+  } else {
+    t.innerHTML=dots;
+  }
   msgEl.appendChild(t);scrollMain();
 }
 
@@ -720,7 +726,7 @@ function handleSendText(text){
     if(RESEARCH_STAGE==='awaiting_company'){
       RESEARCH_COMPANY=text;
       RESEARCH_STAGE='generating_brief';
-      showTyping();
+      showTyping('Ezzy is researching '+text+'...');
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
       callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
@@ -731,7 +737,7 @@ function handleSendText(text){
       });
     } else {
       convoHistory.push({role:'user',content:text});
-      showTyping();
+      showTyping('Ezzy is researching '+RESEARCH_COMPANY+'...');
       callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
