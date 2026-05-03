@@ -279,6 +279,10 @@ button,input,textarea{font-family:inherit}
           <span class="mode-option-title">Resume Feedback</span>
           <span class="mode-option-sub">Paste resume + JD for feedback</span>
         </div>
+        <div class="mode-option" data-mode="research" onclick="requestModeSwitch('research','Company Research')">
+          <span class="mode-option-title">Company Research</span>
+          <span class="mode-option-sub">Get a brief on any company</span>
+        </div>
       </div>
     </div>
         <div class="header-right">
@@ -395,6 +399,8 @@ button,input,textarea{font-family:inherit}
 <script>
 var PROXY_URL='https://scout-chat.vercel.app/api/chat';
 var ROLE=null;
+var RESEARCH_STAGE='idle';
+var RESEARCH_COMPANY='';
 var MODE=null;
 var TRAINER_MODE=null;
 var RESUME_STAGE=null;
@@ -466,7 +472,7 @@ function showIntentPicker(){
     var div = document.createElement('div');
     div.className = 'choice-bubbles';
     div.id = 'choiceBubbles';
-    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button>';
+    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button><button class="choice-pill" onclick="pickIntent(\'research\')">Company Research</button>';
     msgEl.appendChild(div);
     msgEl.scrollTop = msgEl.scrollHeight;
   }, 400);
@@ -480,6 +486,10 @@ function pickIntent(intent){
     inputEl.disabled=false;
     inputEl.placeholder='Type your answer...';
     startMode('resume','Resume Feedback');
+  } else if(intent==='research'){
+    inputEl.disabled=false;
+    inputEl.placeholder='Type a company name...';
+    startMode('research','Company Research');
   } else {
     showPracticeTypePicker();
   }
@@ -531,6 +541,13 @@ async function startMode(modeId,modeTitle){
     RESUME_STAGE='awaiting_resume';
     RESUME_TEXT='';JD_TEXT='';
     addMsg('bot','Paste your resume below. Plain text is fine, formatting will be ignored.');
+    return;
+  }
+  if(modeId==='research'){
+    MODE='research';
+    RESEARCH_STAGE='awaiting_company';
+    RESEARCH_COMPANY='';
+    addMsg('bot','What company are you researching? Type the name and I\'ll pull together a brief tailored to your '+ROLE+' interview.');
     return;
   }
   MODE='trainer';
@@ -634,6 +651,28 @@ function getSystemPrompt(){
   if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
   return '';
 }
+function getResearchSystemPrompt(){
+  return [
+    'You are Ezzy, a recruiting partner helping a candidate prep for a '+ROLE+' interview at '+RESEARCH_COMPANY+'.',
+    '',
+    'When the candidate first asks for a brief, use web search to gather current information and produce a structured brief with these sections:',
+    '',
+    '**Recent News** - 2-3 most relevant developments from the last 6 months',
+    '**Leadership** - key executives or hiring managers relevant to a '+ROLE+' role',
+    '**Product** - what the company actually does, recent launches, strategic direction',
+    '**Funding & Stage** - last raise, investors, headcount if known',
+    '**Culture Signals** - what employees publicly say about working there, values they emphasize',
+    '**3 Questions to Ask** - sharp, specific questions a '+ROLE+' candidate could ask their interviewer',
+    '',
+    'After the brief, the candidate may ask follow-up questions about the company. Use web search whenever needed to give grounded answers about benefits, perks, products, leadership, recent moves, etc.',
+    '',
+    'Hard rules:',
+    '- Never invent facts. If web search does not return information on something, say so honestly.',
+    '- Be specific to the '+ROLE+' role, not generic.',
+    '- Keep the brief under 500 words. Conversational follow-ups under 200 words.',
+    '- Use plain text formatting. Bold section headers are OK.'
+  ].join('\n');
+}
 
 var RESUME_SYSTEM=[
 'You are Ezzy, a senior recruiting partner giving direct, specific resume feedback.',
@@ -659,6 +698,31 @@ function handleSendText(text){
   text=text.trim();if(!text)return;
   inputEl.value='';
 
+  if(MODE==='research'){
+    addMsg('user',text);
+    if(RESEARCH_STAGE==='awaiting_company'){
+      RESEARCH_COMPANY=text;
+      RESEARCH_STAGE='generating_brief';
+      showTyping();
+      var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
+      convoHistory=[{role:'user',content:researchPrompt}];
+      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+        hideTyping();
+        addMsg('bot',reply);
+        convoHistory.push({role:'assistant',content:reply});
+        RESEARCH_STAGE='conversational';
+      });
+    } else {
+      convoHistory.push({role:'user',content:text});
+      showTyping();
+      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+        hideTyping();
+        addMsg('bot',reply);
+        convoHistory.push({role:'assistant',content:reply});
+      });
+    }
+    return;
+  }
   if(MODE==='resume'){
     addMsg('user',text);
     if(RESUME_STAGE==='awaiting_resume'){
@@ -703,6 +767,23 @@ async function callClaude(system,messages,cb){
     var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:system,messages:messages})});
     var data=await res.json();
     var text=data.content&&data.content[0]&&data.content[0].text||'';
+    cb(text);
+  }catch(e){cb('Sorry, something went wrong. Please try again.');}
+}
+async function callClaudeWithSearch(system,messages,cb){
+  try{
+    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      model:'claude-sonnet-4-5',
+      max_tokens:4000,
+      system:system,
+      messages:messages,
+      tools:[{type:'web_search_20250305',name:'web_search'}]
+    })});
+    var data=await res.json();
+    if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
+    var textBlocks=data.content.filter(function(b){return b.type==='text';});
+    var text=textBlocks.map(function(b){return b.text;}).join('\n\n');
+    if(!text){cb('Sorry, I could not generate a brief. Please try again.');return;}
     cb(text);
   }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
