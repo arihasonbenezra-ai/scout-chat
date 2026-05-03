@@ -1454,7 +1454,7 @@ function captureAnonymousState(){
   };
   
   try {
-    localStorage.sem('ezzy_anon_pending', JSON.stringify(snapshot));
+    localStorage.setItem('ezzy_anon_pending', JSON.stringify(snapshot));
   } catch(e){
     console.error('Failed to capture anon state:', e);
   }
