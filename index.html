@@ -395,6 +395,15 @@ button,input,textarea{font-family:inherit}
 <script>
 var PROXY_URL='https://scout-chat.vercel.app/api/chat';
 var ROLE=null;
+
+// Expose script-scope state to window for cross-script access (auth, persistence, bridge)
+Object.defineProperty(window, 'ROLE', { get: function(){return ROLE;}, set: function(v){ROLE=v;} });
+Object.defineProperty(window, 'MODE', { get: function(){return MODE;}, set: function(v){MODE=v;} });
+Object.defineProperty(window, 'TRAINER_MODE', { get: function(){return TRAINER_MODE;}, set: function(v){TRAINER_MODE=v;} });
+Object.defineProperty(window, 'convoHistory', { get: function(){return convoHistory;}, set: function(v){convoHistory=v;} });
+Object.definePperty(window, 'RESUME_TEXT', { get: function(){return RESUME_TEXT;}, set: function(v){RESUME_TEXT=v;} });
+Object.defineProperty(window, 'JD_TEXT', { get: function(){return JD_TEXT;}, set: function(v){JD_TEXT=v;} });
+Object.defineProperty(window, 'RESUME_STAGE', { get: function(){return RESUME_STAGE;}, set: function(v){RESUME_STAGE=v;} });
 var MODE=null;
 var TRAINER_MODE=null;
 var RESUME_STAGE=null;
