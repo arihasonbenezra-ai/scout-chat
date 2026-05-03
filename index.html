@@ -164,6 +164,7 @@ button,input,textarea{font-family:inherit}
 .drop-zone-paste a{color:#F26B5E;cursor:pointer;text-decoration:underline}
 .drop-zone-helper{font-size:12px;color:#888;margin-top:18px;line-height:1.5}
 .choice-bubbles{display:flex;gap:8px;flex-wrap:wrap;align-self:flex-start;margin-left:32px;margin-top:-8px}
+.beta-tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.08em;color:#666666;background:#F0F0F0;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;text-transform:uppercase}
 .choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
 .choice-pill:hover{border-color:#F26B5E;background:#FCEAE6}
 .auth-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)}
@@ -281,7 +282,7 @@ button,input,textarea{font-family:inherit}
           <span class="mode-option-sub">Paste resume + JD for feedback</span>
         </div>
         <div class="mode-option" data-mode="research" onclick="requestModeSwitch('research','Company Research')">
-          <span class="mode-option-title">Company Research</span>
+          <span class="mode-option-title">Company Research <span class="beta-tag">Beta</span></span>
           <span class="mode-option-sub">Get a brief on any company</span>
         </div>
       </div>
@@ -473,7 +474,7 @@ function showIntentPicker(){
     var div = document.createElement('div');
     div.className = 'choice-bubbles';
     div.id = 'choiceBubbles';
-    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button><button class="choice-pill" onclick="pickIntent(\'research\')">Company Research</button>';
+    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button><button class="choice-pill" onclick="pickIntent(\'research\')">Company Research <span class="beta-tag">Beta</span></button>';
     msgEl.appendChild(div);
     msgEl.scrollTop = msgEl.scrollHeight;
   }, 400);
