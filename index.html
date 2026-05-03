@@ -395,8 +395,6 @@ button,input,textarea{font-family:inherit}
 <script>
 var PROXY_URL='https://scout-chat.vercel.app/api/chat';
 var ROLE=null;
-
-// Expose script-scope state to window for cross-script access (auth, persistence, bridge)
 Object.defineProperty(window, 'RESUME_TEXT', { get: function(){return RESUME_TEXT;}, set: function(v){RESUME_TEXT=v;} });
 var MODE=null;
 var TRAINER_MODE=null;
