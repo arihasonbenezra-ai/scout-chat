@@ -556,8 +556,8 @@ async function startMode(modeId,modeTitle){
   showTyping();
   streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
-      saveMessage('assistant', reply);
-  });
+    saveMessage('assistant', reply);
+  },getModelForMode());
 }
 
 function setActiveMode(modeId){
@@ -669,6 +669,13 @@ function showTyping(label){
 
 function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();if(TYPING_INTERVAL){clearInterval(TYPING_INTERVAL);TYPING_INTERVAL=null;}}
 
+function getModelForMode(){
+  // Haiku for the cheaper conversational modes
+  if(TRAINER_MODE==='practice') return 'claude-haiku-4-5';
+  if(TRAINER_MODE==='star') return 'claude-haiku-4-5';
+  // Sonnet for everything else (mock, resume, research)
+  return 'claude-sonnet-4-5';
+}
 function getSystemPrompt(){
   if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
   if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
@@ -805,9 +812,10 @@ function handleSendText(text){
   }
 }
 
-async function callClaude(system,messages,cb){
+async function callClaude(system,messages,cb,model){
+  if(!model)model='claude-sonnet-4-5';
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,system:system,messages:messages})});
+    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,system:system,messages:messages})});
     var data=await res.json();
     var text=data.content&&data.content[0]&&data.content[0].text||'';
     cb(text);
@@ -831,7 +839,7 @@ async function callClaudeWithSearch(system,messages,cb){
   }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
 
-function streamBotReply(system,messages,afterDone){
+function streamBotReply(system,messages,afterDone,model){
   var bubbleNode=null;var fullText='';
   callClaudeStream(system,messages,function(deltaText,fullSoFar){
     if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
@@ -840,12 +848,13 @@ function streamBotReply(system,messages,afterDone){
   },function(){
     sendBtn.disabled=false;
     if(afterDone)afterDone(fullText);
-  });
+  },model);
 }
 
-async function callClaudeStream(system,messages,onChunk,onDone){
+async function callClaudeStream(system,messages,onChunk,onDone,model){
+  if(!model)model='claude-sonnet-4-5';
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1000,stream:true,system:system,messages:messages})});
+    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,stream:true,system:system,messages:messages})});
     var reader=res.body.getReader();
     var decoder=new TextDecoder();
     var fullText='';var buffer='';
