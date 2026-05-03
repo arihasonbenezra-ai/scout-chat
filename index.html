@@ -526,19 +526,36 @@ function setBubbleText(node,text){
   scrollMain();
 }
 
+var TYPING_INTERVAL=null;
 function showTyping(label){
   var t=document.createElement('div');
   t.className='typing';t.id='typing';
   var dots='<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>';
-  if(label){
+  if(Array.isArray(label)){
+    var idx=0;
+    t.innerHTML='<span class="typing-label" id="typingLabel">'+label[0]+'</span>'+dots;
+    msgEl.appendChild(t);scrollMain();
+    if(TYPING_INTERVAL)clearInterval(TYPING_INTERVAL);
+    TYPING_INTERVAL=setInterval(function(){
+      if(idx < label.length-1){
+        idx++;
+        var el=document.getElementById('typingLabel');
+        if(el)el.textContent=label[idx];
+        else { clearInterval(TYPING_INTERVAL); TYPING_INTERVAL=null; }
+      } else {
+        clearInterval(TYPING_INTERVAL); TYPING_INTERVAL=null;
+      }
+    },5000);
+  } else if(label){
     t.innerHTML='<span class="typing-label">'+label+'</span>'+dots;
+    msgEl.appendChild(t);scrollMain();
   } else {
     t.innerHTML=dots;
+    msgEl.appendChild(t);scrollMain();
   }
-  msgEl.appendChild(t);scrollMain();
 }
 
-function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();}
+function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();if(TYPING_INTERVAL){clearInterval(TYPING_INTERVAL);TYPING_INTERVAL=null;}}
 
 function getSystemPrompt(){
   if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
@@ -615,7 +632,7 @@ function handleSendText(text){
     if(RESEARCH_STAGE==='awaiting_company'){
       RESEARCH_COMPANY=text;
       RESEARCH_STAGE='generating_brief';
-      showTyping('Ezzy is researching '+text+'...');
+      showTyping(['Ezzy is researching '+text+'...','Pulling together your brief...','Almost done...']);
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
       callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
@@ -626,7 +643,7 @@ function handleSendText(text){
       });
     } else {
       convoHistory.push({role:'user',content:text});
-      showTyping('Ezzy is researching '+RESEARCH_COMPANY+'...');
+      showTyping(['Ezzy is researching '+RESEARCH_COMPANY+'...','Searching the web...','Almost done...']);
       callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
