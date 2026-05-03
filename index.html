@@ -402,14 +402,16 @@ var RESUME_TEXT='';
 var JD_TEXT='';
 var convoHistory=[];
 
-// Expose script-scope state to window for cross-script access (auth, persistence, bridge)
-Object.defineProperty(window, 'ROLE', { get: function(){return ROLE;}, set: function(v){ROLE=v;} });
-Object.defineProperty(window, 'MODE', { get: function(){return MODE;}, set: function(v){MODE=v;} });
-Object.defineProperty(window, 'TRAINER_MODE', { get: function(){return TRAINER_MODE;}, set: function(v){TRAINER_MODE=v;} });
-Object.defineProperty(window, 'convoHistory', { get: function(){return convoHistory;}, set: function(v){convoHistory=v;} });
-Object.defineProperty(window, 'RESUME_TEXT', { get: function(){return RESUME_TEXT;}, set: function(v){RESUME_TEXT=v;} });
-Object.defineProperty(window, 'JD_TEXT', { get: function(){return JD_TEXT;}, set: function(v){JD_TEXT=v;} });
-Object.defineProperty(window, 'RESUME_STAGE', { get: function(){return RESUME_STAGE;}, set: function(v){RESUME_STAGE=v;} });
+function syncWindowState(){
+  window.ROLE = ROLE;
+  window.MODE = MODE;
+  window.TRAINER_MODE = TRAINER_MODE;
+  window.convoHistory = convoHistory;
+  window.RESUME_TEXT = RESUME_TEXT;
+  window.JD_TEXT = JD_TEXT;
+  window.RESUME_STAGE = RESUME_STAGE;
+}
+
 var pendingModeSwitch=null;
 
 var msgEl=document.getElementById('messages');
@@ -445,6 +447,7 @@ function confirmOtherRole(){
 
 function pickRole(role){
   ROLE=role;
+  window.ROLE=role;
   emptyState.style.display='none';
   roleLabel.textContent=role;
   roleLabel.style.display='inline';
@@ -505,6 +508,7 @@ function pickPracticeType(modeId, modeTitle){
 function startMode(modeId,modeTitle){
   if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
+  window.TRAINER_MODE=modeId;
   modePillLabel.textContent=modeTitle;
   setActiveMode(modeId);
   msgEl.innerHTML='';
@@ -1430,6 +1434,7 @@ function addMsgWithoutSave(roletext){
 <script>
 // Anonymous → signed-up bridge
 function captureAnonymousState(){
+  if(typeof syncWindowState === 'function') syncWindowState();
   // Only capture if user is currently anonymous (not signed in)
   if(window.supabaseClient){
     // Best-effort sync check; we'll rely on a flag set after signup attempt
