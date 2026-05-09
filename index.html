@@ -1124,6 +1124,14 @@ async function signInWithGoogle(){
   window.supabaseClient.auth.onAuthStateChange(function(event, session){
     if(session && session.user){
       updateAuthUI(session.user);
+      if(event === 'SIGNED_IN'){
+        // Auto-restore most recent conversation on fresh sign-in
+        setTimeout(function(){
+          if(typeof loadMostRecentConversation === 'function'){
+            loadMostRecentConversation().catch(function(e){ console.error('Auto-restore error:', e); });
+          }
+        }, 0);
+      }
     } else {
       updateAuthUI(null);
     }
@@ -1215,7 +1223,7 @@ function hideGoodbyeOverlay(){
 }
 function startFreshFromGoodbye(){
   hideGoodbyeOverlay();
-  if(typeof showIntentPicker === 'function') showIntentPicker();
+  // clearChatState already restored emptyState (role picker) — nothing more to do
 }
 function signInFromGoodbye(){
   hideGoodbyeOverlay();
@@ -1444,9 +1452,46 @@ async function loadConversationForMode(modeId){
   
   return true;
 }
+async function loadMostRecentConversation(){
+  if(!window.supabaseClient) return false;
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return false;
+  var userId = session.data.session.user.id;
+  var res = await window.supabaseClient
+    .from('conversations')
+    .select('mode, role')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if(res.error || !res.data) return false;
+  var dbMode = res.data.mode;
+  var modeTitle = (dbMode === 'resume') ? 'Resume Feedback'
+    : (dbMode === 'qa') ? 'Practice Q&A'
+    : (dbMode === 'mock') ? 'Mock Interview'
+    : dbMode;
+  // Set role first so loadConversationForMode picks the right row
+  window.ROLE = res.data.role || null;
+  if(window.ROLE && roleLabel){
+    roleLabel.textContent = window.ROLE;
+    roleLabel.style.display = '';
+    if(dotSep) dotSep.style.display = '';
+  }
+  // Surface the mode pill and label
+  if(modePill) modePill.style.display = '';
+  if(modePillLabel) modePillLabel.textContent = modeTitle;
+  if(typeof setActiveMode === 'function') setActiveMode(dbMode);
+  window.MODE = (dbMode === 'resume') ? 'resume' : 'trainer';
+  MODE = window.MODE;
+  TRAINER_MODE = (dbMode === 'resume') ? null : dbMode;
+  window.TRAINER_MODE = TRAINER_MODE;
+  if(emptyState) emptyState.style.display = 'none';
+  var ok = await loadConversationForMode(dbMode);
+  return ok;
+}
 
 // Version of addMsg that skips the saveMessage hook (so loaded messages don't re-save)
-function addMsgWithoutSave(roletext){
+function addMsgWithoutSave(role, text){
   var node;
   if(role === 'user'){
     node = document.createElement('div');
