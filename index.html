@@ -205,7 +205,7 @@ button,input,textarea{font-family:inherit}
 .header-user-dropdown-item{display:block;width:100%;background:none;border:none;text-align:left;padding:10px 14px;font-size:13px;color:#000;cursor:pointer;font-family:inherit}
 .header-user-dropdown-item:hover{background:#F5F5F5}
 .onboarding-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.97);z-index:900;align-items:center;justify-content:center;padding:24px}
-.onboarding-overlay.active{display:flex}
+.onboarding-overlay.active{display:flex}.goodbye-secondary-btn{background:transparent;border:none;color:#666;font:inherit;padding:8px 16px;margin-top:8px;cursor:pointer;text-decoration:underline}.goodbye-secondary-btn:hover{color:#000}
 .onboarding-card{max-width:440px;width:100%;text-align:center;animation:onboardingIn 0.5s ease forwards}
 @keyframes onboardingIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .onboarding-face{margin-bottom:24px;display:flex;justify-content:center}
@@ -1180,10 +1180,46 @@ function toggleUserDropdown(){
 
 async function signOut(){
   if(!window.supabaseClient) return;
+  var nameEl = document.getElementById('authUserName');
+  var displayName = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : '';
   var d = document.getElementById('authUserDropdown');
   if(d) d.classList.remove('active');
   await window.supabaseClient.auth.signOut();
-  // updateAuthUI gets called automatically via onAuthStateChange
+  clearChatState();
+  showGoodbyeOverlay(displayName);
+}
+function clearChatState(){
+  convoHistory = [];
+  MODE = null; ROLE = null; TRAINER_MODE = null;
+  RESUME_STAGE = null; RESUME_TEXT = ''; JD_TEXT = '';
+  pendingModeSwitch = null;
+  resumeDropDismissed = false;
+  if(typeof hideTyping === 'function') hideTyping();
+  if(msgEl) msgEl.innerHTML = '';
+  if(modePill) modePill.style.display = 'none';
+  if(roleLabel) roleLabel.style.display = 'none';
+  if(dotSep) dotSep.style.display = 'none';
+  if(emptyState) emptyState.style.display = '';
+  if(typeof syncWindowState === 'function') syncWindowState();
+}
+function showGoodbyeOverlay(name){
+  var overlay = document.getElementById('goodbyeOverlay');
+  if(!overlay) return;
+  var nameSpan = document.getElementById('goodbyeName');
+  if(nameSpan) nameSpan.textContent = name ? (', ' + name) : '';
+  overlay.classList.add('active');
+}
+function hideGoodbyeOverlay(){
+  var overlay = document.getElementById('goodbyeOverlay');
+  if(overlay) overlay.classList.remove('active');
+}
+function startFreshFromGoodbye(){
+  hideGoodbyeOverlay();
+  if(typeof showIntentPicker === 'function') showIntentPicker();
+}
+function signInFromGoodbye(){
+  hideGoodbyeOverlay();
+  if(typeof showAuthModal === 'function') showAuthModal('signin');
 }
 
 // Override onAuthSuccess from earlier to update UI
@@ -1193,6 +1229,7 @@ function onAuthSuccess(user){
 }
 </script>
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
+<div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
 <script>
 async function checkAndShowOnboarding(user){
   if(!user || !window.supabaseClient) return;
