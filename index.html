@@ -1606,18 +1606,20 @@ async function loadMostRecentConversation(){
   if(res.error || !res.data) return false;
   var dbMode = res.data.mode;
   var modeTitle = (dbMode === 'resume') ? 'Resume Feedback'
-    : (dbMode === 'qa') ? 'Practice Q&A'
+    : (dbMode === 'practice') ? 'Practice Q&A'
+    : (dbMode === 'star') ? 'STAR Coaching'
     : (dbMode === 'mock') ? 'Mock Interview'
+    : (dbMode === 'research') ? 'Company Research'
     : dbMode;
   // Set role first so loadConversationForMode picks the right row
   window.ROLE = res.data.role || null;
   if(window.ROLE && roleLabel){
     roleLabel.textContent = window.ROLE;
-    roleLabel.style.display = '';
-    if(dotSep) dotSep.style.display = '';
+    roleLabel.style.display = 'inline';
+    if(dotSep) dotSep.style.display = 'inline';
   }
   // Surface the mode pill and label
-  if(modePill) modePill.style.display = '';
+  if(modePill) modePill.style.display = 'inline-flex';
   if(modePillLabel) modePillLabel.textContent = modeTitle;
   if(typeof setActiveMode === 'function') setActiveMode(dbMode);
   window.MODE = (dbMode === 'resume') ? 'resume' : 'trainer';
