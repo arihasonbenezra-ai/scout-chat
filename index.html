@@ -1493,6 +1493,7 @@ async function loadMostRecentConversation(){
   window.TRAINER_MODE = TRAINER_MODE;
   if(emptyState) emptyState.style.display = 'none';
   var ok = await loadConversationForMode(dbMode);
+  if(ok && inputEl){ inputEl.disabled = false; inputEl.placeholder = 'Type your answer...'; }
   return ok;
   } finally { window._isRestoring = false; }
 }
