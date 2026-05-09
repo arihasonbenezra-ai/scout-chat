@@ -505,7 +505,8 @@ function pickPracticeType(modeId, modeTitle){
   startMode(modeId, modeTitle);
 }
 
-function startMode(modeId,modeTitle){
+async function startMode(modeId,modeTitle){
+  if(window._isRestoring) return;
   if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
   window.TRAINER_MODE=modeId;
@@ -514,13 +515,16 @@ function startMode(modeId,modeTitle){
   msgEl.innerHTML='';
   convoHistory=[];
   
-  // Fire-and-forget: try to restore saved conversation in background
-  loadConversationForMode(modeId).then(function(restored){
+  // Try to restore saved conversation BEFORE firing kickoff
+  var restored = false;
+  try {
+    restored = await loadConversationForMode(modeId);
     if(restored){
-      if(modeId === 'resume'){ window.MODE = 'resume'; }
-      else { window.MODE = 'trainer'; }
+      window.MODE = (modeId === 'resume') ? 'resume' : 'trainer';
     }
-  }).catch(function(e){ console.error('Restore error:', e); });
+  } catch(e){ console.error('Restore error:', e); }
+  
+  if(restored) return;
   
   if(modeId==='resume'){
     MODE='resume';
@@ -1454,8 +1458,10 @@ async function loadConversationForMode(modeId){
 }
 async function loadMostRecentConversation(){
   if(!window.supabaseClient) return false;
+  window._isRestoring = true;
+  try {
   var session = await window.supabaseClient.auth.getSession();
-  if(!session.data.session) return false;
+  if(!session.data.session) { window._isRestoring = false; return false; }
   var userId = session.data.session.user.id;
   var res = await window.supabaseClient
     .from('conversations')
@@ -1488,6 +1494,7 @@ async function loadMostRecentConversation(){
   if(emptyState) emptyState.style.display = 'none';
   var ok = await loadConversationForMode(dbMode);
   return ok;
+  } finally { window._isRestoring = false; }
 }
 
 // Version of addMsg that skips the saveMessage hook (so loaded messages don't re-save)
