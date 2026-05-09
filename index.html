@@ -547,8 +547,11 @@ async function startMode(modeId,modeTitle){
   }
   if(modeId==='research'){
     MODE='research';
+    window.MODE='research';
     RESEARCH_STAGE='awaiting_company';
+    window.RESEARCH_STAGE='awaiting_company';
     RESEARCH_COMPANY='';
+    window.RESEARCH_COMPANY='';
     addMsg('bot','What company are you researching? Type the name and I\'ll pull together a brief tailored to your '+ROLE+' interview.');
     return;
   }
@@ -752,7 +755,10 @@ function handleSendText(text){
     addMsg('user',text);
     if(RESEARCH_STAGE==='awaiting_company'){
       RESEARCH_COMPANY=text;
+      window.RESEARCH_COMPANY=text;
       RESEARCH_STAGE='generating_brief';
+      window.RESEARCH_STAGE=RESEARCH_STAGE;
+      saveMessage('user', text);
       showTyping(['Ezzy is researching '+text+'...','Pulling together your brief...','Almost done...']);
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
@@ -761,14 +767,18 @@ function handleSendText(text){
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
         RESEARCH_STAGE='conversational';
+        window.RESEARCH_STAGE=RESEARCH_STAGE;
+        saveMessage('assistant', reply);
       });
     } else {
       convoHistory.push({role:'user',content:text});
+      saveMessage('user', text);
       showTyping(['Ezzy is researching '+RESEARCH_COMPANY+'...','Searching the web...','Almost done...']);
       callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
+        saveMessage('assistant', reply);
       });
     }
     return;
@@ -1458,7 +1468,10 @@ async function ensureConversation(){
   var session = await window.supabaseClient.auth.getSession();
   if(!session.data.session) return null;
   var userId = session.data.session.user.id;
-  var mode = (window.MODE === 'resume') ? 'resume' : (window.TRAINER_MODE || 'practice');
+  var mode;
+  if(window.MODE === 'resume') mode = 'resume';
+  else if(window.MODE === 'research') mode = 'research';
+  else mode = (window.TRAINER_MODE || 'practice');
   
   var role = window.ROLE || null;
   // Try to fetch existing conversation for this user+mode+role combo
@@ -1483,7 +1496,9 @@ async function ensureConversation(){
     role: window.ROLE || null,
     resume_text: window.RESUME_TEXT || null,
     jd_text: window.JD_TEXT || null,
-    resume_stage: window.RESUME_STAGE || null
+    resume_stage: window.RESUME_STAGE || null,
+    research_company: window.RESEARCH_COMPANY || null,
+    research_stage: window.RESEARCH_STAGE || null
   };
   
   var created = await window.supabaseClient
@@ -1517,12 +1532,15 @@ async function saveMessage(role, content){
     content: content
   });
   
-  // Update conversation's updated_at + resume fields if changed
+  // Update conversation's updated_at + mode-specific fields
   await window.supabaseClient.from('conversations').update({
     role: window.ROLE || null,
     resume_text: window.RESUME_TEXT || null,
     jd_text: window.JD_TEXT || null,
-    resume_stage: window.RESUME_STAGE || null
+    resume_stage: window.RESUME_STAGE || null,
+    research_company: window.RESEARCH_COMPANY || null,
+    research_stage: window.RESEARCH_STAGE || null,
+    updated_at: new Date().toISOString()
   }).eq('id', conversationId);
 }
 
@@ -1576,6 +1594,12 @@ async function loadConversationForMode(modeId){
     window.RESUME_STAGE = convo.resume_stage || 'awaiting_resume';
     window.resumeDropDismissed = (window.RESUME_STAGE !== 'awaiting_resume');
   }
+  if(modeId === 'research'){
+    window.RESEARCH_COMPANY = convo.research_company || '';
+    window.RESEARCH_STAGE = convo.research_stage || 'conversational';
+    if(typeof RESEARCH_COMPANY !== 'undefined') RESEARCH_COMPANY = window.RESEARCH_COMPANY;
+    if(typeof RESEARCH_STAGE !== 'undefined') RESEARCH_STAGE = window.RESEARCH_STAGE;
+  }
   
   // Clear current UI and rebuild from saved messages
   msgEl.innerHTML = '';
@@ -1622,9 +1646,10 @@ async function loadMostRecentConversation(){
   if(modePill) modePill.style.display = 'inline-flex';
   if(modePillLabel) modePillLabel.textContent = modeTitle;
   if(typeof setActiveMode === 'function') setActiveMode(dbMode);
-  window.MODE = (dbMode === 'resume') ? 'resume' : 'trainer';
+  if(dbMode === 'resume'){ window.MODE = 'resume'; TRAINER_MODE = null; }
+  else if(dbMode === 'research'){ window.MODE = 'research'; TRAINER_MODE = null; }
+  else { window.MODE = 'trainer'; TRAINER_MODE = dbMode; }
   MODE = window.MODE;
-  TRAINER_MODE = (dbMode === 'resume') ? null : dbMode;
   window.TRAINER_MODE = TRAINER_MODE;
   if(emptyState) emptyState.style.display = 'none';
   var ok = await loadConversationForMode(dbMode);
