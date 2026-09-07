@@ -221,6 +221,35 @@ button,input,textarea{font-family:inherit}
 .onboarding-submit-btn:disabled{background:#FCAF9F;cursor:not-allowed}
 .onboarding-error{color:#D9554A;font-size:13px;min-height:18px;margin:14px 0 0}
 .onboarding-error:empty{margin:0}
+
+/* Career Brain panel */
+.brain-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:950}
+.brain-overlay.active{display:block}
+.brain-panel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100%;background:#fff;box-shadow:-8px 0 24px rgba(0,0,0,0.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease}
+.brain-overlay.active .brain-panel{transform:translateX(0)}
+.brain-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:0.5px solid #EDEDED}
+.brain-header h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-0.01em}
+.brain-header p{margin:2px 0 0;font-size:12.5px;color:#777}
+.brain-close{background:none;border:none;font-size:20px;color:#999;cursor:pointer;line-height:1;padding:4px}
+.brain-close:hover{color:#000}
+.brain-body{flex:1;overflow-y:auto;padding:14px 20px 24px}
+.brain-empty{color:#888;font-size:13.5px;line-height:1.6;padding:24px 0;text-align:center}
+.brain-group-title{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#999;margin:20px 0 8px}
+.brain-group-title:first-child{margin-top:4px}
+.brain-claim{border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.brain-claim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.brain-claim-label{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
+.brain-status{flex:none;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;padding:2px 7px;border-radius:5px;margin-top:1px}
+.brain-status.fact{background:#E6F4EA;color:#1E7A3D}
+.brain-status.inference{background:#FFF3DA;color:#966B0A}
+.brain-status.hypothesis{background:#F1EAFB;color:#6A3FBF}
+.brain-evidence{font-size:12px;color:#888;margin-top:6px;font-style:italic;line-height:1.5}
+.brain-remove{background:none;border:none;color:#B8B4AE;font-size:11.5px;cursor:pointer;padding:6px 0 0;text-decoration:underline}
+.brain-remove:hover{color:#D9554A}
+
+.learned-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:960;opacity:1;transition:opacity .3s ease}
+.learned-toast a{color:#FFB3AB;text-decoration:underline;cursor:pointer}
+.learned-toast.out{opacity:0}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -297,6 +326,7 @@ button,input,textarea{font-family:inherit}
           <div id="authUserDropdown" class="header-user-dropdown">
             <div class="header-user-dropdown-email" id="authUserEmail"></div>
             <hr class="header-user-dropdown-sep">
+            <button class="header-user-dropdown-item" onclick="openCareerBrainPanel()">What Ezzy knows about you</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
         </div>
@@ -400,6 +430,7 @@ button,input,textarea{font-family:inherit}
 </script>
 <script>
 var PROXY_URL='https://scout-chat.vercel.app/api/chat';
+var EXTRACT_URL='https://scout-chat.vercel.app/api/extract';
 var ROLE=null;
 var RESEARCH_STAGE='idle';
 var RESEARCH_COMPANY='';
@@ -557,10 +588,10 @@ async function startMode(modeId,modeTitle){
   }
   MODE='trainer';
   showTyping();
-  streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
+  streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
     saveMessage('assistant', reply);
-  },getModelForMode());
+  });
 }
 
 function setActiveMode(modeId){
@@ -672,78 +703,13 @@ function showTyping(label){
 
 function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();if(TYPING_INTERVAL){clearInterval(TYPING_INTERVAL);TYPING_INTERVAL=null;}}
 
-function getModelForMode(){
-  // Haiku for the cheaper conversational modes
-  if(TRAINER_MODE==='practice') return 'claude-haiku-4-5';
-  if(TRAINER_MODE==='star') return 'claude-haiku-4-5';
-  // Sonnet for everything else (mock, resume, research)
-  return 'claude-sonnet-4-5';
+// Prompt/model selection now lives server-side in api/chat.js — the client only
+// sends {mode, role, company, messages}. See EZZY_AI_ARCHITECTURE.md.
+function currentModeKey(){
+  if(MODE==='resume') return 'resume';
+  if(MODE==='research') return 'research';
+  return TRAINER_MODE;
 }
-function getSystemPrompt(){
-  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
-  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
-  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
-  return '';
-}
-function getResearchSystemPrompt(){
-  return [
-    'You are Ezzy, a recruiting partner helping a candidate prep for a '+ROLE+' interview at '+RESEARCH_COMPANY+'.',
-    '',
-    'Use web search to gather CURRENT, DATED information about the company. Produce a focused brief.',
-    '',
-    'Do NOT write any preamble or process narration before your response. Do NOT say things like "I will search for..." or "Let me search..." or "Now I have the information..." or "I will now search for additional...". Just start your response directly with the disclaimer line below.',
-    '',
-    'ALWAYS start with this exact disclaimer:',
-    '_Based on public web search. Verify specifics like comp, benefits, policies, and current personnel before your interview._',
-    '',
-    'Then produce these 5 sections:',
-    '',
-    '**Recent News** - 2-3 most relevant news items from the last 12 months, ideally last 6 months. Each must have a dated source.',
-    '**Product** - what the company does and any recent product launches or strategic shifts (last 12 months only)',
-    '**Funding & Stage** - last raise, investors, headcount if announced (only include if publicly disclosed and recent)',
-    '**What People Are Saying Recently** - 2-3 specific public statements, quotes from leadership, or themes from recent press. NOT generic culture vibes - only specific recent quotes or coverage.',
-    '**3 Questions to Ask** - sharp, specific questions a '+ROLE+' candidate could ask their interviewer, informed by what you found above',
-    '',
-    'After the brief, the candidate may ask follow-up questions. Use web search whenever needed.',
-    '',
-    'CRITICAL ACCURACY RULES:',
-    '',
-    '1. Every factual claim must include an inline source with date in this format: (source: domain.com, [year]). Example: "Zocdoc launched a new telehealth feature in 2024 (source: techcrunch.com, 2024)."',
-    '',
-    '2. If web search did not return verified, dated information on something, write: "I could not find verified recent information on this." Do NOT guess. Do NOT pattern-match from training data. Do NOT use sources older than 12 months for anything except company founding dates and stable historical facts.',
-    '',
-    '3. DO NOT name specific current personnel (CEO, CTO, VP, hiring manager, etc.) by name. People change roles frequently and outdated personnel info is dangerous. If asked who works there in a follow-up, say: "I cannot reliably verify current personnel. I recommend checking the company website Team page and cross-referencing on LinkedIn."',
-    '',
-    '4. DO NOT make claims about benefits, comp, vacation, PTO, parental leave, healthcare, RTO/remote policies, or perks unless you have a source from the last 6 months. These change frequently. If asked, say: "I could not find verified current information. Ask the recruiter directly - they are required to disclose these."',
-    '',
-    '5. Distinguish facts from inferences. If inferring, say so: "Based on their recent product launches, it appears they are prioritizing X (inferred from public news, not confirmed by the company)."',
-    '',
-    '6. Never combine facts about similarly-named companies. Verify the source is about THIS company.',
-    '',
-    'Style:',
-    '- Specific to the '+ROLE+' role, not generic.',
-    '- Brief under 600 words. Follow-ups under 250 words.',
-    '- Plain text. Bold section headers OK. No bullet points using dashes.'
-  ].join('\n');
-}
-
-var RESUME_SYSTEM=[
-'You are Ezzy, a senior recruiting partner giving direct, specific resume feedback.',
-'',
-'You will receive: (1) the candidate\'s resume, (2) the target job description.',
-'',
-'Your job: identify the TOP 5 highest-impact changes the candidate should make, ranked by impact. For each change:',
-'1. Quote the exact line or phrase from their resume that needs work.',
-'2. Explain in 1-2 sentences why it is hurting them for this specific role.',
-'3. Give a concrete suggested rewrite they can copy-paste.',
-'',
-'Hard rules:',
-'- Never invent experience, metrics, skills, or accomplishments the candidate did not state.',
-'- If the resume is missing something the JD requires, say so explicitly. Do not fabricate.',
-'- Be specific to the JD. Generic resume tips are useless.',
-'- Total response under 600 words. Use clear headers like "Change 1:" through "Change 5:".',
-'- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
-].join('\n');
 
 function handleSend(){handleSendText(inputEl.value);}
 
@@ -762,7 +728,7 @@ function handleSendText(text){
       showTyping(['Ezzy is researching '+text+'...','Pulling together your brief...','Almost done...']);
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
-      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
@@ -774,7 +740,7 @@ function handleSendText(text){
       convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
       showTyping(['Ezzy is researching '+RESEARCH_COMPANY+'...','Searching the web...','Almost done...']);
-      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
@@ -796,16 +762,18 @@ function handleSendText(text){
       convoHistory=[{role:'user',content:firstUserMsg}];
       sendBtn.disabled=true;
       showTyping();
-      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+      streamBotReply(convoHistory.slice(),function(reply){
+        if(!reply) return; // blocked (rate limit) or errored - the chat already shows why, nothing to download or learn from
         convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
         appendDownloadButton();
+        extractCareerClaims(RESUME_TEXT, JD_TEXT);
       });
     } else {
       convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
       sendBtn.disabled=true;showTyping();
-      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+      streamBotReply(convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
       });
@@ -815,31 +783,40 @@ function handleSendText(text){
     convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
     sendBtn.disabled=true;showTyping();
-    streamBotReply(getSystemPrompt(),convoHistory.slice(),function(reply){
+    streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
     });
   }
 }
 
-async function callClaude(system,messages,cb,model){
-  if(!model)model='claude-sonnet-4-5';
+async function getAuthTokenIfSignedIn(){
+  if(!window.supabaseClient) return null;
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,system:system,messages:messages})});
-    var data=await res.json();
-    var text=data.content&&data.content[0]&&data.content[0].text||'';
-    cb(text);
-  }catch(e){cb('Sorry, something went wrong. Please try again.');}
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    return session ? session.access_token : null;
+  }catch(e){ return null; }
 }
-async function callClaudeWithSearch(system,messages,cb){
+
+function showAnonLimitMessage(){
+  hideTyping();
+  addMsg('bot','You\'ve used your free messages for today. Sign in (it\'s free) to keep going.');
+  showAuthModal('signup');
+}
+
+async function callClaudeWithSearch(messages,cb){
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-sonnet-4-5',
-      max_tokens:4000,
-      system:system,
-      messages:messages,
-      tools:[{type:'web_search_20250305',name:'web_search'}]
+    var headers={'Content-Type':'application/json'};
+    var token=await getAuthTokenIfSignedIn();
+    if(token) headers['Authorization']='Bearer '+token;
+    var res=await fetch(PROXY_URL,{method:'POST',headers:headers,body:JSON.stringify({
+      mode:'research',
+      role:ROLE,
+      company:window.RESEARCH_COMPANY||RESEARCH_COMPANY,
+      messages:messages
     })});
+    if(res.status===429){ showAnonLimitMessage(); return; }
     var data=await res.json();
     if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
     var textBlocks=data.content.filter(function(b){return b.type==='text';});
@@ -849,22 +826,34 @@ async function callClaudeWithSearch(system,messages,cb){
   }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
 
-function streamBotReply(system,messages,afterDone,model){
+function streamBotReply(messages,afterDone){
   var bubbleNode=null;var fullText='';
-  callClaudeStream(system,messages,function(deltaText,fullSoFar){
+  callClaudeStream(messages,function(deltaText,fullSoFar){
     if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
     fullText=fullSoFar;
     setBubbleText(bubbleNode,fullSoFar);
   },function(){
     sendBtn.disabled=false;
     if(afterDone)afterDone(fullText);
-  },model);
+  });
 }
 
-async function callClaudeStream(system,messages,onChunk,onDone,model){
-  if(!model)model='claude-sonnet-4-5';
+async function callClaudeStream(messages,onChunk,onDone){
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,stream:true,system:system,messages:messages})});
+    var headers={'Content-Type':'application/json'};
+    var token=await getAuthTokenIfSignedIn();
+    if(token) headers['Authorization']='Bearer '+token;
+    var res=await fetch(PROXY_URL,{method:'POST',headers:headers,body:JSON.stringify({
+      mode:currentModeKey(),
+      role:ROLE,
+      messages:messages,
+      stream:true
+    })});
+    if(res.status===429){
+      showAnonLimitMessage();
+      if(onDone)onDone();
+      return;
+    }
     var reader=res.body.getReader();
     var decoder=new TextDecoder();
     var fullText='';var buffer='';
@@ -1385,6 +1374,21 @@ function onAuthSuccess(user){
 </script>
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
 <div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
+
+<div id="brainOverlay" class="brain-overlay" onclick="if(event.target===this)closeCareerBrainPanel()">
+  <div class="brain-panel">
+    <div class="brain-header">
+      <div>
+        <h3>What Ezzy knows about you</h3>
+        <p>Built from your resume. Facts, inferences, and hypotheses — you can remove anything.</p>
+      </div>
+      <button class="brain-close" onclick="closeCareerBrainPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="brain-body" id="brainBody">
+      <div class="brain-empty">Loading...</div>
+    </div>
+  </div>
+</div>
 <script>
 async function checkAndShowOnboarding(user){
   if(!user || !window.supabaseClient) return;
@@ -1799,6 +1803,122 @@ async function migrateAnonymousToAccount(user){
   } catch(err){
     console.error('Migration error:', err);
   }
+}
+</script>
+<script>
+// Career Brain v0 — extraction + "what Ezzy knows about you" panel
+
+async function extractCareerClaims(resumeText, jdText){
+  if(!window.supabaseClient) return;
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    if(!session) return; // anonymous - extraction is a signed-in feature for now
+
+    var res = await fetch(EXTRACT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({resumeText: resumeText||'', jdText: jdText||''})
+    });
+    if(!res.ok) return;
+    var data = await res.json();
+    if(data.savedCount > 0) showLearnedToast(data.savedCount);
+  }catch(e){ console.error('Career Brain extraction error:', e); }
+}
+
+function showLearnedToast(count){
+  var el = document.createElement('div');
+  el.className = 'learned-toast';
+  el.innerHTML = 'Ezzy learned ' + count + (count===1?' thing':' things') + ' about you · <a onclick="openCareerBrainPanel();">View</a>';
+  document.body.appendChild(el);
+  setTimeout(function(){
+    el.classList.add('out');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, 5000);
+}
+
+var CLAIM_TYPE_LABELS = {
+  skill:'Skills', achievement:'Achievements', experience:'Experience',
+  goal:'Goals', preference:'Preferences', hypothesis:'Hypotheses'
+};
+var CLAIM_TYPE_ORDER = ['skill','achievement','experience','goal','preference','hypothesis'];
+
+async function openCareerBrainPanel(){
+  var dropdown = document.getElementById('authUserDropdown');
+  if(dropdown) dropdown.classList.remove('active');
+  document.getElementById('brainOverlay').classList.add('active');
+  await loadCareerClaims();
+}
+
+function closeCareerBrainPanel(){
+  document.getElementById('brainOverlay').classList.remove('active');
+}
+
+async function loadCareerClaims(){
+  var body = document.getElementById('brainBody');
+  body.innerHTML = '<div class="brain-empty">Loading...</div>';
+  if(!window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session){
+    body.innerHTML = '<div class="brain-empty">Sign in to see what Ezzy has learned about you.</div>';
+    return;
+  }
+  var res = await window.supabaseClient.from('career_claims').select('*').eq('user_id', session.user.id);
+  if(res.error){
+    body.innerHTML = '<div class="brain-empty">Could not load your profile. Try again shortly.</div>';
+    return;
+  }
+  renderClaims(res.data || []);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function renderClaims(claims){
+  var body = document.getElementById('brainBody');
+  if(!claims.length){
+    body.innerHTML = '<div class="brain-empty">Nothing yet. Do a Resume Feedback session and Ezzy will start building your profile here.</div>';
+    return;
+  }
+  var byType = {};
+  claims.forEach(function(c){
+    if(!byType[c.claim_type]) byType[c.claim_type] = [];
+    byType[c.claim_type].push(c);
+  });
+  var html = '';
+  CLAIM_TYPE_ORDER.forEach(function(type){
+    var group = byType[type];
+    if(!group || !group.length) return;
+    html += '<div class="brain-group-title">'+CLAIM_TYPE_LABELS[type]+'</div>';
+    group.forEach(function(c){
+      var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
+      html += '<div class="brain-claim" data-id="'+c.id+'">'
+        + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+'</span>'
+        + '<span class="brain-status '+c.status+'">'+c.status+'</span></div>'
+        + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
+        + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
+        + '</div>';
+    });
+  });
+  body.innerHTML = html;
+}
+
+async function deleteClaim(id){
+  if(!window.supabaseClient) return;
+  var node = document.querySelector('.brain-claim[data-id="'+id+'"]');
+  if(node) node.style.opacity = '0.4';
+  var res = await window.supabaseClient.from('career_claims').delete().eq('id', id);
+  if(res.error){
+    if(node) node.style.opacity = '1';
+    return;
+  }
+  if(node) node.remove();
+  var body = document.getElementById('brainBody');
+  if(body && !body.querySelector('.brain-claim')) renderClaims([]);
 }
 </script>
 </body>
