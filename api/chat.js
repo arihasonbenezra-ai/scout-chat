@@ -3,7 +3,7 @@ export const runtime = 'edge';
 // Public anon key — same one already embedded in index.html. Not a secret.
 const SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rVG6LNvp6Uzs7F6CxSgJlA_zVobq1hy';
-const ALLOWED_ORIGINS = ['https://meetezzy.com', 'https://scout-chat.vercel.app'];
+const ALLOWED_ORIGINS = ['https://app.meetezzy.com', 'https://meetezzy.com', 'https://scout-chat.vercel.app'];
 const ANON_MESSAGE_LIMIT = 8;
 
 const MODEL_BY_MODE = {
