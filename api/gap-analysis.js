@@ -171,6 +171,27 @@ export default async function handler(req, res) {
     var gapOutput = await anthropicToolCall('claude-sonnet-4-5', GAP_SYSTEM, userContent, GAP_TOOL, 1500);
     var gaps = (gapOutput && Array.isArray(gapOutput.gaps)) ? gapOutput.gaps : [];
 
+    if (gaps.length) {
+      try {
+        await fetch(SUPABASE_URL + '/rest/v1/resume_gap_analyses', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify([{
+            user_id: user.id,
+            jd_text: jdText,
+            requirements: requirements,
+            gaps: gaps
+          }])
+        });
+      } catch (e) {
+        // saving history is best-effort - never block returning the analysis over it
+      }
+    }
+
     return res.status(200).json({ requirements: requirements, gaps: gaps });
   } catch (err) {
     return res.status(500).json({ error: 'Gap analysis error', detail: err.message });
