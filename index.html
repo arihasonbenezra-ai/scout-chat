@@ -469,6 +469,9 @@ var pendingModeSwitch=null;
 var msgEl=document.getElementById('messages');
 var inputEl=document.getElementById('input');
 var sendBtn=document.getElementById('sendBtn');
+var isSending=false;
+function updateSendBtnState(){ sendBtn.disabled = isSending || !inputEl.value.trim(); }
+inputEl.addEventListener('input', updateSendBtnState);
 var emptyState=document.getElementById('emptyState');
 var modePill=document.getElementById('modePill');
 var modePopover=document.getElementById('modePopover');
@@ -729,6 +732,7 @@ function handleSend(){handleSendText(inputEl.value);}
 function handleSendText(text){
   text=text.trim();if(!text)return;
   inputEl.value='';
+  updateSendBtnState();
 
   if(MODE==='research'){
     addMsg('user',text);
@@ -773,7 +777,7 @@ function handleSendText(text){
       RESUME_STAGE='feedback_given';
       var firstUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.';
       convoHistory=[{role:'user',content:firstUserMsg}];
-      sendBtn.disabled=true;
+      isSending=true;updateSendBtnState();
       showTyping();
       streamBotReply(convoHistory.slice(),function(reply){
         if(!reply) return; // blocked (rate limit) or errored - the chat already shows why, nothing to download or learn from
@@ -786,7 +790,7 @@ function handleSendText(text){
     } else {
       convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
-      sendBtn.disabled=true;showTyping();
+      isSending=true;updateSendBtnState();showTyping();
       streamBotReply(convoHistory.slice(),function(reply){
         convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
@@ -796,7 +800,7 @@ function handleSendText(text){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
-    sendBtn.disabled=true;showTyping();
+    isSending=true;updateSendBtnState();showTyping();
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
@@ -847,7 +851,7 @@ function streamBotReply(messages,afterDone){
     fullText=fullSoFar;
     setBubbleText(bubbleNode,fullSoFar);
   },function(){
-    sendBtn.disabled=false;
+    isSending=false;updateSendBtnState();
     if(afterDone)afterDone(fullText);
   });
 }
