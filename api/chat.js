@@ -81,10 +81,35 @@ function researchSystemPrompt(role, company) {
   ].join('\n');
 }
 
-function systemPromptFor(mode, role, company) {
-  if (mode === 'resume') return RESUME_SYSTEM;
+function systemPromptFor(mode, role, company, knownClaimsText) {
+  if (mode === 'resume') {
+    if (!knownClaimsText) return RESUME_SYSTEM;
+    return RESUME_SYSTEM + '\n\nAdditional context Ezzy already knows about this candidate from earlier sessions - reference it if it would strengthen the resume, but never fabricate beyond what is given here or in the resume itself:\n' + knownClaimsText;
+  }
   if (mode === 'research') return researchSystemPrompt(role || 'candidate', company || 'the company');
   return trainerSystemPrompt(mode, role || 'candidate');
+}
+
+async function fetchKnownClaims(token, userId) {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/career_claims?user_id=eq.' + userId +
+      '&select=claim_type,label,status,evidence&order=last_seen_at.desc&limit=20',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
+    );
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+function claimsToText(claims) {
+  if (!claims || !claims.length) return null;
+  return claims.map(function (c) {
+    var quote = c.evidence && c.evidence[0] && c.evidence[0].quote;
+    return '- [' + c.claim_type + '] ' + c.label + ' (' + c.status + ')' + (quote ? ' - "' + quote + '"' : '');
+  }).join('\n');
 }
 
 function corsOrigin(req) {
@@ -160,10 +185,15 @@ export default async function handler(req, res) {
       }
     }
 
+    var knownClaimsText = null;
+    if (mode === 'resume' && user) {
+      knownClaimsText = claimsToText(await fetchKnownClaims(token, user.id));
+    }
+
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
       max_tokens: mode === 'research' ? 4000 : 1000,
-      system: systemPromptFor(mode, role, company),
+      system: systemPromptFor(mode, role, company, knownClaimsText),
       messages: messages,
       stream: isStreaming
     };

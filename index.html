@@ -250,6 +250,18 @@ button,input,textarea{font-family:inherit}
 .learned-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:960;opacity:1;transition:opacity .3s ease}
 .learned-toast a{color:#FFB3AB;text-decoration:underline;cursor:pointer}
 .learned-toast.out{opacity:0}
+
+/* Gap analysis */
+.gap-box{max-width:520px;border:0.5px solid #ECECEC;border-radius:12px;padding:16px 18px;margin:4px 0 16px 38px}
+.gap-title{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#999;margin-bottom:12px}
+.gap-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:0.5px solid #F3F3F3}
+.gap-row:first-of-type{border-top:none;padding-top:0}
+.gap-icon{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:1px}
+.gap-matched .gap-icon{background:#E6F4EA;color:#1E7A3D}
+.gap-partial .gap-icon{background:#FFF3DA;color:#966B0A}
+.gap-missing .gap-icon{background:#FBE7E5;color:#C0392B}
+.gap-req{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
+.gap-note{font-size:12.5px;color:#888;margin-top:2px;line-height:1.5}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -431,6 +443,7 @@ button,input,textarea{font-family:inherit}
 <script>
 var PROXY_URL='/api/chat';
 var EXTRACT_URL='/api/extract';
+var GAP_ANALYSIS_URL='/api/gap-analysis';
 var ROLE=null;
 var RESEARCH_STAGE='idle';
 var RESEARCH_COMPANY='';
@@ -768,6 +781,7 @@ function handleSendText(text){
       saveMessage('assistant', reply);
         appendDownloadButton();
         extractCareerClaims(RESUME_TEXT, JD_TEXT);
+        runGapAnalysis(RESUME_TEXT, JD_TEXT);
       });
     } else {
       convoHistory.push({role:'user',content:text});
@@ -1919,6 +1933,40 @@ async function deleteClaim(id){
   if(node) node.remove();
   var body = document.getElementById('brainBody');
   if(body && !body.querySelector('.brain-claim')) renderClaims([]);
+}
+
+// Gap analysis: how a resume matches a target job, using Career Brain evidence.
+// Signed-in only - anonymous resume review is unaffected either way.
+async function runGapAnalysis(resumeText, jdText){
+  var token = await getAuthTokenIfSignedIn();
+  if(!token) return;
+  try{
+    var res = await fetch(GAP_ANALYSIS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({resumeText: resumeText||'', jdText: jdText||''})
+    });
+    if(!res.ok) return;
+    var data = await res.json();
+    if(data.gaps && data.gaps.length) appendGapAnalysis(data.gaps);
+  }catch(e){ console.error('Gap analysis error:', e); }
+}
+
+function appendGapAnalysis(gaps){
+  var icon = {matched:'✓', partial:'~', missing:'✕'};
+  var box = document.createElement('div');
+  box.className = 'gap-box';
+  var html = '<div class="gap-title">How you match this role</div>';
+  gaps.forEach(function(g){
+    html += '<div class="gap-row gap-'+(g.status||'missing')+'">'
+      + '<span class="gap-icon">'+(icon[g.status]||'?')+'</span>'
+      + '<div><div class="gap-req">'+escapeHtml(g.requirement)+'</div>'
+      + '<div class="gap-note">'+escapeHtml(g.note)+'</div></div>'
+      + '</div>';
+  });
+  box.innerHTML = html;
+  msgEl.appendChild(box);
+  scrollMain();
 }
 </script>
 </body>
