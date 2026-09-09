@@ -262,6 +262,26 @@ button,input,textarea{font-family:inherit}
 .gap-missing .gap-icon{background:#FBE7E5;color:#C0392B}
 .gap-req{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
 .gap-note{font-size:12.5px;color:#888;margin-top:2px;line-height:1.5}
+
+/* Pricing */
+.pricing-panel{background:#fff;border-radius:16px;max-width:720px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.18)}
+.pricing-toggle{display:flex;justify-content:center;gap:6px;padding:4px;margin:0 24px 20px;background:#F5F4F2;border-radius:10px;width:fit-content;margin-left:auto;margin-right:auto}
+.pricing-toggle-btn{border:none;background:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#777;cursor:pointer;font-family:inherit}
+.pricing-toggle-btn.active{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
+.pricing-save{color:#1E7A3D;font-weight:700;margin-left:4px}
+.pricing-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:0 24px 8px}
+.pricing-card{border:1px solid #ECECEC;border-radius:14px;padding:20px 18px;display:flex;flex-direction:column;gap:10px}
+.pricing-card-featured{border-color:#F26B5E;box-shadow:0 4px 16px rgba(242,107,94,0.12)}
+.pricing-card-disabled{opacity:0.6}
+.pricing-card-name{font-size:15px;font-weight:700}
+.pricing-card-tagline{font-size:12.5px;color:#888;min-height:32px}
+.pricing-card-price{font-size:24px;font-weight:700;letter-spacing:-0.01em}
+.pricing-card-price span{font-size:13px;font-weight:500;color:#999}
+.pricing-card-btn{margin-top:auto;background:#F26B5E;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.pricing-card-btn:hover{background:#D9554A}
+.pricing-card-btn:disabled{background:#E6E4E1;color:#999;cursor:not-allowed}
+.pricing-error{color:#D9554A;font-size:13px;text-align:center;padding:8px 24px 20px;min-height:18px}
+@media (max-width:560px){.pricing-cards{grid-template-columns:1fr}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -339,6 +359,7 @@ button,input,textarea{font-family:inherit}
             <div class="header-user-dropdown-email" id="authUserEmail"></div>
             <hr class="header-user-dropdown-sep">
             <button class="header-user-dropdown-item" onclick="openCareerBrainPanel()">What Ezzy knows about you</button>
+            <button class="header-user-dropdown-item" onclick="openPricingModal()">Upgrade</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
         </div>
@@ -1407,6 +1428,42 @@ function onAuthSuccess(user){
     </div>
   </div>
 </div>
+
+<div id="pricingOverlay" class="brain-overlay" onclick="if(event.target===this)closePricingModal()">
+  <div class="pricing-panel">
+    <div class="brain-header">
+      <div>
+        <h3>Upgrade Ezzy</h3>
+        <p>Pick the plan that fits how you're using Ezzy.</p>
+      </div>
+      <button class="brain-close" onclick="closePricingModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="pricing-toggle">
+      <button class="pricing-toggle-btn active" data-interval="monthly" onclick="setPricingInterval('monthly')">Monthly</button>
+      <button class="pricing-toggle-btn" data-interval="yearly" onclick="setPricingInterval('yearly')">Yearly <span class="pricing-save">Save ~40%</span></button>
+    </div>
+    <div class="pricing-cards">
+      <div class="pricing-card">
+        <div class="pricing-card-name">Free</div>
+        <div class="pricing-card-tagline">Get to know Ezzy.</div>
+        <div class="pricing-card-price">$0</div>
+      </div>
+      <div class="pricing-card pricing-card-featured">
+        <div class="pricing-card-name">Pro</div>
+        <div class="pricing-card-tagline">Your AI career coach.</div>
+        <div class="pricing-card-price" id="proPriceDisplay">$19.99<span>/mo</span></div>
+        <button class="pricing-card-btn" onclick="startCheckout('pro')">Upgrade to Pro</button>
+      </div>
+      <div class="pricing-card pricing-card-disabled">
+        <div class="pricing-card-name">Premium</div>
+        <div class="pricing-card-tagline">Your AI career agent.</div>
+        <div class="pricing-card-price" id="premiumPriceDisplay">$39.99<span>/mo</span></div>
+        <button class="pricing-card-btn" disabled>Coming soon</button>
+      </div>
+    </div>
+    <p class="pricing-error" id="pricingError"></p>
+  </div>
+</div>
 <script>
 async function checkAndShowOnboarding(user){
   if(!user || !window.supabaseClient) return;
@@ -1972,6 +2029,81 @@ function appendGapAnalysis(gaps){
   msgEl.appendChild(box);
   scrollMain();
 }
+
+// Pricing / checkout
+var pricingInterval = 'monthly';
+
+function setPricingInterval(interval){
+  pricingInterval = interval;
+  document.querySelectorAll('.pricing-toggle-btn').forEach(function(b){
+    b.classList.toggle('active', b.getAttribute('data-interval')===interval);
+  });
+  document.getElementById('proPriceDisplay').innerHTML = interval==='yearly' ? '$149<span>/yr</span>' : '$19.99<span>/mo</span>';
+  document.getElementById('premiumPriceDisplay').innerHTML = interval==='yearly' ? '$299<span>/yr</span>' : '$39.99<span>/mo</span>';
+}
+
+function openPricingModal(){
+  var dropdown = document.getElementById('authUserDropdown');
+  if(dropdown) dropdown.classList.remove('active');
+  document.getElementById('pricingError').textContent = '';
+  document.getElementById('pricingOverlay').classList.add('active');
+}
+
+function closePricingModal(){
+  document.getElementById('pricingOverlay').classList.remove('active');
+}
+
+async function startCheckout(plan){
+  var errEl = document.getElementById('pricingError');
+  errEl.textContent = '';
+  var token = await getAuthTokenIfSignedIn();
+  if(!token){
+    closePricingModal();
+    showAuthModal('signup');
+    return;
+  }
+  try{
+    var res = await fetch('/api/create-checkout-session', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({plan: plan, interval: pricingInterval})
+    });
+    var data = await res.json();
+    if(!res.ok || !data.url){
+      errEl.textContent = 'Could not start checkout. Try again in a moment.';
+      return;
+    }
+    window.location.href = data.url;
+  }catch(e){
+    errEl.textContent = 'Could not start checkout. Try again in a moment.';
+  }
+}
+
+function showSimpleToast(message){
+  var el = document.createElement('div');
+  el.className = 'learned-toast';
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(function(){
+    el.classList.add('out');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, 5000);
+}
+
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var checkoutResult = params.get('checkout');
+  if(checkoutResult==='success'){
+    showSimpleToast('You\'re subscribed! This can take a few seconds to activate.');
+  } else if(checkoutResult==='cancel'){
+    showSimpleToast('Checkout canceled - you were not charged.');
+  }
+  if(checkoutResult){
+    var url = new URL(window.location.href);
+    url.searchParams.delete('checkout');
+    window.history.replaceState({}, '', url.toString());
+  }
+})();
 </script>
 </body>
 </html>
