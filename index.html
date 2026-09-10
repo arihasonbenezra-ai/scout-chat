@@ -1389,11 +1389,17 @@ async function signInWithGoogle(){
   });
   
   // Listen for auth changes (sign in, sign out)
+  var didAutoRestore = false;
   window.supabaseClient.auth.onAuthStateChange(function(event, session){
     if(session && session.user){
       updateAuthUI(session.user);
-      if(event === 'SIGNED_IN'){
-        // Auto-restore most recent conversation on fresh sign-in
+      // Supabase re-fires SIGNED_IN when a tab regains focus (it re-validates
+      // the session), not just on an actual fresh login - without this guard,
+      // switching tabs and back would silently blow away whatever you were
+      // mid-typing by restoring your most-recently-touched conversation from
+      // any mode over it. Only do this once per page load.
+      if(event === 'SIGNED_IN' && !didAutoRestore){
+        didAutoRestore = true;
         setTimeout(function(){
           if(typeof loadMostRecentConversation === 'function'){
             loadMostRecentConversation().catch(function(e){ console.error('Auto-restore error:', e); });
