@@ -1806,7 +1806,14 @@ async function loadConversationForMode(modeId){
     addMsgWithoutSave(displayRole, m.content);
     convoHistory.push({role: m.role, content: m.content});
   });
-  
+
+  // Restoring a completed review skips handleSendText entirely, so the
+  // buttons that normally follow a reply never got a chance to appear -
+  // same root cause as the "no button" report, just a different path in.
+  if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
+    appendDownloadButton();
+  }
+
   return true;
 }
 async function loadMostRecentConversation(){
