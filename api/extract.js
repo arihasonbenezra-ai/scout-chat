@@ -69,6 +69,27 @@ async function getAuthedUser(token) {
   return data && data.id ? data : null;
 }
 
+async function fetchSubscription(token, userId) {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/subscriptions?user_id=eq.' + userId + '&select=*',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
+    );
+    if (!res.ok) return null;
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function hasActiveAccess(sub) {
+  if (!sub || sub.status !== 'active') return false;
+  if (sub.plan !== 'job_search' && sub.plan !== 'career') return false;
+  if (sub.current_period_end && new Date(sub.current_period_end).getTime() < Date.now()) return false;
+  return true;
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin(req));
   res.setHeader('Vary', 'Origin');
@@ -82,6 +103,11 @@ export default async function handler(req, res) {
     var token = authHeader && authHeader.indexOf('Bearer ') === 0 ? authHeader.slice(7) : null;
     var user = await getAuthedUser(token);
     if (!user) return res.status(401).json({ error: 'Sign in required' });
+
+    var sub = await fetchSubscription(token, user.id);
+    if (!hasActiveAccess(sub) && !(sub && sub.resume_review_credits > 0)) {
+      return res.status(403).json({ error: 'upgrade_required' });
+    }
 
     var body = req.body || {};
     var resumeText = typeof body.resumeText === 'string' ? body.resumeText.slice(0, 20000) : '';

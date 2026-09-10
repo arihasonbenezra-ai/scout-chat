@@ -86,6 +86,45 @@ async function getAuthedUser(token) {
   return data && data.id ? data : null;
 }
 
+async function fetchSubscription(token, userId) {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/subscriptions?user_id=eq.' + userId + '&select=*',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
+    );
+    if (!res.ok) return null;
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function hasActiveAccess(sub) {
+  if (!sub || sub.status !== 'active') return false;
+  if (sub.plan !== 'job_search' && sub.plan !== 'career') return false;
+  if (sub.current_period_end && new Date(sub.current_period_end).getTime() < Date.now()) return false;
+  return true;
+}
+
+async function useResumeReviewCredit(userId) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/use_resume_review_credit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+      },
+      body: JSON.stringify({ p_user_id: userId })
+    });
+    if (!res.ok) return false;
+    return await res.json();
+  } catch (e) {
+    return false;
+  }
+}
+
 async function fetchKnownClaims(token, userId) {
   try {
     var res = await fetch(
@@ -144,6 +183,13 @@ export default async function handler(req, res) {
     var user = await getAuthedUser(token);
     if (!user) return res.status(401).json({ error: 'Sign in required' });
 
+    var sub = await fetchSubscription(token, user.id);
+    var entitled = hasActiveAccess(sub);
+    var hasCredit = sub && sub.resume_review_credits > 0;
+    if (!entitled && !hasCredit) {
+      return res.status(403).json({ error: 'upgrade_required' });
+    }
+
     var body = req.body || {};
     var resumeText = typeof body.resumeText === 'string' ? body.resumeText.slice(0, 20000) : '';
     var jdText = typeof body.jdText === 'string' ? body.jdText.slice(0, 20000) : '';
@@ -190,6 +236,12 @@ export default async function handler(req, res) {
       } catch (e) {
         // saving history is best-effort - never block returning the analysis over it
       }
+    }
+
+    // Only spend a purchased credit - an active Job Search/Career plan grants
+    // this for free, nothing to consume.
+    if (!entitled && hasCredit) {
+      await useResumeReviewCredit(user.id);
     }
 
     return res.status(200).json({ requirements: requirements, gaps: gaps });
