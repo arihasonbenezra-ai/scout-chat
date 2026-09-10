@@ -125,6 +125,8 @@ button,input,textarea{font-family:inherit}
 
 /* Resume PDF download button */
 .download-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 32px}
+.new-review-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:none;color:var(--black);border:0.5px solid var(--border-strong);border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 10px}
+.new-review-btn:hover{background:#FAFAFA}
 .download-btn:hover{background:#222}
     .msg-bot p{margin:0 0 10px}
     .msg-bot p:last-child{margin-bottom:0}
@@ -976,7 +978,46 @@ function appendDownloadButton(){
   btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download PDF';
   btn.onclick=downloadFeedbackPDF;
   msgEl.appendChild(btn);
+
+  var newBtn=document.createElement('button');
+  newBtn.className='new-review-btn';
+  newBtn.textContent='Start a new review';
+  newBtn.onclick=startNewResumeReview;
+  msgEl.appendChild(newBtn);
+
   scrollMain();
+}
+
+// Resume Feedback keeps exactly one conversation per account - re-entering
+// the mode restores it rather than starting fresh (useful if you got
+// interrupted mid-review). This clears it out for real, so someone
+// targeting a different job posting can actually get a second review
+// instead of always landing back on the first one.
+async function startNewResumeReview(){
+  if(window.supabaseClient){
+    try{
+      var sessionRes = await window.supabaseClient.auth.getSession();
+      var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+      if(uid){
+        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', 'resume');
+        query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
+        var existing = await query.maybeSingle();
+        if(existing.data && existing.data.id){
+          await window.supabaseClient.from('messages').delete().eq('conversation_id', existing.data.id);
+          await window.supabaseClient.from('conversations').delete().eq('id', existing.data.id);
+        }
+      }
+    }catch(e){ console.error('Could not clear previous review:', e); }
+  }
+  window._currentConversationId = null;
+  RESUME_TEXT=''; JD_TEXT=''; RESUME_STAGE='awaiting_resume';
+  window.RESUME_TEXT=''; window.JD_TEXT=''; window.RESUME_STAGE='awaiting_resume';
+  convoHistory=[]; window.convoHistory=[];
+  resumeDropDismissed=false;
+  msgEl.innerHTML='';
+  addMsg('bot','Paste your new resume below. Plain text is fine, formatting will be ignored.');
+  inputEl.disabled=false;
+  inputEl.placeholder='Type your answer...';
 }
 
 function downloadFeedbackPDF(){
