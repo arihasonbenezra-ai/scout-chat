@@ -78,6 +78,8 @@ button,input,textarea{font-family:inherit}
 .other-input{flex:1;height:38px;border:0.5px solid var(--coral);border-radius:999px;padding:0 14px;font-size:13px;outline:none;box-shadow:0 0 0 3px rgba(242,107,94,.18);background:var(--white);color:var(--black)}
 .other-confirm{padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .other-confirm:hover{background:#222}
+.other-cancel{padding:9px 14px;background:none;color:#888;border:none;font-size:13px;cursor:pointer;white-space:nowrap}
+.other-cancel:hover{color:#000;text-decoration:underline}
 
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
@@ -397,14 +399,15 @@ button,input,textarea{font-family:inherit}
         <div class="empty-pills" id="rolePills">
           <button class="empty-pill" onclick="pickRole('Software Engineer')">Software Engineer</button>
           <button class="empty-pill" onclick="pickRole('Product Manager')">Product Manager</button>
-          <button class="empty-pill" onclick="pickRole('Designer')">Designer</button>
+          <button class="empty-pill" onclick="pickRole('Product Designer')">Product Designer</button>
           <button class="empty-pill" onclick="pickRole('Recruiter / HR')">Recruiter / HR</button>
           <button class="empty-pill" onclick="pickRole('Marketing')">Marketing</button>
           <button class="empty-pill" onclick="showOtherInput()">Other</button>
         </div>
         <div class="other-input-row" id="otherRow">
-          <input type="text" class="other-input" id="otherInput" placeholder="Type your role..." onkeydown="if(event.key==='Enter'){confirmOtherRole();}"/>
+          <input type="text" class="other-input" id="otherInput" placeholder="Type your role..." onkeydown="if(event.key==='Enter'){confirmOtherRole();} if(event.key==='Escape'){cancelOtherInput();}"/>
           <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
+          <button class="other-cancel" onclick="cancelOtherInput()" aria-label="Cancel">Cancel</button>
         </div>
       </div>
 
@@ -518,6 +521,12 @@ function showOtherInput(){
   Array.from(rolePills.querySelectorAll('.empty-pill')).forEach(function(b){if(b.textContent!=='Other')b.classList.add('fade');});
   otherRow.classList.add('show');
   otherInput.focus();
+}
+
+function cancelOtherInput(){
+  otherInput.value='';
+  otherRow.classList.remove('show');
+  Array.from(rolePills.querySelectorAll('.empty-pill')).forEach(function(b){b.classList.remove('fade');});
 }
 
 function confirmOtherRole(){
