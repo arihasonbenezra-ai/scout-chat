@@ -277,6 +277,8 @@ button,input,textarea{font-family:inherit}
 .pricing-card-btn{margin-top:auto;background:#F26B5E;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .pricing-card-btn:hover{background:#D9554A}
 .pricing-card-btn:disabled{background:#E6E4E1;color:#999;cursor:not-allowed}
+.pricing-card-disabled{opacity:0.6}
+.pricing-card-soon{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999;font-style:italic;min-height:60px}
 /* Job Search is the core offer - featured by elevation/border, not by price rank */
 .pricing-card-hero{border:1.5px solid #F26B5E;box-shadow:0 4px 4px rgba(242,107,94,0.06),0 16px 32px -14px rgba(242,107,94,0.32);transform:translateY(-8px);padding:22px 17px;position:relative}
 .pricing-card-hero .pricing-card-name{color:#F26B5E}
@@ -1480,17 +1482,12 @@ function onAuthSuccess(user){
         </ul>
         <button class="pricing-card-btn" onclick="startCheckout('job_search')">Start Job Search</button>
       </div>
-      <div class="pricing-card">
+      <div class="pricing-card pricing-card-disabled">
         <div class="pricing-card-name">Career</div>
         <div class="pricing-card-tagline">Keep Ezzy on after you're hired.</div>
         <div class="pricing-card-price">$19.99<span>/ month</span></div>
-        <ul class="pricing-card-list">
-          <li>Ongoing career coaching</li>
-          <li>Persistent Career Brain</li>
-          <li>Proactive recommendations</li>
-          <li>Growth beyond the job search</li>
-        </ul>
-        <button class="pricing-card-btn" onclick="startCheckout('career')">Upgrade to Career</button>
+        <div class="pricing-card-soon">Coming soon</div>
+        <button class="pricing-card-btn" disabled>Coming soon</button>
       </div>
     </div>
     <p class="pricing-error" id="pricingError"></p>

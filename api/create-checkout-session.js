@@ -13,7 +13,11 @@ const PLAN_CONFIG = {
   job_search: { mode: 'payment', amount: 4999, label: 'Ezzy Job Search (90 days)' },
   career: { mode: 'subscription', amount: 1999, interval: 'month', label: 'Ezzy Career (Monthly)' }
 };
-const AVAILABLE_PLANS = ['resume_review', 'job_search', 'career'];
+// Career isn't for sale yet: its distinguishing feature (proactive
+// recommendations) doesn't exist, and there's no gating system to make it
+// mean anything different from Free. PLAN_CONFIG keeps its price defined
+// so turning it on later is a one-line change.
+const AVAILABLE_PLANS = ['resume_review', 'job_search'];
 
 function corsOrigin(req) {
   var origin = req.headers && (req.headers.origin || req.headers.Origin);
