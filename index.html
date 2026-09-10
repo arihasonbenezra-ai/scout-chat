@@ -829,8 +829,14 @@ function handleSendText(text){
       saveMessage('user', text);
       isSending=true;updateSendBtnState();showTyping();
       streamBotReply(convoHistory.slice(),function(reply){
+        if(!reply) return;
         convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
+        // Buttons are re-shown after every reply here, not just the first -
+        // someone can keep typing (a new resume, a follow-up question)
+        // without ever clicking "Start a new review", so it needs to stay
+        // available rather than only appearing once.
+        appendDownloadButton();
       });
     }
   } else if(MODE==='trainer'){
