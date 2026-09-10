@@ -615,7 +615,6 @@ async function startMode(modeId,modeTitle){
     MODE='resume';
     RESUME_STAGE='awaiting_resume';
     RESUME_TEXT='';JD_TEXT='';
-    window.RESUME_UNLOCKED = await checkResumeUnlocked();
     addMsg('bot','Paste your resume below. Plain text is fine, formatting will be ignored.');
     return;
   }
@@ -797,18 +796,6 @@ function handleSendText(text){
     addMsg('user',text);
     if(RESUME_STAGE==='awaiting_resume'){
       RESUME_TEXT=text;
-      if(!window.RESUME_UNLOCKED){
-        RESUME_STAGE='feedback_given';
-        convoHistory=[{role:'user',content:'Here is my resume:\n\n'+RESUME_TEXT+'\n\nGive your feedback now.'}];
-        isSending=true;updateSendBtnState();
-        showTyping();
-        streamBotReply(convoHistory.slice(),function(reply){
-          if(!reply) return;
-          convoHistory.push({role:'assistant',content:reply});
-          saveMessage('assistant', reply);
-        });
-        return;
-      }
       RESUME_STAGE='awaiting_jd';
       setTimeout(function(){addMsg('bot','Got it. Now paste the job description you\'re targeting.');},200);
     } else if(RESUME_STAGE==='awaiting_jd'){
@@ -856,26 +843,6 @@ async function getAuthTokenIfSignedIn(){
   }catch(e){ return null; }
 }
 
-// Client-side convenience only, to decide whether to ask for a job
-// description - the server independently re-checks entitlement regardless
-// of what the client thinks, so this never needs to be tamper-proof.
-async function checkResumeUnlocked(){
-  if(!window.supabaseClient) return false;
-  try{
-    var sessionRes = await window.supabaseClient.auth.getSession();
-    var session = sessionRes.data && sessionRes.data.session;
-    if(!session) return false;
-    var res = await window.supabaseClient.from('subscriptions')
-      .select('plan,status,current_period_end,resume_review_credits')
-      .eq('user_id', session.user.id).maybeSingle();
-    if(res.error || !res.data) return false;
-    var sub = res.data;
-    var entitled = sub.status==='active' && (sub.plan==='job_search' || sub.plan==='career') &&
-      (!sub.current_period_end || new Date(sub.current_period_end).getTime() >= Date.now());
-    return !!(entitled || sub.resume_review_credits > 0);
-  }catch(e){ return false; }
-}
-
 function showAnonLimitMessage(){
   hideTyping();
   addMsg('bot','You\'ve used your free messages for today. Sign in (it\'s free) to keep going.');
@@ -891,6 +858,8 @@ function showUpgradeGateMessage(errorCode, detail){
     addMsg('bot','Free includes '+lockedLabel+' only. Upgrade to unlock Practice, STAR, and Mock Interview together.');
   } else if(errorCode === 'free_prep_limit_reached'){
     addMsg('bot','You\'ve hit the 10-question limit for free practice. Upgrade for unlimited practice while you\'re job searching.');
+  } else if(errorCode === 'free_resume_limit_reached'){
+    addMsg('bot','You\'ve used all your free resume reviews. Buy a Resume Review for a full recruiter-style breakdown, or Job Search for unlimited reviews.');
   } else {
     addMsg('bot','Upgrade to unlock this.');
   }

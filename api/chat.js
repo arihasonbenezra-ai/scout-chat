@@ -32,20 +32,10 @@ const RESUME_SYSTEM = [
   '- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
 ].join('\n');
 
-// Free tier: no target job description, no Career Brain personalization -
-// a general, still-genuinely-useful critique, not the paid gap-matched review.
-const RESUME_SYSTEM_FREE = [
-  'You are Ezzy, giving general resume feedback. No target job description was provided - do not assume one or invent a role to compare against.',
-  '',
-  'Identify the TOP 3 highest-impact general improvements: weak or vague bullet points, missing quantification, unclear structure, or generic phrasing. For each:',
-  '1. Quote the exact line that needs work.',
-  '2. Explain in 1 sentence why it is weak.',
-  '3. Give a concrete suggested rewrite.',
-  '',
-  'Never invent experience, metrics, or accomplishments the candidate did not state.',
-  'Total response under 350 words.',
-  'End with exactly this line, verbatim: "Want feedback matched against a specific job, plus what you are missing for it? Upgrade for a full recruiter-style review."'
-].join('\n');
+// Free tier still gets real JD-matched feedback (same core prompt) - what
+// it doesn't get is the structured gap-analysis checklist, Career Brain
+// personalization/saving, or unlimited use. See FREE_RESUME_REVIEW_LIMIT.
+const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want a structured breakdown of exactly what this role requires and whether you meet it, saved to your profile for next time? Upgrade for a full recruiter-style review."';
 
 function trainerSystemPrompt(mode, role) {
   if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
@@ -98,7 +88,7 @@ function researchSystemPrompt(role, company) {
 
 function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked) {
   if (mode === 'resume') {
-    if (!resumeUnlocked) return RESUME_SYSTEM_FREE;
+    if (!resumeUnlocked) return RESUME_SYSTEM + RESUME_UPSELL_LINE;
     if (!knownClaimsText) return RESUME_SYSTEM;
     return RESUME_SYSTEM + '\n\nAdditional context Ezzy already knows about this candidate from earlier sessions - reference it if it would strengthen the resume, but never fabricate beyond what is given here or in the resume itself:\n' + knownClaimsText;
   }
@@ -142,6 +132,30 @@ async function lockFreePrepMode(userId, mode) {
     return await res.json();
   } catch (e) {
     return null;
+  }
+}
+
+const FREE_RESUME_REVIEW_LIMIT = 3;
+
+// Atomic: only succeeds (and increments) while under the limit, so two
+// near-simultaneous requests can't both sneak through. Fails closed
+// (treats an infra error as "limit reached") since this exists specifically
+// to bound cost, not to be generous on our own outages.
+async function useFreeResumeReview(userId) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/use_free_resume_review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+      },
+      body: JSON.stringify({ p_user_id: userId, p_limit: FREE_RESUME_REVIEW_LIMIT })
+    });
+    if (!res.ok) return false;
+    return await res.json();
+  } catch (e) {
+    return false;
   }
 }
 
@@ -258,6 +272,16 @@ export default async function handler(req, res) {
     }
 
     var resumeUnlocked = mode === 'resume' && (entitled || (sub && sub.resume_review_credits > 0));
+
+    // messages.length === 1 is the initial resume(+JD) submission that kicks
+    // off a review - the client always resets to a fresh 1-message array for
+    // that turn. Later back-and-forth in the same review doesn't re-count.
+    if (mode === 'resume' && user && !resumeUnlocked && messages.length === 1) {
+      var allowedFreeReview = await useFreeResumeReview(user.id);
+      if (!allowedFreeReview) {
+        return res.status(403).json({ error: 'free_resume_limit_reached' });
+      }
+    }
 
     var knownClaimsText = null;
     if (mode === 'resume' && user && resumeUnlocked) {
