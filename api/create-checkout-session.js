@@ -117,7 +117,17 @@ export default async function handler(req, res) {
 
     var session = await stripeRes.json();
     if (!stripeRes.ok) {
-      return res.status(502).json({ error: 'Stripe error', detail: session });
+      var keyRaw = process.env.STRIPE_SECRET_KEY || '';
+      return res.status(502).json({
+        error: 'Stripe error',
+        detail: session,
+        keySeenByThisFunction: {
+          present: !!keyRaw,
+          length: keyRaw.length,
+          startsWith: keyRaw.slice(0, 12),
+          endsWith: keyRaw.slice(-6)
+        }
+      });
     }
 
     return res.status(200).json({ url: session.url });

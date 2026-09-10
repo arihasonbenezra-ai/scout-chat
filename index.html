@@ -2070,7 +2070,7 @@ async function startCheckout(plan){
     });
     var data = await res.json();
     if(!res.ok || !data.url){
-      errEl.textContent = 'Could not start checkout. Try again in a moment.';
+      errEl.textContent = 'Error: ' + JSON.stringify(data);
       return;
     }
     window.location.href = data.url;
