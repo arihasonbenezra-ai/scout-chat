@@ -1389,23 +1389,19 @@ async function signInWithGoogle(){
   });
   
   // Listen for auth changes (sign in, sign out)
-  var didAutoRestore = false;
+  // Deliberately NOT auto-restoring "your most recently touched conversation
+  // from any mode" here anymore. A backgrounded tab can get fully discarded
+  // and reloaded by the browser (common under memory pressure) - that's a
+  // fresh page load, so a same-page "only once" guard can't prevent it from
+  // firing again. The failure mode (silently teleporting someone away from
+  // whatever they were mid-typing, to an unrelated old conversation, because
+  // it happens to have the newest timestamp) is worse than the convenience
+  // it bought. Re-entering a specific mode still restores that mode's own
+  // conversation correctly via loadConversationForMode - only the
+  // guess-which-mode-you-meant behavior is gone.
   window.supabaseClient.auth.onAuthStateChange(function(event, session){
     if(session && session.user){
       updateAuthUI(session.user);
-      // Supabase re-fires SIGNED_IN when a tab regains focus (it re-validates
-      // the session), not just on an actual fresh login - without this guard,
-      // switching tabs and back would silently blow away whatever you were
-      // mid-typing by restoring your most-recently-touched conversation from
-      // any mode over it. Only do this once per page load.
-      if(event === 'SIGNED_IN' && !didAutoRestore){
-        didAutoRestore = true;
-        setTimeout(function(){
-          if(typeof loadMostRecentConversation === 'function'){
-            loadMostRecentConversation().catch(function(e){ console.error('Auto-restore error:', e); });
-          }
-        }, 0);
-      }
     } else {
       updateAuthUI(null);
     }
@@ -1821,50 +1817,6 @@ async function loadConversationForMode(modeId){
   }
 
   return true;
-}
-async function loadMostRecentConversation(){
-  if(!window.supabaseClient) return false;
-  window._isRestoring = true;
-  try {
-  var session = await window.supabaseClient.auth.getSession();
-  if(!session.data.session) { window._isRestoring = false; return false; }
-  var userId = session.data.session.user.id;
-  var res = await window.supabaseClient
-    .from('conversations')
-    .select('mode, role')
-    .eq('user_id', userId)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if(res.error || !res.data) return false;
-  var dbMode = res.data.mode;
-  var modeTitle = (dbMode === 'resume') ? 'Resume Feedback'
-    : (dbMode === 'practice') ? 'Practice Q&A'
-    : (dbMode === 'star') ? 'STAR Coaching'
-    : (dbMode === 'mock') ? 'Mock Interview'
-    : (dbMode === 'research') ? 'Company Research'
-    : dbMode;
-  // Set role first so loadConversationForMode picks the right row
-  window.ROLE = res.data.role || null;
-  if(window.ROLE && roleLabel){
-    roleLabel.textContent = window.ROLE;
-    roleLabel.style.display = 'inline';
-    if(dotSep) dotSep.style.display = 'inline';
-  }
-  // Surface the mode pill and label
-  if(modePill) modePill.style.display = 'inline-flex';
-  if(modePillLabel) modePillLabel.textContent = modeTitle;
-  if(typeof setActiveMode === 'function') setActiveMode(dbMode);
-  if(dbMode === 'resume'){ window.MODE = 'resume'; TRAINER_MODE = null; }
-  else if(dbMode === 'research'){ window.MODE = 'research'; TRAINER_MODE = null; }
-  else { window.MODE = 'trainer'; TRAINER_MODE = dbMode; }
-  MODE = window.MODE;
-  window.TRAINER_MODE = TRAINER_MODE;
-  if(emptyState) emptyState.style.display = 'none';
-  var ok = await loadConversationForMode(dbMode);
-  if(ok && inputEl){ inputEl.disabled = false; inputEl.placeholder = 'Type your answer...'; }
-  return ok;
-  } finally { window._isRestoring = false; }
 }
 
 // Version of addMsg that skips the saveMessage hook (so loaded messages don't re-save)
