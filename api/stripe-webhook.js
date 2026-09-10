@@ -43,8 +43,14 @@ function verifyStripeSignature(rawBody, sigHeader, secret) {
   return crypto.timingSafeEqual(a, b);
 }
 
+// Both of these now throw on failure instead of swallowing it - a webhook
+// that silently no-ops while telling Stripe "200, all handled" is worse
+// than one that fails loudly, since a real customer paid for something and
+// got nothing, with no record anywhere that anything went wrong. Throwing
+// here surfaces the error in Vercel's logs and returns a real 500 to
+// Stripe, which will retry the delivery automatically.
 async function upsertSubscription(fields) {
-  await fetch(SUPABASE_URL + '/rest/v1/subscriptions?on_conflict=user_id', {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/subscriptions?on_conflict=user_id', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -54,10 +60,15 @@ async function upsertSubscription(fields) {
     },
     body: JSON.stringify([fields])
   });
+  if (!res.ok) {
+    var body = await res.text();
+    console.error('upsertSubscription failed', res.status, body);
+    throw new Error('upsertSubscription failed: ' + res.status + ' ' + body);
+  }
 }
 
 async function addResumeReviewCredit(userId) {
-  await fetch(SUPABASE_URL + '/rest/v1/rpc/add_resume_review_credit', {
+  var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/add_resume_review_credit', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -66,6 +77,11 @@ async function addResumeReviewCredit(userId) {
     },
     body: JSON.stringify({ p_user_id: userId, p_amount: 1 })
   });
+  if (!res.ok) {
+    var body = await res.text();
+    console.error('addResumeReviewCredit failed', res.status, body);
+    throw new Error('addResumeReviewCredit failed: ' + res.status + ' ' + body);
+  }
 }
 
 function daysFromNow(days) {
