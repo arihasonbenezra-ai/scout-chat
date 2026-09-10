@@ -257,6 +257,13 @@ export default async function handler(req, res) {
     var sub = user ? await fetchSubscription(token, user.id) : null;
     var entitled = hasActiveAccess(sub);
 
+    // Company Research is always part of Job Search - not a Free feature at
+    // all (unlike prep, which gets a limited taste). Applies to anonymous
+    // callers too, since they have no way to be entitled either.
+    if (mode === 'research' && !entitled) {
+      return res.status(403).json({ error: 'research_requires_job_search' });
+    }
+
     if (user && !entitled && (mode === 'practice' || mode === 'star' || mode === 'mock')) {
       var lockedMode = sub && sub.free_prep_mode;
       if (lockedMode && lockedMode !== mode) {

@@ -869,6 +869,8 @@ function showUpgradeGateMessage(errorCode, detail){
     addMsg('bot','You\'ve hit the 10-question limit for free practice. Upgrade for unlimited practice while you\'re job searching.');
   } else if(errorCode === 'free_resume_limit_reached'){
     addMsg('bot','You\'ve used all your free resume reviews. Buy a Resume Review for a full recruiter-style breakdown, or Job Search for unlimited reviews.');
+  } else if(errorCode === 'research_requires_job_search'){
+    addMsg('bot','Company Research is part of Job Search. Upgrade to unlock it.');
   } else {
     addMsg('bot','Upgrade to unlock this.');
   }
@@ -886,6 +888,11 @@ async function callClaudeWithSearch(messages,cb){
       company:window.RESEARCH_COMPANY||RESEARCH_COMPANY,
       messages:messages
     })});
+    if(res.status===403){
+      var gateBody=await res.json().catch(function(){return {};});
+      showUpgradeGateMessage(gateBody.error, gateBody);
+      return;
+    }
     if(res.status===429){ showAnonLimitMessage(); return; }
     var data=await res.json();
     if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
