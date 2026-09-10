@@ -5,21 +5,15 @@ const SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rVG6LNvp6Uzs7F6CxSgJlA_zVobq1hy';
 const ALLOWED_ORIGINS = ['https://app.meetezzy.com', 'https://meetezzy.com', 'https://scout-chat.vercel.app'];
 
-// Premium is intentionally left out of AVAILABLE_PLANS: its whole value prop
-// (proactive opportunity-finding, company monitoring) doesn't exist in the
-// product yet, so it isn't for sale yet either. Prices are still defined
-// here so flipping it on later is a one-line change, not a rebuild.
-const PLAN_PRICES = {
-  pro: {
-    monthly: { amount: 1999, label: 'Ezzy Pro (Monthly)' },
-    yearly: { amount: 14900, label: 'Ezzy Pro (Yearly)' }
-  },
-  premium: {
-    monthly: { amount: 3999, label: 'Ezzy Premium (Monthly)' },
-    yearly: { amount: 29900, label: 'Ezzy Premium (Yearly)' }
-  }
+// Resume Review and Job Search are one-time purchases (Stripe mode
+// "payment") - a job search has a natural end, so neither renews on its
+// own. Career is the only recurring product (mode "subscription").
+const PLAN_CONFIG = {
+  resume_review: { mode: 'payment', amount: 999, label: 'Ezzy Resume Review' },
+  job_search: { mode: 'payment', amount: 4999, label: 'Ezzy Job Search (90 days)' },
+  career: { mode: 'subscription', amount: 1999, interval: 'month', label: 'Ezzy Career (Monthly)' }
 };
-const AVAILABLE_PLANS = ['pro'];
+const AVAILABLE_PLANS = ['resume_review', 'job_search', 'career'];
 
 function corsOrigin(req) {
   var origin = req.headers && (req.headers.origin || req.headers.Origin);
@@ -81,12 +75,37 @@ export default async function handler(req, res) {
 
     var body = req.body || {};
     var plan = body.plan;
-    var interval = body.interval === 'yearly' ? 'yearly' : 'monthly';
 
-    if (AVAILABLE_PLANS.indexOf(plan) === -1 || !PLAN_PRICES[plan]) {
-      return res.status(400).json({ error: 'Plan not available yet' });
+    if (AVAILABLE_PLANS.indexOf(plan) === -1 || !PLAN_CONFIG[plan]) {
+      return res.status(400).json({ error: 'Plan not available' });
     }
-    var priceInfo = PLAN_PRICES[plan][interval];
+    var priceInfo = PLAN_CONFIG[plan];
+
+    var priceData = {
+      currency: 'usd',
+      unit_amount: priceInfo.amount,
+      product_data: { name: priceInfo.label }
+    };
+    if (priceInfo.mode === 'subscription') {
+      priceData.recurring = { interval: priceInfo.interval };
+    }
+
+    var sessionParams = {
+      mode: priceInfo.mode,
+      customer_email: user.email,
+      client_reference_id: user.id,
+      success_url: origin + '/?checkout=success',
+      cancel_url: origin + '/?checkout=cancel',
+      line_items: [{ quantity: 1, price_data: priceData }],
+      // Top-level session metadata covers one-time payments
+      // (checkout.session.completed); subscription_data.metadata additionally
+      // propagates onto the Subscription object for customer.subscription.*
+      // events, which is what the webhook actually listens to for Career.
+      metadata: { supabase_user_id: user.id, plan: plan }
+    };
+    if (priceInfo.mode === 'subscription') {
+      sessionParams.subscription_data = { metadata: { supabase_user_id: user.id, plan: plan } };
+    }
 
     var stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
       method: 'POST',
@@ -94,25 +113,7 @@ export default async function handler(req, res) {
         Authorization: 'Bearer ' + process.env.STRIPE_SECRET_KEY,
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: stripeFormBody({
-        mode: 'subscription',
-        customer_email: user.email,
-        client_reference_id: user.id,
-        success_url: origin + '/?checkout=success',
-        cancel_url: origin + '/?checkout=cancel',
-        line_items: [{
-          quantity: 1,
-          price_data: {
-            currency: 'usd',
-            unit_amount: priceInfo.amount,
-            recurring: { interval: interval === 'yearly' ? 'year' : 'month' },
-            product_data: { name: priceInfo.label }
-          }
-        }],
-        subscription_data: {
-          metadata: { supabase_user_id: user.id, plan: plan, billing_interval: interval }
-        }
-      })
+      body: stripeFormBody(sessionParams)
     });
 
     var session = await stripeRes.json();

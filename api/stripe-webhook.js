@@ -56,6 +56,22 @@ async function upsertSubscription(fields) {
   });
 }
 
+async function addResumeReviewCredit(userId) {
+  await fetch(SUPABASE_URL + '/rest/v1/rpc/add_resume_review_credit', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+    },
+    body: JSON.stringify({ p_user_id: userId, p_amount: 1 })
+  });
+}
+
+function daysFromNow(days) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
 function planStatus(stripeStatus) {
   if (stripeStatus === 'active' || stripeStatus === 'trialing') return 'active';
   if (stripeStatus === 'past_due' || stripeStatus === 'unpaid') return 'past_due';
@@ -87,15 +103,27 @@ export default async function handler(req, res) {
   try {
     var obj = event.data && event.data.object;
 
-    if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+    if (event.type === 'checkout.session.completed' && obj.mode === 'payment') {
+      var payMeta = obj.metadata || {};
+      if (payMeta.supabase_user_id && payMeta.plan === 'resume_review') {
+        await addResumeReviewCredit(payMeta.supabase_user_id);
+      } else if (payMeta.supabase_user_id && payMeta.plan === 'job_search') {
+        await upsertSubscription({
+          user_id: payMeta.supabase_user_id,
+          plan: 'job_search',
+          status: 'active',
+          stripe_customer_id: obj.customer,
+          current_period_end: daysFromNow(90),
+          updated_at: new Date().toISOString()
+        });
+      }
+    } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
       var meta = obj.metadata || {};
       if (meta.supabase_user_id) {
-        var item = obj.items && obj.items.data && obj.items.data[0];
-        var interval = item && item.price && item.price.recurring && item.price.recurring.interval;
         await upsertSubscription({
           user_id: meta.supabase_user_id,
-          plan: obj.status === 'canceled' ? 'free' : (meta.plan || 'pro'),
-          billing_interval: interval === 'year' ? 'yearly' : 'monthly',
+          plan: obj.status === 'canceled' ? 'free' : (meta.plan || 'career'),
+          billing_interval: 'monthly',
           status: planStatus(obj.status),
           stripe_customer_id: obj.customer,
           stripe_subscription_id: obj.id,

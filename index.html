@@ -264,24 +264,27 @@ button,input,textarea{font-family:inherit}
 .gap-note{font-size:12.5px;color:#888;margin-top:2px;line-height:1.5}
 
 /* Pricing */
-.pricing-panel{background:#fff;border-radius:16px;max-width:720px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.18)}
-.pricing-toggle{display:flex;justify-content:center;gap:6px;padding:4px;margin:0 24px 20px;background:#F5F4F2;border-radius:10px;width:fit-content;margin-left:auto;margin-right:auto}
-.pricing-toggle-btn{border:none;background:none;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#777;cursor:pointer;font-family:inherit}
-.pricing-toggle-btn.active{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,0.1)}
-.pricing-save{color:#1E7A3D;font-weight:700;margin-left:4px}
-.pricing-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:0 24px 8px}
-.pricing-card{border:1px solid #ECECEC;border-radius:14px;padding:20px 18px;display:flex;flex-direction:column;gap:10px}
-.pricing-card-featured{border-color:#F26B5E;box-shadow:0 4px 16px rgba(242,107,94,0.12)}
-.pricing-card-disabled{opacity:0.6}
-.pricing-card-name{font-size:15px;font-weight:700}
-.pricing-card-tagline{font-size:12.5px;color:#888;min-height:32px}
-.pricing-card-price{font-size:24px;font-weight:700;letter-spacing:-0.01em}
-.pricing-card-price span{font-size:13px;font-weight:500;color:#999}
-.pricing-card-btn{margin-top:auto;background:#F26B5E;color:#fff;border:none;border-radius:9px;padding:11px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.pricing-panel{background:#fff;border-radius:16px;max-width:840px;width:94%;max-height:88vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.18)}
+.pricing-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:4px 24px 8px;align-items:start}
+.pricing-card{border:1px solid #ECECEC;border-radius:14px;padding:18px 15px;display:flex;flex-direction:column;gap:9px;background:#fff}
+.pricing-card-tagline{font-size:11.5px;color:#888;min-height:30px;line-height:1.4}
+.pricing-card-name{font-size:14px;font-weight:700}
+.pricing-card-price{font-size:19px;font-weight:700;letter-spacing:-0.01em}
+.pricing-card-price span{font-size:11.5px;font-weight:500;color:#999}
+.pricing-card-list{list-style:none;margin:0;padding:0;font-size:11.5px;color:#666;line-height:1.75;flex:1}
+.pricing-card-list li{padding-left:14px;position:relative}
+.pricing-card-list li::before{content:'';position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:#B8B4AE}
+.pricing-card-btn{margin-top:auto;background:#F26B5E;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
 .pricing-card-btn:hover{background:#D9554A}
 .pricing-card-btn:disabled{background:#E6E4E1;color:#999;cursor:not-allowed}
-.pricing-error{color:#D9554A;font-size:13px;text-align:center;padding:8px 24px 20px;min-height:18px}
-@media (max-width:560px){.pricing-cards{grid-template-columns:1fr}}
+/* Job Search is the core offer - featured by elevation/border, not by price rank */
+.pricing-card-hero{border:1.5px solid #F26B5E;box-shadow:0 4px 4px rgba(242,107,94,0.06),0 16px 32px -14px rgba(242,107,94,0.32);transform:translateY(-8px);padding:22px 17px;position:relative}
+.pricing-card-hero .pricing-card-name{color:#F26B5E}
+.pricing-card-hero .pricing-card-list li::before{background:#F26B5E}
+.pricing-hero-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#F26B5E;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.pricing-error{color:#D9554A;font-size:13px;text-align:center;padding:8px 24px 4px;min-height:18px}
+@media (max-width:720px){.pricing-cards{grid-template-columns:repeat(2,1fr)}.pricing-card-hero{transform:none;order:-1}}
+@media (max-width:480px){.pricing-cards{grid-template-columns:1fr}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
@@ -1438,27 +1441,56 @@ function onAuthSuccess(user){
       </div>
       <button class="brain-close" onclick="closePricingModal()" aria-label="Close">&times;</button>
     </div>
-    <div class="pricing-toggle">
-      <button class="pricing-toggle-btn active" data-interval="monthly" onclick="setPricingInterval('monthly')">Monthly</button>
-      <button class="pricing-toggle-btn" data-interval="yearly" onclick="setPricingInterval('yearly')">Yearly <span class="pricing-save">Save ~40%</span></button>
-    </div>
     <div class="pricing-cards">
       <div class="pricing-card">
         <div class="pricing-card-name">Free</div>
         <div class="pricing-card-tagline">Get to know Ezzy.</div>
         <div class="pricing-card-price">$0</div>
+        <ul class="pricing-card-list">
+          <li>Try Ezzy</li>
+          <li>Limited AI usage</li>
+          <li>Basic resume review</li>
+          <li>Interview prep</li>
+        </ul>
       </div>
-      <div class="pricing-card pricing-card-featured">
-        <div class="pricing-card-name">Pro</div>
-        <div class="pricing-card-tagline">Your AI career coach.</div>
-        <div class="pricing-card-price" id="proPriceDisplay">$19.99<span>/mo</span></div>
-        <button class="pricing-card-btn" onclick="startCheckout('pro')">Upgrade to Pro</button>
+      <div class="pricing-card">
+        <div class="pricing-card-name">Resume Review</div>
+        <div class="pricing-card-tagline">One resume, done right.</div>
+        <div class="pricing-card-price">$9.99<span>one-time</span></div>
+        <ul class="pricing-card-list">
+          <li>Full recruiter-style analysis</li>
+          <li>Target job matching</li>
+          <li>Career Brain gap analysis</li>
+          <li>Specific recommendations</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('resume_review')">Buy a Review</button>
       </div>
-      <div class="pricing-card pricing-card-disabled">
-        <div class="pricing-card-name">Premium</div>
-        <div class="pricing-card-tagline">Your AI career agent.</div>
-        <div class="pricing-card-price" id="premiumPriceDisplay">$39.99<span>/mo</span></div>
-        <button class="pricing-card-btn" disabled>Coming soon</button>
+      <div class="pricing-card pricing-card-hero">
+        <span class="pricing-hero-badge">Core offer</span>
+        <div class="pricing-card-name">Job Search</div>
+        <div class="pricing-card-tagline">Full support while you're searching.</div>
+        <div class="pricing-card-price">$49.99<span>/ 90 days</span></div>
+        <ul class="pricing-card-list">
+          <li>Resume reviews</li>
+          <li>Interview prep</li>
+          <li>Mock interviews</li>
+          <li>Company research</li>
+          <li>Job-specific coaching</li>
+          <li>Career Brain</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('job_search')">Start Job Search</button>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-card-name">Career</div>
+        <div class="pricing-card-tagline">Keep Ezzy on after you're hired.</div>
+        <div class="pricing-card-price">$19.99<span>/ month</span></div>
+        <ul class="pricing-card-list">
+          <li>Ongoing career coaching</li>
+          <li>Persistent Career Brain</li>
+          <li>Proactive recommendations</li>
+          <li>Growth beyond the job search</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('career')">Upgrade to Career</button>
       </div>
     </div>
     <p class="pricing-error" id="pricingError"></p>
@@ -2031,17 +2063,6 @@ function appendGapAnalysis(gaps){
 }
 
 // Pricing / checkout
-var pricingInterval = 'monthly';
-
-function setPricingInterval(interval){
-  pricingInterval = interval;
-  document.querySelectorAll('.pricing-toggle-btn').forEach(function(b){
-    b.classList.toggle('active', b.getAttribute('data-interval')===interval);
-  });
-  document.getElementById('proPriceDisplay').innerHTML = interval==='yearly' ? '$149<span>/yr</span>' : '$19.99<span>/mo</span>';
-  document.getElementById('premiumPriceDisplay').innerHTML = interval==='yearly' ? '$299<span>/yr</span>' : '$39.99<span>/mo</span>';
-}
-
 function openPricingModal(){
   var dropdown = document.getElementById('authUserDropdown');
   if(dropdown) dropdown.classList.remove('active');
@@ -2066,7 +2087,7 @@ async function startCheckout(plan){
     var res = await fetch('/api/create-checkout-session', {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
-      body: JSON.stringify({plan: plan, interval: pricingInterval})
+      body: JSON.stringify({plan: plan})
     });
     var data = await res.json();
     if(!res.ok || !data.url){
