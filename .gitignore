@@ -1,4 +1,10 @@
-.vercel
+.env
+.env.*
 .env*.local
-scout-proxy/
+!.env.example
+.vercel
+.DS_Store
+node_modules
+*.bak.*
+__pycache__
 scout-proxy/

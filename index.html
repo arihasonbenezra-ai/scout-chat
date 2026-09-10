@@ -78,6 +78,8 @@ button,input,textarea{font-family:inherit}
 .other-input{flex:1;height:38px;border:0.5px solid var(--coral);border-radius:999px;padding:0 14px;font-size:13px;outline:none;box-shadow:0 0 0 3px rgba(242,107,94,.18);background:var(--white);color:var(--black)}
 .other-confirm{padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
 .other-confirm:hover{background:#222}
+.other-cancel{padding:9px 14px;background:none;color:#888;border:none;font-size:13px;cursor:pointer;white-space:nowrap}
+.other-cancel:hover{color:#000;text-decoration:underline}
 
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
@@ -123,6 +125,8 @@ button,input,textarea{font-family:inherit}
 
 /* Resume PDF download button */
 .download-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:var(--black);color:var(--white);border:none;border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 32px}
+.new-review-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;background:none;color:var(--black);border:0.5px solid var(--border-strong);border-radius:999px;font-size:13px;font-weight:500;cursor:pointer;margin:8px 0 0 10px}
+.new-review-btn:hover{background:#FAFAFA}
 .download-btn:hover{background:#222}
     .msg-bot p{margin:0 0 10px}
     .msg-bot p:last-child{margin-bottom:0}
@@ -167,9 +171,145 @@ button,input,textarea{font-family:inherit}
 .beta-tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.08em;color:#666666;background:#F0F0F0;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;text-transform:uppercase}
 .choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
 .choice-pill:hover{border-color:#F26B5E;background:#FCEAE6}
+.auth-modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)}
+.auth-modal.active{display:flex}
+.auth-modal-card{background:#FFFFFF;border-radius:20px;padding:40px 32px 28px;max-width:420px;width:100%;text-align:center;position:relative;box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+.auth-face{margin-bottom:18px;display:flex;justify-content:center}
+.auth-modal-card h3{color:#000;font-size:24px;margin:0 0 6px;font-weight:600;letter-spacing:-0.01em}
+.auth-modal-card p{color:#666;font-size:14px;margin:0 0 24px;line-height:1.5}
+.auth-modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:#888;font-size:28px;cursor:pointer;line-height:1;padding:4px 8px;transition:color .15s}
+.auth-modal-close:hover{color:#000}
+.auth-google-btn{width:100%;background:#fff;color:#000;border:0.5px solid #2A2020;border-radius:8px;padding:11px 16px;font-size:14px;font-weight:500;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:background .15s;margin-bottom:18px}
+.auth-google-btn:hover{background:#FAFAFA}
+.auth-divider{display:flex;align-items:center;gap:12px;margin:0 0 18px;color:#999;font-size:12px}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:0.5px;background:#E0E0E0}
+.auth-form{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.auth-input{width:100%;padding:11px 14px;border:0.5px solid #D0D0D0;border-radius:8px;font-size:14px;font-family:inherit;transition:border-color .15s;box-sizing:border-box}
+.auth-input:focus{outline:none;border-color:#F26B5E}
+.auth-input#authName{display:block}
+.auth-modal.signin-mode #authName{display:none}
+.auth-submit-btn{background:#F26B5E;color:#fff;border:none;border-radius:8px;padding:12px 24px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+.auth-submit-btn:hover{background:#D9554A}
+.auth-submit-btn:disabled{background:#FCAF9F;cursor:not-allowed}
+.auth-error{color:#D9554A;font-size:13px;min-height:18px;margin:8px 0 0}
+.auth-error:empty{margin:0}
+.auth-toggle{color:#666;font-size:13px;margin-top:18px}
+.auth-toggle a{color:#F26B5E;cursor:pointer;text-decoration:underline;font-weight:500}
+.header{display:flex;align-items:center;justify-content:space-between}
+.header-right{display:flex;align-items:center;gap:8px;position:relative}
+.header-signin-btn{background:#000;color:#fff;border:none;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
+.header-signin-btn:hover{background:#222}
+.header-user-menu{position:relative}
+.header-user-btn{background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 10px 4px 4px;border-radius:999px;transition:background .15s}
+.header-user-btn:hover{background:#F5F5F5}
+.header-user-initial{width:30px;height:30px;border-radius:50%;background:#F26B5E;color:#fff;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.header-user-name{font-size:13px;color:#000;font-weight:500}
+.header-user-dropdown{display:none;position:absolute;top:calc(100% + 6px);right:0;background:#fff;border:0.5px solid #E0E0E0;border-radius:10px;min-width:200px;box-shadow:0 8px 24px rgba(0,0,0,0.08);overflow:hidden;z-index:50}
+.header-user-dropdown.active{display:block}
+.header-user-dropdown-email{padding:12px 14px;font-size:12px;color:#666;word-break:break-all}
+.header-user-dropdown-sep{margin:0;border:none;border-top:0.5px solid #F0F0F0}
+.header-user-dropdown-item{display:block;width:100%;background:none;border:none;text-align:left;padding:10px 14px;font-size:13px;color:#000;cursor:pointer;font-family:inherit}
+.header-user-dropdown-item:hover{background:#F5F5F5}
+.onboarding-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.97);z-index:900;align-items:center;justify-content:center;padding:24px}
+.onboarding-overlay.active{display:flex}.goodbye-secondary-btn{background:transparent;border:none;color:#666;font:inherit;padding:8px 16px;margin-top:8px;cursor:pointer;text-decoration:underline}.goodbye-secondary-btn:hover{color:#000}
+.onboarding-card{max-width:440px;width:100%;text-align:center;animation:onboardingIn 0.5s ease forwards}
+@keyframes onboardingIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.onboarding-face{margin-bottom:24px;display:flex;justify-content:center}
+.onboarding-card h3{color:#000;font-size:32px;margin:0 0 10px;font-weight:600;letter-spacing:-0.02em}
+.onboarding-card p{color:#666;font-size:15px;margin:0 0 32px;line-height:1.5}
+.onboarding-form{display:flex;flex-direction:column;gap:12px}
+.onboarding-input{width:100%;padding:14px 18px;border:0.5px solid #D0D0D0;border-radius:10px;font-size:16px;font-family:inherit;text-align:center;transition:border-color .15s;box-sizing:border-box}
+.onboarding-input:focus{outline:none;border-color:#F26B5E}
+.onboarding-submit-btn{background:#F26B5E;color:#fff;border:none;border-radius:10px;padding:14px 24px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s}
+.onboarding-submit-btn:hover{background:#D9554A}
+.onboarding-submit-btn:disabled{background:#FCAF9F;cursor:not-allowed}
+.onboarding-error{color:#D9554A;font-size:13px;min-height:18px;margin:14px 0 0}
+.onboarding-error:empty{margin:0}
+
+/* Career Brain panel */
+.brain-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:950}
+.brain-overlay.active{display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.brain-panel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100%;background:#fff;box-shadow:-8px 0 24px rgba(0,0,0,0.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease}
+.brain-overlay.active .brain-panel{transform:translateX(0)}
+.brain-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:0.5px solid #EDEDED}
+.brain-header h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-0.01em}
+.brain-header p{margin:2px 0 0;font-size:12.5px;color:#777}
+.brain-close{background:none;border:none;font-size:20px;color:#999;cursor:pointer;line-height:1;padding:4px}
+.brain-close:hover{color:#000}
+.brain-body{flex:1;overflow-y:auto;padding:14px 20px 24px}
+.brain-empty{color:#888;font-size:13.5px;line-height:1.6;padding:24px 0;text-align:center}
+.brain-group-title{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#999;margin:20px 0 8px}
+.brain-group-title:first-child{margin-top:4px}
+.brain-claim{border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px}
+.brain-claim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.brain-claim-label{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
+.brain-status{flex:none;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;padding:2px 7px;border-radius:5px;margin-top:1px}
+.brain-status.fact{background:#E6F4EA;color:#1E7A3D}
+.brain-status.inference{background:#FFF3DA;color:#966B0A}
+.brain-status.hypothesis{background:#F1EAFB;color:#6A3FBF}
+.brain-evidence{font-size:12px;color:#888;margin-top:6px;font-style:italic;line-height:1.5}
+.brain-remove{background:none;border:none;color:#B8B4AE;font-size:11.5px;cursor:pointer;padding:6px 0 0;text-decoration:underline}
+.brain-remove:hover{color:#D9554A}
+
+.learned-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:960;opacity:1;transition:opacity .3s ease}
+.learned-toast a{color:#FFB3AB;text-decoration:underline;cursor:pointer}
+.learned-toast.out{opacity:0}
+
+/* Gap analysis */
+.gap-box{max-width:520px;border:0.5px solid #ECECEC;border-radius:12px;padding:16px 18px;margin:4px 0 16px 38px}
+.gap-title{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#999;margin-bottom:12px}
+.gap-row{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-top:0.5px solid #F3F3F3}
+.gap-row:first-of-type{border-top:none;padding-top:0}
+.gap-icon{flex:none;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-top:1px}
+.gap-matched .gap-icon{background:#E6F4EA;color:#1E7A3D}
+.gap-partial .gap-icon{background:#FFF3DA;color:#966B0A}
+.gap-missing .gap-icon{background:#FBE7E5;color:#C0392B}
+.gap-req{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
+.gap-note{font-size:12.5px;color:#888;margin-top:2px;line-height:1.5}
+
+/* Pricing */
+.pricing-panel{background:rgba(255,255,255,0.94);backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);border:1px solid rgba(255,255,255,0.6);border-radius:18px;max-width:840px;width:94%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,0.22),inset 0 1px 0 rgba(255,255,255,0.9)}
+.pricing-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:4px 24px 8px;align-items:start}
+.pricing-card{border:1px solid #ECECEC;border-radius:14px;padding:18px 15px;display:flex;flex-direction:column;gap:9px;background:#fff}
+.pricing-card-tagline{font-size:11.5px;color:#888;min-height:30px;line-height:1.4}
+.pricing-card-name{font-size:14px;font-weight:700}
+.pricing-card-price{font-size:19px;font-weight:700;letter-spacing:-0.01em}
+.pricing-card-price span{font-size:11.5px;font-weight:500;color:#999}
+.pricing-card-list{list-style:none;margin:0;padding:0;font-size:11.5px;color:#666;line-height:1.75;flex:1}
+.pricing-card-list li{padding-left:14px;position:relative}
+.pricing-card-list li::before{content:'';position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:#B8B4AE}
+.pricing-card-btn{margin-top:auto;background:#F26B5E;color:#fff;border:none;border-radius:9px;padding:10px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit}
+.pricing-card-btn:hover{background:#D9554A}
+.pricing-card-btn:disabled{background:#E6E4E1;color:#999;cursor:not-allowed}
+.pricing-card-disabled{opacity:0.6}
+.pricing-card-soon{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999;font-style:italic;min-height:60px}
+/* Job Search is the core offer - featured by elevation/border, not by price rank */
+.pricing-card-hero{border:1.5px solid #F26B5E;box-shadow:0 4px 4px rgba(242,107,94,0.06),0 16px 32px -14px rgba(242,107,94,0.32);transform:translateY(-8px);padding:22px 17px;position:relative}
+.pricing-card-hero .pricing-card-name{color:#F26B5E}
+.pricing-card-hero .pricing-card-list li::before{background:#F26B5E}
+.pricing-hero-badge{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:#F26B5E;color:#fff;font-size:9px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.pricing-error{color:#D9554A;font-size:13px;text-align:center;padding:8px 24px 4px;min-height:18px}
+@media (max-width:720px){.pricing-cards{grid-template-columns:repeat(2,1fr)}.pricing-card-hero{transform:none;order:-1}}
+@media (max-width:480px){.pricing-cards{grid-template-columns:1fr}}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib){window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';}</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+  // Supabase config - REPLACE WITH YOUR VALUES
+  var SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
+  var SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_rVG6LNvp6Uzs7F6CxSgJlA_zVobq1hy';
+  
+  if(SUPABASE_URL.indexOf('YOUR_') === 0 || SUPABASE_PUBLISHABLE_KEY.indexOf('YOUR_') === 0){
+    console.warn('Supabase not configured yet - replace placeholders in index.html');
+    return;
+  }
+  
+  window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+  console.log('Supabase initialized');
+})();
+</script>
 </head>
 <body>
 <div class="app">
@@ -217,7 +357,23 @@ button,input,textarea{font-family:inherit}
         </div>
       </div>
     </div>
-  </header>
+        <div class="header-right">
+        <button id="authSignInBtn" class="header-signin-btn" onclick="showAuthModal('signin')">Sign In</button>
+        <div id="authUserMenu" class="header-user-menu" style="display:none">
+          <button id="authUserBtn" class="header-user-btn" onclick="toggleUserDropdown()">
+            <span id="authUserInitial" class="header-user-initial">?</span>
+            <span id="authUserName" class="header-user-name"></span>
+          </button>
+          <div id="authUserDropdown" class="header-user-dropdown">
+            <div class="header-user-dropdown-email" id="authUserEmail"></div>
+            <hr class="header-user-dropdown-sep">
+            <button class="header-user-dropdown-item" onclick="openCareerBrainPanel()">What Ezzy knows about you</button>
+            <button class="header-user-dropdown-item" onclick="openPricingModal()">Upgrade</button>
+            <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </header>
 
   <main class="main" id="main">
     <div class="drop-zone-overlay" id="dropZone">
@@ -245,14 +401,15 @@ button,input,textarea{font-family:inherit}
         <div class="empty-pills" id="rolePills">
           <button class="empty-pill" onclick="pickRole('Software Engineer')">Software Engineer</button>
           <button class="empty-pill" onclick="pickRole('Product Manager')">Product Manager</button>
-          <button class="empty-pill" onclick="pickRole('Designer')">Designer</button>
+          <button class="empty-pill" onclick="pickRole('Product Designer')">Product Designer</button>
           <button class="empty-pill" onclick="pickRole('Recruiter / HR')">Recruiter / HR</button>
           <button class="empty-pill" onclick="pickRole('Marketing')">Marketing</button>
           <button class="empty-pill" onclick="showOtherInput()">Other</button>
         </div>
         <div class="other-input-row" id="otherRow">
-          <input type="text" class="other-input" id="otherInput" placeholder="Type your role..." onkeydown="if(event.key==='Enter'){confirmOtherRole();}"/>
+          <input type="text" class="other-input" id="otherInput" placeholder="Type your role..." onkeydown="if(event.key==='Enter'){confirmOtherRole();} if(event.key==='Escape'){cancelOtherInput();}"/>
           <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
+          <button class="other-cancel" onclick="cancelOtherInput()" aria-label="Cancel">Cancel</button>
         </div>
       </div>
 
@@ -315,7 +472,9 @@ button,input,textarea{font-family:inherit}
 })();
 </script>
 <script>
-var PROXY_URL='https://scout-chat.vercel.app/api/chat';
+var PROXY_URL='/api/chat';
+var EXTRACT_URL='/api/extract';
+var GAP_ANALYSIS_URL='/api/gap-analysis';
 var ROLE=null;
 var RESEARCH_STAGE='idle';
 var RESEARCH_COMPANY='';
@@ -325,11 +484,25 @@ var RESUME_STAGE=null;
 var RESUME_TEXT='';
 var JD_TEXT='';
 var convoHistory=[];
+
+function syncWindowState(){
+  window.ROLE = ROLE;
+  window.MODE = MODE;
+  window.TRAINER_MODE = TRAINER_MODE;
+  window.convoHistory = convoHistory;
+  window.RESUME_TEXT = RESUME_TEXT;
+  window.JD_TEXT = JD_TEXT;
+  window.RESUME_STAGE = RESUME_STAGE;
+}
+
 var pendingModeSwitch=null;
 
 var msgEl=document.getElementById('messages');
 var inputEl=document.getElementById('input');
 var sendBtn=document.getElementById('sendBtn');
+var isSending=false;
+function updateSendBtnState(){ sendBtn.disabled = isSending || !inputEl.value.trim(); }
+inputEl.addEventListener('input', updateSendBtnState);
 var emptyState=document.getElementById('emptyState');
 var modePill=document.getElementById('modePill');
 var modePopover=document.getElementById('modePopover');
@@ -352,6 +525,12 @@ function showOtherInput(){
   otherInput.focus();
 }
 
+function cancelOtherInput(){
+  otherInput.value='';
+  otherRow.classList.remove('show');
+  Array.from(rolePills.querySelectorAll('.empty-pill')).forEach(function(b){b.classList.remove('fade');});
+}
+
 function confirmOtherRole(){
   var v=otherInput.value.trim();
   if(!v)return;
@@ -360,6 +539,7 @@ function confirmOtherRole(){
 
 function pickRole(role){
   ROLE=role;
+  window.ROLE=role;
   emptyState.style.display='none';
   roleLabel.textContent=role;
   roleLabel.style.display='inline';
@@ -421,12 +601,27 @@ function pickPracticeType(modeId, modeTitle){
   startMode(modeId, modeTitle);
 }
 
-function startMode(modeId,modeTitle){
+async function startMode(modeId,modeTitle){
+  if(window._isRestoring) return;
+  if(window.resetConversationTracking) window.resetConversationTracking();
   TRAINER_MODE=modeId;
+  window.TRAINER_MODE=modeId;
   modePillLabel.textContent=modeTitle;
   setActiveMode(modeId);
   msgEl.innerHTML='';
   convoHistory=[];
+  
+  // Try to restore saved conversation BEFORE firing kickoff
+  var restored = false;
+  try {
+    restored = await loadConversationForMode(modeId);
+    if(restored){
+      window.MODE = (modeId === 'resume') ? 'resume' : 'trainer';
+    }
+  } catch(e){ console.error('Restore error:', e); }
+  
+  if(restored) return;
+  
   if(modeId==='resume'){
     MODE='resume';
     RESUME_STAGE='awaiting_resume';
@@ -436,16 +631,20 @@ function startMode(modeId,modeTitle){
   }
   if(modeId==='research'){
     MODE='research';
+    window.MODE='research';
     RESEARCH_STAGE='awaiting_company';
+    window.RESEARCH_STAGE='awaiting_company';
     RESEARCH_COMPANY='';
+    window.RESEARCH_COMPANY='';
     addMsg('bot','What company are you researching? Type the name and I\'ll pull together a brief tailored to your '+ROLE+' interview.');
     return;
   }
   MODE='trainer';
   showTyping();
-  streamBotReply(getSystemPrompt(),[{role:'user',content:'Start the session now.'}],function(reply){
+  streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
-  },getModelForMode());
+    saveMessage('assistant', reply);
+  });
 }
 
 function setActiveMode(modeId){
@@ -557,106 +756,49 @@ function showTyping(label){
 
 function hideTyping(){var t=document.getElementById('typing');if(t)t.remove();if(TYPING_INTERVAL){clearInterval(TYPING_INTERVAL);TYPING_INTERVAL=null;}}
 
-function getModelForMode(){
-  // Haiku for the cheaper conversational modes
-  if(TRAINER_MODE==='practice') return 'claude-haiku-4-5';
-  if(TRAINER_MODE==='star') return 'claude-haiku-4-5';
-  // Sonnet for everything else (mock, resume, research)
-  return 'claude-sonnet-4-5';
+// Prompt/model selection now lives server-side in api/chat.js — the client only
+// sends {mode, role, company, messages}. See EZZY_AI_ARCHITECTURE.md.
+function currentModeKey(){
+  if(MODE==='resume') return 'resume';
+  if(MODE==='research') return 'research';
+  return TRAINER_MODE;
 }
-function getSystemPrompt(){
-  if(TRAINER_MODE==='practice') return 'You are an expert interview coach. The candidate is practicing for a '+ROLE+' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
-  if(TRAINER_MODE==='star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a '+ROLE+' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
-  if(TRAINER_MODE==='mock') return 'You are conducting a realistic mock interview for a '+ROLE+' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
-  return '';
-}
-function getResearchSystemPrompt(){
-  return [
-    'You are Ezzy, a recruiting partner helping a candidate prep for a '+ROLE+' interview at '+RESEARCH_COMPANY+'.',
-    '',
-    'Use web search to gather CURRENT, DATED information about the company. Produce a focused brief.',
-    '',
-    'Do NOT write any preamble or process narration before your response. Do NOT say things like "I will search for..." or "Let me search..." or "Now I have the information..." or "I will now search for additional...". Just start your response directly with the disclaimer line below.',
-    '',
-    'ALWAYS start with this exact disclaimer:',
-    '_Based on public web search. Verify specifics like comp, benefits, policies, and current personnel before your interview._',
-    '',
-    'Then produce these 5 sections:',
-    '',
-    '**Recent News** - 2-3 most relevant news items from the last 12 months, ideally last 6 months. Each must have a dated source.',
-    '**Product** - what the company does and any recent product launches or strategic shifts (last 12 months only)',
-    '**Funding & Stage** - last raise, investors, headcount if announced (only include if publicly disclosed and recent)',
-    '**What People Are Saying Recently** - 2-3 specific public statements, quotes from leadership, or themes from recent press. NOT generic culture vibes - only specific recent quotes or coverage.',
-    '**3 Questions to Ask** - sharp, specific questions a '+ROLE+' candidate could ask their interviewer, informed by what you found above',
-    '',
-    'After the brief, the candidate may ask follow-up questions. Use web search whenever needed.',
-    '',
-    'CRITICAL ACCURACY RULES:',
-    '',
-    '1. Every factual claim must include an inline source with date in this format: (source: domain.com, [year]). Example: "Zocdoc launched a new telehealth feature in 2024 (source: techcrunch.com, 2024)."',
-    '',
-    '2. If web search did not return verified, dated information on something, write: "I could not find verified recent information on this." Do NOT guess. Do NOT pattern-match from training data. Do NOT use sources older than 12 months for anything except company founding dates and stable historical facts.',
-    '',
-    '3. DO NOT name specific current personnel (CEO, CTO, VP, hiring manager, etc.) by name. People change roles frequently and outdated personnel info is dangerous. If asked who works there in a follow-up, say: "I cannot reliably verify current personnel. I recommend checking the company website Team page and cross-referencing on LinkedIn."',
-    '',
-    '4. DO NOT make claims about benefits, comp, vacation, PTO, parental leave, healthcare, RTO/remote policies, or perks unless you have a source from the last 6 months. These change frequently. If asked, say: "I could not find verified current information. Ask the recruiter directly - they are required to disclose these."',
-    '',
-    '5. Distinguish facts from inferences. If inferring, say so: "Based on their recent product launches, it appears they are prioritizing X (inferred from public news, not confirmed by the company)."',
-    '',
-    '6. Never combine facts about similarly-named companies. Verify the source is about THIS company.',
-    '',
-    'Style:',
-    '- Specific to the '+ROLE+' role, not generic.',
-    '- Brief under 600 words. Follow-ups under 250 words.',
-    '- Plain text. Bold section headers OK. No bullet points using dashes.'
-  ].join('\n');
-}
-
-var RESUME_SYSTEM=[
-'You are Ezzy, a senior recruiting partner giving direct, specific resume feedback.',
-'',
-'You will receive: (1) the candidate\'s resume, (2) the target job description.',
-'',
-'Your job: identify the TOP 5 highest-impact changes the candidate should make, ranked by impact. For each change:',
-'1. Quote the exact line or phrase from their resume that needs work.',
-'2. Explain in 1-2 sentences why it is hurting them for this specific role.',
-'3. Give a concrete suggested rewrite they can copy-paste.',
-'',
-'Hard rules:',
-'- Never invent experience, metrics, skills, or accomplishments the candidate did not state.',
-'- If the resume is missing something the JD requires, say so explicitly. Do not fabricate.',
-'- Be specific to the JD. Generic resume tips are useless.',
-'- Total response under 600 words. Use clear headers like "Change 1:" through "Change 5:".',
-'- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
-].join('\n');
 
 function handleSend(){handleSendText(inputEl.value);}
 
 function handleSendText(text){
   text=text.trim();if(!text)return;
   inputEl.value='';
+  updateSendBtnState();
 
   if(MODE==='research'){
     addMsg('user',text);
     if(RESEARCH_STAGE==='awaiting_company'){
       RESEARCH_COMPANY=text;
+      window.RESEARCH_COMPANY=text;
       RESEARCH_STAGE='generating_brief';
+      window.RESEARCH_STAGE=RESEARCH_STAGE;
+      saveMessage('user', text);
       showTyping(['Ezzy is researching '+text+'...','Pulling together your brief...','Almost done...']);
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
-      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
         RESEARCH_STAGE='conversational';
+        window.RESEARCH_STAGE=RESEARCH_STAGE;
+        saveMessage('assistant', reply);
       });
     } else {
       convoHistory.push({role:'user',content:text});
+      saveMessage('user', text);
       showTyping(['Ezzy is researching '+RESEARCH_COMPANY+'...','Searching the web...','Almost done...']);
-      callClaudeWithSearch(getResearchSystemPrompt(),convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply){
         hideTyping();
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
+        saveMessage('assistant', reply);
       });
     }
     return;
@@ -672,47 +814,94 @@ function handleSendText(text){
       RESUME_STAGE='feedback_given';
       var firstUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.';
       convoHistory=[{role:'user',content:firstUserMsg}];
-      sendBtn.disabled=true;
+      isSending=true;updateSendBtnState();
       showTyping();
-      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+      streamBotReply(convoHistory.slice(),function(reply){
+        if(!reply) return; // blocked (rate limit) or errored - the chat already shows why, nothing to download or learn from
         convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
         appendDownloadButton();
+        extractCareerClaims(RESUME_TEXT, JD_TEXT);
+        runGapAnalysis(RESUME_TEXT, JD_TEXT);
       });
     } else {
       convoHistory.push({role:'user',content:text});
-      sendBtn.disabled=true;showTyping();
-      streamBotReply(RESUME_SYSTEM,convoHistory.slice(),function(reply){
+      saveMessage('user', text);
+      isSending=true;updateSendBtnState();showTyping();
+      streamBotReply(convoHistory.slice(),function(reply){
+        if(!reply) return;
         convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
+        // Buttons are re-shown after every reply here, not just the first -
+        // someone can keep typing (a new resume, a follow-up question)
+        // without ever clicking "Start a new review", so it needs to stay
+        // available rather than only appearing once.
+        appendDownloadButton();
       });
     }
   } else if(MODE==='trainer'){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
-    sendBtn.disabled=true;showTyping();
-    streamBotReply(getSystemPrompt(),convoHistory.slice(),function(reply){
+      saveMessage('user', text);
+    isSending=true;updateSendBtnState();showTyping();
+    streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
     });
   }
 }
 
-async function callClaude(system,messages,cb,model){
-  if(!model)model='claude-sonnet-4-5';
+async function getAuthTokenIfSignedIn(){
+  if(!window.supabaseClient) return null;
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,system:system,messages:messages})});
-    var data=await res.json();
-    var text=data.content&&data.content[0]&&data.content[0].text||'';
-    cb(text);
-  }catch(e){cb('Sorry, something went wrong. Please try again.');}
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    return session ? session.access_token : null;
+  }catch(e){ return null; }
 }
-async function callClaudeWithSearch(system,messages,cb){
+
+function showAnonLimitMessage(){
+  hideTyping();
+  addMsg('bot','You\'ve used your free messages for today. Sign in (it\'s free) to keep going.');
+  showAuthModal('signup');
+}
+
+var FREE_MODE_LABEL = {practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview'};
+
+function showUpgradeGateMessage(errorCode, detail){
+  hideTyping();
+  if(errorCode === 'free_mode_locked'){
+    var lockedLabel = FREE_MODE_LABEL[detail && detail.lockedMode] || 'one mode';
+    addMsg('bot','Free includes '+lockedLabel+' only. Upgrade to unlock Practice, STAR, and Mock Interview together.');
+  } else if(errorCode === 'free_prep_limit_reached'){
+    addMsg('bot','You\'ve hit the 10-question limit for free practice. Upgrade for unlimited practice while you\'re job searching.');
+  } else if(errorCode === 'free_resume_limit_reached'){
+    addMsg('bot','You\'ve used all your free resume reviews. Buy a Resume Review for a full recruiter-style breakdown, or Job Search for unlimited reviews.');
+  } else if(errorCode === 'research_requires_job_search'){
+    addMsg('bot','Company Research is part of Job Search. Upgrade to unlock it.');
+  } else {
+    addMsg('bot','Upgrade to unlock this.');
+  }
+  openPricingModal();
+}
+
+async function callClaudeWithSearch(messages,cb){
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-      model:'claude-sonnet-4-5',
-      max_tokens:4000,
-      system:system,
-      messages:messages,
-      tools:[{type:'web_search_20250305',name:'web_search'}]
+    var headers={'Content-Type':'application/json'};
+    var token=await getAuthTokenIfSignedIn();
+    if(token) headers['Authorization']='Bearer '+token;
+    var res=await fetch(PROXY_URL,{method:'POST',headers:headers,body:JSON.stringify({
+      mode:'research',
+      role:ROLE,
+      company:window.RESEARCH_COMPANY||RESEARCH_COMPANY,
+      messages:messages
     })});
+    if(res.status===403){
+      var gateBody=await res.json().catch(function(){return {};});
+      showUpgradeGateMessage(gateBody.error, gateBody);
+      return;
+    }
+    if(res.status===429){ showAnonLimitMessage(); return; }
     var data=await res.json();
     if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
     var textBlocks=data.content.filter(function(b){return b.type==='text';});
@@ -722,22 +911,42 @@ async function callClaudeWithSearch(system,messages,cb){
   }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
 
-function streamBotReply(system,messages,afterDone,model){
+function streamBotReply(messages,afterDone){
   var bubbleNode=null;var fullText='';
-  callClaudeStream(system,messages,function(deltaText,fullSoFar){
+  callClaudeStream(messages,function(deltaText,fullSoFar){
     if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
     fullText=fullSoFar;
     setBubbleText(bubbleNode,fullSoFar);
   },function(){
-    sendBtn.disabled=false;
+    isSending=false;updateSendBtnState();
     if(afterDone)afterDone(fullText);
-  },model);
+  });
 }
 
-async function callClaudeStream(system,messages,onChunk,onDone,model){
-  if(!model)model='claude-sonnet-4-5';
+async function callClaudeStream(messages,onChunk,onDone){
   try{
-    var res=await fetch(PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:model,max_tokens:1000,stream:true,system:system,messages:messages})});
+    var headers={'Content-Type':'application/json'};
+    var token=await getAuthTokenIfSignedIn();
+    if(token) headers['Authorization']='Bearer '+token;
+    var res=await fetch(PROXY_URL,{method:'POST',headers:headers,body:JSON.stringify({
+      mode:currentModeKey(),
+      role:ROLE,
+      messages:messages,
+      stream:true
+    })});
+    if(res.status===403){
+      var gateBody=await res.json().catch(function(){return {};});
+      showUpgradeGateMessage(gateBody.error, gateBody);
+      if(onDone)onDone();
+      return;
+    }
+    if(res.status===429){
+      var limitBody=await res.json().catch(function(){return {};});
+      if(limitBody.error==='free_prep_limit_reached') showUpgradeGateMessage(limitBody.error, limitBody);
+      else showAnonLimitMessage();
+      if(onDone)onDone();
+      return;
+    }
     var reader=res.body.getReader();
     var decoder=new TextDecoder();
     var fullText='';var buffer='';
@@ -775,7 +984,46 @@ function appendDownloadButton(){
   btn.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> Download PDF';
   btn.onclick=downloadFeedbackPDF;
   msgEl.appendChild(btn);
+
+  var newBtn=document.createElement('button');
+  newBtn.className='new-review-btn';
+  newBtn.textContent='Start a new review';
+  newBtn.onclick=startNewResumeReview;
+  msgEl.appendChild(newBtn);
+
   scrollMain();
+}
+
+// Resume Feedback keeps exactly one conversation per account - re-entering
+// the mode restores it rather than starting fresh (useful if you got
+// interrupted mid-review). This clears it out for real, so someone
+// targeting a different job posting can actually get a second review
+// instead of always landing back on the first one.
+async function startNewResumeReview(){
+  if(window.supabaseClient){
+    try{
+      var sessionRes = await window.supabaseClient.auth.getSession();
+      var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+      if(uid){
+        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', 'resume');
+        query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
+        var existing = await query.maybeSingle();
+        if(existing.data && existing.data.id){
+          await window.supabaseClient.from('messages').delete().eq('conversation_id', existing.data.id);
+          await window.supabaseClient.from('conversations').delete().eq('id', existing.data.id);
+        }
+      }
+    }catch(e){ console.error('Could not clear previous review:', e); }
+  }
+  window._currentConversationId = null;
+  RESUME_TEXT=''; JD_TEXT=''; RESUME_STAGE='awaiting_resume';
+  window.RESUME_TEXT=''; window.JD_TEXT=''; window.RESUME_STAGE='awaiting_resume';
+  convoHistory=[]; window.convoHistory=[];
+  resumeDropDismissed=false;
+  msgEl.innerHTML='';
+  addMsg('bot','Paste your new resume below. Plain text is fine, formatting will be ignored.');
+  inputEl.disabled=false;
+  inputEl.placeholder='Type your answer...';
 }
 
 function downloadFeedbackPDF(){
@@ -992,6 +1240,939 @@ setTimeout(updateDropZoneVisibility, 200);
     inputEl.placeholder = 'Type your answer...';
     // Send the parsed text through the existing flow
     handleSendText(text);
+  }
+})();
+</script>
+<div id="authModal" class="auth-modal" onclick="if(event.target===this) hideAuthModal();"><div class="auth-modal-card"><button class="auth-modal-close" onclick="hideAuthModal();">×</button><div class="auth-face"><svg viewBox="0 0 32 32" width="56" height="56" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3 id="authModalTitle">Welcome to Ezzy</h3><p id="authModalSub">Sign up to save your progress</p><button class="auth-google-btn" onclick="signInWithGoogle();"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg><span>Continue with Google</span></button><div class="auth-divider"><span>or</span></div><form id="authForm" class="auth-form" onsubmit="handleAuthSubmit(event)"><input type="text" id="authName" class="auth-input" placeholder="Your name" autocomplete="name"><input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="email" required><input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password" required><button type="submit" class="auth-submit-btn" id="authSubmitBtn">Sign Up</button></form><p class="auth-error" id="authError"></p><p class="auth-toggle">Already have an account? <a id="authToggleLink" onclick="toggleAuthMode();">Sign in</a></p></div></div>
+<script>
+function showAuthModal(mode){
+  var m = document.getElementById('authModal');
+  if(!m) return;
+  if(mode === 'signin'){ m.classList.add('signin-mode'); }
+  else { m.classList.remove('signin-mode'); }
+  updateAuthCopy();
+  m.classList.add('active');
+  setTimeout(function(){
+    var emailEl = document.getElementById('authEmail');
+    if(emailEl) emailEl.focus();
+  }, 100);
+}
+function hideAuthModal(){
+  var m = document.getElementById('authModal');
+  if(m) m.classList.remove('active');
+  var err = document.getElementById('authError');
+  if(err) err.textContent = '';
+}
+function toggleAuthMode(){
+  var m = document.getElementById('authModal');
+  if(!m) return;
+  m.classList.toggle('signin-mode');
+  updateAuthCopy();
+  var err = document.getElementById('authError');
+  if(err) err.textContent = '';
+}
+function updateAuthCopy(){
+  var m = document.getElementById('authModal');
+  var isSignin = m.classList.contains('signin-mode');
+  document.getElementById('authModalTitle').textContent = isSignin ? 'Welcome back' : 'Welcome to Ezzy';
+  document.getElementById('authModalSub').textContent = isSignin ? 'Sign in to keep going' : 'Sign up to save your progress';
+  document.getElementById('authSubmitBtn').textContent = isSignin ? 'Sign In' : 'Sign Up';
+  var toggleLink = document.getElementById('authToggleLink');
+  toggleLink.textContent = isSignin ? 'Sign up' : 'Sign in';
+  toggleLink.parentElement.firstChild.textContent = isSignin ? "Don't have an account? " : 'Already have an account? ';
+  var pwField = document.getElementById('authPassword');
+  if(pwField) pwField.setAttribute('autocomplete', isSignin ? 'current-password' : 'new-password');
+}
+// Auth submit handler — handles both sign up and sign in
+async function handleAuthSubmit(e){
+  e.preventDefault();
+  if(!window.supabaseClient){
+    showAuthError('Auth is not ready yet — try again in a moment.');
+    return;
+  }
+  var modal = document.getElementById('authModal');
+  var isSignin = modal.classList.contains('signin-mode');
+  var email = document.getElementById('authEmail').value.trim();
+  var password = document.getElementById('authPassword').value;
+  var name = document.getElementById('authName').value.trim();
+  var submitBtn = document.getElementById('authSubmitBtn');
+  
+  if(!email || !password){
+    showAuthError('Please fin email and password.');
+    return;
+  }
+  if(!isSignin && password.length < 6){
+    showAuthError('Password must be at least 6 characters.');
+    return;
+  }
+  
+  submitBtn.disabled = true;
+  submitBtn.textContent = isSignin ? 'Signing in...' : 'Creating account...';
+  showAuthError('');
+  
+  try {
+    if(isSignin){
+      captureAnonymousState();
+      var result = await window.supabaseClient.auth.signInWithPassword({email: email, password: password});
+      if(result.error) throw result.error;
+      onAuthSuccess(result.data.user);
+    } else {
+      captureAnonymousState();
+      var result = await window.supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: { data: { name: name || '' } }
+      });
+      if(result.error) throw result.error;
+      // If email confirmation is required, user.session will be null
+      if(result.data.user && !result.data.session){
+        showAuthError('Check your email to confirm your account.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign Up';
+        return;
+      }
+      onAuthSuccess(result.data.user);
+    }
+  } catch(err){
+    console.error('Auth error:', err);
+    showAuthError(err.message || 'Something went wrong. Try again.');
+    submitBtn.disabled = false;
+    submitBtn.textContent = isSignin ? 'Sign In' : 'Sign Up';
+  }
+}
+
+function showAuthError(msg){
+  var el = document.getElementById('authError');
+  if(el) el.textContent = msg;
+}
+
+function onAuthSuccess(user){
+  console.log('Auth success:', user);
+  hideAuthModal();
+  // For now, just log - we'll handle UI updates in Phase 2C
+}
+
+async function signInWithGoogle(){
+  if(!window.supabaseClient){
+    showAuthError('Auth is not ready yet — try again in a moment.');
+    return;
+  }
+  showAuthError('');
+  try {
+    captureAnonymousState();
+    var result = await window.supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if(result.error) throw result.error;
+    // Browser redirects to Google, then back here. onAuthStateChange handles the rest.
+  } catch(err){
+    console.error('Google OAuth error:', err);
+    showAuthError(err.message || 'Could not start Google sign-in.');
+  }
+}
+</script>
+<script>
+(function(){
+  if(!window.supabaseClient) return;
+  
+  // Check on page load
+  window.supabaseClient.auth.getSession().then(function(res){
+    var session = res.data.session;
+    if(session && session.user){
+      updateAuthUI(session.user);
+    } else {
+      updateAuthUI(null);
+    }
+  });
+  
+  // Listen for auth changes (sign in, sign out)
+  // Deliberately NOT auto-restoring "your most recently touched conversation
+  // from any mode" here anymore. A backgrounded tab can get fully discarded
+  // and reloaded by the browser (common under memory pressure) - that's a
+  // fresh page load, so a same-page "only once" guard can't prevent it from
+  // firing again. The failure mode (silently teleporting someone away from
+  // whatever they were mid-typing, to an unrelated old conversation, because
+  // it happens to have the newest timestamp) is worse than the convenience
+  // it bought. Re-entering a specific mode still restores that mode's own
+  // conversation correctly via loadConversationForMode - only the
+  // guess-which-mode-you-meant behavior is gone.
+  window.supabaseClient.auth.onAuthStateChange(function(event, session){
+    if(session && session.user){
+      updateAuthUI(session.user);
+    } else {
+      updateAuthUI(null);
+    }
+  });
+  
+  // Close dropdown on outside click
+  document.addEventListener('click', function(e){
+    var dropdown = document.getElementById('authUserDropdown');
+    var userBtn = document.getElementById('authUserBtn');
+    if(!dropdown || !userBtn) return;
+    if(dropdown.classList.contains('active') && !userBtn.contains(e.target) && !dropdown.contains(e.target)){
+      dropdown.classList.remove('active');
+    }
+  });
+})();
+
+async function updateAuthUI(user){
+  var signInBtn = document.getElementById('authSignInBtn');
+  var userMenu = document.getElementById('authUserMenu');
+  if(!signInBtn || !userMenu) return;
+  
+  if(user){
+    // Try to fetch the profile name from Postgres first
+    var displayName = null;
+    try {
+      var res = await window.supabaseClient.from('profiles').select('name').eq('id', user.id).maybeSingle();
+      if(res.data && res.data.name) displayName = res.data.name;
+    } catch(e){ /* fall through */ }
+    
+    if(!displayName){
+      displayName = (user.user_metadata && user.user_metadata.name) || user.email.split('@')[0];
+    }
+    
+    var initial = displayName.charAt(0).toUpperCase();
+    document.getElementById('authUserInitial').textContent = initial;
+    document.getElementById('authUserName').textContent = displayName;
+    document.getElementById('authUserEmail').textContent = user.email;
+    signInBtn.style.display = 'none';
+    userMenu.style.display = 'block';
+    
+    // Migrate anonymous data first (if any), then check onboarding
+    await migrateAnonymousToAccount(user);
+    checkAndShowOnboarding(user);
+  } else {
+    signInBtn.style.display = 'inline-flex';
+    userMenu.style.display = 'none';
+  }
+}
+
+function toggleUserDropdown(){
+  var d = document.getElementById('authUserDropdown');
+  if(d) d.classList.toggle('active');
+}
+
+async function signOut(){
+  if(!window.supabaseClient) return;
+  var nameEl = document.getElementById('authUserName');
+  var displayName = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : '';
+  var d = document.getElementById('authUserDropdown');
+  if(d) d.classList.remove('active');
+  await window.supabaseClient.auth.signOut();
+  clearChatState();
+  showGoodbyeOverlay(displayName);
+}
+function clearChatState(){
+  convoHistory = [];
+  MODE = null; ROLE = null; TRAINER_MODE = null;
+  RESUME_STAGE = null; RESUME_TEXT = ''; JD_TEXT = '';
+  pendingModeSwitch = null;
+  resumeDropDismissed = false;
+  if(typeof hideTyping === 'function') hideTyping();
+  if(msgEl) msgEl.innerHTML = '';
+  if(modePill) modePill.style.display = 'none';
+  if(roleLabel) roleLabel.style.display = 'none';
+  if(dotSep) dotSep.style.display = 'none';
+  if(emptyState) emptyState.style.display = '';
+  if(typeof syncWindowState === 'function') syncWindowState();
+}
+function showGoodbyeOverlay(name){
+  var overlay = document.getElementById('goodbyeOverlay');
+  if(!overlay) return;
+  var nameSpan = document.getElementById('goodbyeName');
+  if(nameSpan) nameSpan.textContent = name ? (', ' + name) : '';
+  overlay.classList.add('active');
+}
+function hideGoodbyeOverlay(){
+  var overlay = document.getElementById('goodbyeOverlay');
+  if(overlay) overlay.classList.remove('active');
+}
+function startFreshFromGoodbye(){
+  hideGoodbyeOverlay();
+  // clearChatState already restored emptyState (role picker) — nothing more to do
+}
+function signInFromGoodbye(){
+  hideGoodbyeOverlay();
+  if(typeof showAuthModal === 'function') showAuthModal('signin');
+}
+
+// Override onAuthSuccess from earlier to update UI
+function onAuthSuccess(user){
+  hideAuthModal();
+  updateAuthUI(user);
+}
+</script>
+<div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
+<div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
+
+<div id="brainOverlay" class="brain-overlay" onclick="if(event.target===this)closeCareerBrainPanel()">
+  <div class="brain-panel">
+    <div class="brain-header">
+      <div>
+        <h3>What Ezzy knows about you</h3>
+        <p>Built from your resume. Facts, inferences, and hypotheses — you can remove anything.</p>
+      </div>
+      <button class="brain-close" onclick="closeCareerBrainPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="brain-body" id="brainBody">
+      <div class="brain-empty">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<div id="pricingOverlay" class="brain-overlay" onclick="if(event.target===this)closePricingModal()">
+  <div class="pricing-panel">
+    <div class="brain-header">
+      <div>
+        <h3>Upgrade Ezzy</h3>
+        <p>Pick the plan that fits how you're using Ezzy.</p>
+      </div>
+      <button class="brain-close" onclick="closePricingModal()" aria-label="Close">&times;</button>
+    </div>
+    <div class="pricing-cards">
+      <div class="pricing-card">
+        <div class="pricing-card-name">Free</div>
+        <div class="pricing-card-tagline">Get to know Ezzy.</div>
+        <div class="pricing-card-price">$0</div>
+        <ul class="pricing-card-list">
+          <li>Try Ezzy</li>
+          <li>Limited AI usage</li>
+          <li>Basic resume review</li>
+          <li>Interview prep</li>
+        </ul>
+      </div>
+      <div class="pricing-card">
+        <div class="pricing-card-name">Resume Review</div>
+        <div class="pricing-card-tagline">One resume, done right.</div>
+        <div class="pricing-card-price">$9.99<span>one-time</span></div>
+        <ul class="pricing-card-list">
+          <li>Full recruiter-style analysis</li>
+          <li>Target job matching</li>
+          <li>Career Brain gap analysis</li>
+          <li>Specific recommendations</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('resume_review')">Buy a Review</button>
+      </div>
+      <div class="pricing-card pricing-card-hero">
+        <span class="pricing-hero-badge">Core offer</span>
+        <div class="pricing-card-name">Job Search</div>
+        <div class="pricing-card-tagline">Full support while you're searching.</div>
+        <div class="pricing-card-price">$49.99<span>/ 90 days</span></div>
+        <ul class="pricing-card-list">
+          <li>Resume reviews</li>
+          <li>Interview prep</li>
+          <li>Mock interviews</li>
+          <li>Company research</li>
+          <li>Job-specific coaching</li>
+          <li>Career Brain</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('job_search')">Start Job Search</button>
+      </div>
+      <div class="pricing-card pricing-card-disabled">
+        <div class="pricing-card-name">Career</div>
+        <div class="pricing-card-tagline">Keep Ezzy on after you're hired.</div>
+        <div class="pricing-card-price">$19.99<span>/ month</span></div>
+        <div class="pricing-card-soon">Coming soon</div>
+        <button class="pricing-card-btn" disabled>Coming soon</button>
+      </div>
+    </div>
+    <p class="pricing-error" id="pricingError"></p>
+  </div>
+</div>
+<script>
+async function checkAndShowOnboarding(user){
+  if(!user || !window.supabaseClient) return;
+  try {
+    var result = await window.supabaseClient.from('profiles').select('name').eq('id', user.id).maybeSingle();
+    if(result.error) {
+      console.error('Profile check error:', result.error);
+      return;
+    }
+    if(!result.data || !result.data.name){
+      showOnboarding(user);
+    }
+  } catch(err){
+    console.error('Onboarding check error:', err);
+  }
+}
+
+function showOnboarding(user){
+  window._currentOnboardingUser = user;
+  var overlay = document.getElementById('onboardingOverlay');
+  if(!overlay) return;
+  overlay.classList.add('active');
+  setTimeout(function(){
+    var inp = document.getElementById('onboardingName');
+    if(inp) inp.focus();
+  }, 200);
+}
+
+function hideOnboarding(){
+  var overlay = document.getElementById('onboardingOverlay');
+  if(overlay) overlay.classList.remove('active');
+  window._currentOnboardingUser = null;
+}
+
+async function handleOnboardingSubmit(e){
+  e.preventDefault();
+  var user = window._currentOnboardingUser;
+  if(!user || !window.supabaseClient) return;
+  
+  var nameEl = document.getElementById('onboardingName');
+  var btn = document.getElementById('onboardingSubmitBtn');
+  var errEl = document.getElementById('onboardingError');
+  var name = nameEl.value.trim();
+  
+  if(!name){
+    errEl.textContent = 'Please enter a name.';
+    return;
+  }
+  
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  errEl.textContent = '';
+  
+  try {
+    var result = await window.supabaseClient.from('profiles').upsert({
+      id: user.id,
+      name: name
+    }, { onConflict: 'id' });
+    
+    if(result.error) throw result.error;
+    
+    hideOnboarding();
+    // Update header display with new name
+    document.getElementById('authUserInitial').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('authUserName').textContent = name;
+  } catch(err){
+    console.error('Onboarding save error:', err);
+    errEl.textContent = err.message || 'Could not save. Try again.';
+    btn.disabled = false;
+    btn.textContent = 'Continue';
+  }
+}
+</script>
+<script>
+// Conversation persistence
+
+window._currentConversationId = null;
+
+async function ensureConversation(){
+  if(!window.supabaseClient) return null;
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return null;
+  var userId = session.data.session.user.id;
+  var mode;
+  if(window.MODE === 'resume') mode = 'resume';
+  else if(window.MODE === 'research') mode = 'research';
+  else mode = (window.TRAINER_MODE || 'practice');
+  
+  var role = window.ROLE || null;
+  // Try to fetch existing conversation for this user+mode+role combo
+  var query = window.supabaseClient
+    .from('conversations')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('mode', mode);
+  if(role){ query = query.eq('role', role); }
+  else { query = query.is('role', null); }
+  var existing = await query.maybeSingle();
+  
+  if(existing.data && existing.data.id){
+    window._currentConversationId = existing.data.id;
+    return existing.data.id;
+  }
+  
+  // Create new conversation row
+  var insertData = {
+    user_id: userId,
+    mode: mode,
+    role: window.ROLE || null,
+    resume_text: window.RESUME_TEXT || null,
+    jd_text: window.JD_TEXT || null,
+    resume_stage: window.RESUME_STAGE || null,
+    research_company: window.RESEARCH_COMPANY || null,
+    research_stage: window.RESEARCH_STAGE || null
+  };
+  
+  var created = await window.supabaseClient
+    .from('conversations')
+    .insert(insertData)
+    .select('id')
+    .single();
+  
+  if(created.data && created.data.id){
+    window._currentConversationId = created.data.id;
+    return created.data.id;
+  }
+  return null;
+}
+
+async function saveMessage(role, content){
+  if(!window.supabaseClient || !content) return;
+  if(role !== 'user' && role !== 'assistant') return;
+  
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return; // not signed in - skip save
+  var userId = session.data.session.user.id;
+  
+  var conversationId = await ensureConversation();
+  if(!conversationId) return;
+  
+  await window.supabaseClient.from('messages').insert({
+    conversation_id: conversationId,
+    user_id: userId,
+    role: role,
+    content: content
+  });
+  
+  // Update conversation's updated_at + mode-specific fields
+  await window.supabaseClient.from('conversations').update({
+    role: window.ROLE || null,
+    resume_text: window.RESUME_TEXT || null,
+    jd_text: window.JD_TEXT || null,
+    resume_stage: window.RESUME_STAGE || null,
+    research_company: window.RESEARCH_COMPANY || null,
+    research_stage: window.RESEARCH_STAGE || null,
+    updated_at: new Date().toISOString()
+  }).eq('id', conversationId);
+}
+
+// Reset conversation tracking when mode changes
+window.resetConversationTracking = function(){
+  window._currentConversationId = null;
+};
+</script>
+<script>
+async function loadConversationForMode(modeId){
+  if(!window.supabaseClient) return false;
+  var session = await window.supabaseClient.auth.getSession();
+  if(!session.data.session) return false;
+  var userId = session.data.session.user.id;
+  
+  var dbMode = (modeId === 'resume') ? 'resume' : modeId;
+  
+  var role = window.ROLE || null;
+  // Fetch conversation row for user+mode+role
+  var query = window.supabaseClient
+    .from('conversations')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('mode', dbMode);
+  if(role){ query = query.eq('role', role); }
+  else { query = query.is('role', null); }
+  var convoRes = await query.maybeSingle();
+  
+  if(convoRes.error || !convoRes.data) return false;
+  var convo = convoRes.data;
+  
+  // Fetch messages for this conversation
+  var msgRes = await window.supabaseClient
+    .from('messages')
+    .select('role, content, created_at')
+    .eq('conversation_id', convo.id)
+    .order('created_at', { ascending: true });
+  
+  if(msgRes.error || !msgRes.data || msgRes.data.length === 0){
+    // Conversation exists but no messages — treat as fresh
+    return false;
+  }
+  
+  // Restore state variables
+  window.ROLE = convo.role || window.ROLE;
+  window._currentConversationId = convo.id;
+  
+  if(modeId === 'resume'){
+    window.RESUME_TEXT = convo.resume_text || '';
+    window.JD_TEXT = convo.jd_text || '';
+    window.RESUME_STAGE = convo.resume_stage || 'awaiting_resume';
+    window.resumeDropDismissed = (window.RESUME_STAGE !== 'awaiting_resume');
+  }
+  if(modeId === 'research'){
+    window.RESEARCH_COMPANY = convo.research_company || '';
+    window.RESEARCH_STAGE = convo.research_stage || 'conversational';
+    if(typeof RESEARCH_COMPANY !== 'undefined') RESEARCH_COMPANY = window.RESEARCH_COMPANY;
+    if(typeof RESEARCH_STAGE !== 'undefined') RESEARCH_STAGE = window.RESEARCH_STAGE;
+  }
+  
+  // Clear current UI and rebuild from saved messages
+  msgEl.innerHTML = '';
+  convoHistory = [];
+  
+  msgRes.data.forEach(function(m){
+    var displayRole = (m.role === 'assistant') ? 'bot' : 'user';
+    addMsgWithoutSave(displayRole, m.content);
+    convoHistory.push({role: m.role, content: m.content});
+  });
+
+  // Restoring a completed review skips handleSendText entirely, so the
+  // buttons that normally follow a reply never got a chance to appear -
+  // same root cause as the "no button" report, just a different path in.
+  if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
+    appendDownloadButton();
+  }
+
+  return true;
+}
+
+// Version of addMsg that skips the saveMessage hook (so loaded messages don't re-save)
+function addMsgWithoutSave(role, text){
+  var node;
+  if(role === 'user'){
+    node = document.createElement('div');
+    node.className = 'msg msg-user';
+    node.textContent = text;
+  } else {
+    node = document.createElement('div');
+    node.className = 'msg-bot-row';
+    var av = document.createElement('div');
+    av.className = 'msg-bot-avatar';
+    av.textContent = 'E';
+    var bub = document.createElement('div');
+    bub.className = 'msg-bot';
+    if(text){ try{ bub.innerHTML = marked.parse(text); }catch(e){ bub.textContent = text; } }
+    node.appendChild(av);
+    node.appendChild(bub);
+  }
+  msgEl.appendChild(node);
+  if(typeof scrollMain === 'function') scrollMain();
+}
+</script>
+<script>
+// Anonymous → signed-up bridge
+function captureAnonymousState(){
+  if(typeof syncWindowState === 'function') syncWindowState();
+  // Only capture if user is currently anonymous (not signed in)
+  if(window.supabaseClient){
+    // Best-effort sync check; we'll rely on a flag set after signup attempt
+  }
+  
+  // Don't save if there's nothing meaningful (no role picked, no messages)
+  if(!window.ROLE && (!window.convoHistory || window.convoHistory.length === 0)){
+    return;
+  }
+  
+  var snapshot = {
+    role: window.ROLE || null,
+    mode: window.MODE === 'resume' ? 'resume' : (window.TRAINER_MODE || 'practice'),
+    convoHistory: window.convoHistory || [],
+    resumeText: window.RESUME_TEXT || null,
+    jdText: window.JD_TEXT || null,
+    resumeStage: window.RESUME_STAGE || null,
+    capturedAt: Date.now()
+  };
+  
+  try {
+    localStorage.setItem('ezzy_anon_pending', JSON.stringify(snapshot));
+  } catch(e){
+    console.error('Failed to capture anon state:', e);
+  }
+}
+
+function clearAnonymousCapture(){
+  try { localStorage.removeItem('ezzy_anon_pending'); } catch(e){}
+}
+
+function getAnonymousCapture(){
+  try {
+    var raw = localStorage.getItem('ezzy_anon_pending');
+    if(!raw) return null;
+    var parsed = JSON.parse(raw);
+    // Discard if older than 1 hour (safety against stale data)
+    if(Date.now() - parsed.capturedAt > 60 * 60 * 1000){
+      clearAnonymousCapture();
+      return null;
+    }
+    return parsed;
+  } catch(e){
+    return null;
+  }
+}
+
+// Migrate anonymous capture into the new authenticated account
+async function migrateAnonymousToAccount(user){
+  if(!user || !window.supabaseClient) return;
+  var snapshot = getAnonymousCapture();
+  if(!snapshot){ return; }
+  if(!snapshot.role || !snapshot.convoHistory || snapshot.convoHistory.length === 0){
+    clearAnonymousCapture();
+    return;
+  }
+  
+  try {
+    // Create a conversation row for this captured state
+    var insertConvo = {
+      user_id: user.id,
+      mode: snapshot.mode,
+      role: snapshot.role,
+      resume_text: snapshot.resumeText,
+      jd_text: snapshot.jdText,
+      resume_stage: snapshot.resumeStage
+    };
+    
+    var convoRes = await window.supabaseClient
+      .from('conversations')
+      .upsert(insertConvo, { onConflict: 'user_id,mode,role' })
+      .select('id')
+      .single();
+    
+    if(convoRes.error || !convoRes.data){
+      console.error('Migration: convo insert failed', convoRes.error);
+      return;
+    }
+    var conversationId = convoRes.data.id;
+    
+    // Insert all messages from the snapshot
+    var messageRows = snapshot.convoHistory.map(function(m){
+      return {
+        conversation_id: conversationId,
+        user_id: user.id,
+        role: m.role,
+        content: m.content
+      };
+    });
+    
+    if(messageRows.length > 0){
+      var msgRes = await window.supabaseClient.from('messages').insert(messageRows);
+      if(msgRes.error){
+        console.error('Migration: messages insert failed', msgRes.error);
+      }
+    }
+    
+    // Clean up
+    clearAnonymousCapture();
+    
+    // Restore state from snapshot for the active session
+    window.ROLE = snapshot.role;
+    window._currentConversationId = conversationId;
+    if(snapshot.mode === 'resume'){
+      window.RESUME_TEXT = snapshot.resumeText || '';
+      window.JD_TEXT = snapshot.jdText || '';
+      window.RESUME_STAGE = snapshot.resumeStage || 'awaiting_resume';
+      window.resumeDropDismissed = (window.RESUME_STAGE !== 'awaiting_resume');
+    }
+    
+    console.log('Migrated anonymous state to authenticated account');
+  } catch(err){
+    console.error('Migration error:', err);
+  }
+}
+</script>
+<script>
+// Career Brain v0 — extraction + "what Ezzy knows about you" panel
+
+async function extractCareerClaims(resumeText, jdText){
+  if(!window.supabaseClient) return;
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    if(!session) return; // anonymous - extraction is a signed-in feature for now
+
+    var res = await fetch(EXTRACT_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+      body: JSON.stringify({resumeText: resumeText||'', jdText: jdText||''})
+    });
+    if(!res.ok) return;
+    var data = await res.json();
+    if(data.savedCount > 0) showLearnedToast(data.savedCount);
+  }catch(e){ console.error('Career Brain extraction error:', e); }
+}
+
+function showLearnedToast(count){
+  var el = document.createElement('div');
+  el.className = 'learned-toast';
+  el.innerHTML = 'Ezzy learned ' + count + (count===1?' thing':' things') + ' about you · <a onclick="openCareerBrainPanel();">View</a>';
+  document.body.appendChild(el);
+  setTimeout(function(){
+    el.classList.add('out');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, 5000);
+}
+
+var CLAIM_TYPE_LABELS = {
+  skill:'Skills', achievement:'Achievements', experience:'Experience',
+  goal:'Goals', preference:'Preferences', hypothesis:'Hypotheses'
+};
+var CLAIM_TYPE_ORDER = ['skill','achievement','experience','goal','preference','hypothesis'];
+
+async function openCareerBrainPanel(){
+  var dropdown = document.getElementById('authUserDropdown');
+  if(dropdown) dropdown.classList.remove('active');
+  document.getElementById('brainOverlay').classList.add('active');
+  await loadCareerClaims();
+}
+
+function closeCareerBrainPanel(){
+  document.getElementById('brainOverlay').classList.remove('active');
+}
+
+async function loadCareerClaims(){
+  var body = document.getElementById('brainBody');
+  body.innerHTML = '<div class="brain-empty">Loading...</div>';
+  if(!window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session){
+    body.innerHTML = '<div class="brain-empty">Sign in to see what Ezzy has learned about you.</div>';
+    return;
+  }
+  var res = await window.supabaseClient.from('career_claims').select('*').eq('user_id', session.user.id);
+  if(res.error){
+    body.innerHTML = '<div class="brain-empty">Could not load your profile. Try again shortly.</div>';
+    return;
+  }
+  renderClaims(res.data || []);
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  });
+}
+
+function renderClaims(claims){
+  var body = document.getElementById('brainBody');
+  if(!claims.length){
+    body.innerHTML = '<div class="brain-empty">Nothing yet. Do a Resume Feedback session and Ezzy will start building your profile here.</div>';
+    return;
+  }
+  var byType = {};
+  claims.forEach(function(c){
+    if(!byType[c.claim_type]) byType[c.claim_type] = [];
+    byType[c.claim_type].push(c);
+  });
+  var html = '';
+  CLAIM_TYPE_ORDER.forEach(function(type){
+    var group = byType[type];
+    if(!group || !group.length) return;
+    html += '<div class="brain-group-title">'+CLAIM_TYPE_LABELS[type]+'</div>';
+    group.forEach(function(c){
+      var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
+      html += '<div class="brain-claim" data-id="'+c.id+'">'
+        + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+'</span>'
+        + '<span class="brain-status '+c.status+'">'+c.status+'</span></div>'
+        + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
+        + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
+        + '</div>';
+    });
+  });
+  body.innerHTML = html;
+}
+
+async function deleteClaim(id){
+  if(!window.supabaseClient) return;
+  var node = document.querySelector('.brain-claim[data-id="'+id+'"]');
+  if(node) node.style.opacity = '0.4';
+  var res = await window.supabaseClient.from('career_claims').delete().eq('id', id);
+  if(res.error){
+    if(node) node.style.opacity = '1';
+    return;
+  }
+  if(node) node.remove();
+  var body = document.getElementById('brainBody');
+  if(body && !body.querySelector('.brain-claim')) renderClaims([]);
+}
+
+// Gap analysis: how a resume matches a target job, using Career Brain evidence.
+// Signed-in only - anonymous resume review is unaffected either way.
+async function runGapAnalysis(resumeText, jdText){
+  var token = await getAuthTokenIfSignedIn();
+  if(!token) return;
+  try{
+    var res = await fetch(GAP_ANALYSIS_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({resumeText: resumeText||'', jdText: jdText||''})
+    });
+    if(!res.ok) return;
+    var data = await res.json();
+    if(data.gaps && data.gaps.length) appendGapAnalysis(data.gaps);
+  }catch(e){ console.error('Gap analysis error:', e); }
+}
+
+function appendGapAnalysis(gaps){
+  var icon = {matched:'✓', partial:'~', missing:'✕'};
+  var box = document.createElement('div');
+  box.className = 'gap-box';
+  var html = '<div class="gap-title">How you match this role</div>';
+  gaps.forEach(function(g){
+    html += '<div class="gap-row gap-'+(g.status||'missing')+'">'
+      + '<span class="gap-icon">'+(icon[g.status]||'?')+'</span>'
+      + '<div><div class="gap-req">'+escapeHtml(g.requirement)+'</div>'
+      + '<div class="gap-note">'+escapeHtml(g.note)+'</div></div>'
+      + '</div>';
+  });
+  box.innerHTML = html;
+  msgEl.appendChild(box);
+  scrollMain();
+}
+
+// Pricing / checkout
+function openPricingModal(){
+  var dropdown = document.getElementById('authUserDropdown');
+  if(dropdown) dropdown.classList.remove('active');
+  document.getElementById('pricingError').textContent = '';
+  document.getElementById('pricingOverlay').classList.add('active');
+}
+
+function closePricingModal(){
+  document.getElementById('pricingOverlay').classList.remove('active');
+}
+
+async function startCheckout(plan){
+  var errEl = document.getElementById('pricingError');
+  errEl.textContent = '';
+  var token = await getAuthTokenIfSignedIn();
+  if(!token){
+    closePricingModal();
+    showAuthModal('signup');
+    return;
+  }
+  try{
+    var res = await fetch('/api/create-checkout-session', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},
+      body: JSON.stringify({plan: plan})
+    });
+    var data = await res.json();
+    if(!res.ok || !data.url){
+      errEl.textContent = 'Could not start checkout. Try again in a moment.';
+      return;
+    }
+    window.location.href = data.url;
+  }catch(e){
+    errEl.textContent = 'Could not start checkout. Try again in a moment.';
+  }
+}
+
+function showSimpleToast(message){
+  var el = document.createElement('div');
+  el.className = 'learned-toast';
+  el.textContent = message;
+  document.body.appendChild(el);
+  setTimeout(function(){
+    el.classList.add('out');
+    setTimeout(function(){ el.remove(); }, 300);
+  }, 5000);
+}
+
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  var checkoutResult = params.get('checkout');
+  if(checkoutResult==='success'){
+    showSimpleToast('You\'re subscribed! This can take a few seconds to activate.');
+  } else if(checkoutResult==='cancel'){
+    showSimpleToast('Checkout canceled - you were not charged.');
+  }
+  if(checkoutResult){
+    var url = new URL(window.location.href);
+    url.searchParams.delete('checkout');
+    window.history.replaceState({}, '', url.toString());
   }
 })();
 </script>
