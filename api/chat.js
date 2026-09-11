@@ -6,6 +6,14 @@ const SUPABASE_ANON_KEY = 'sb_publishable_rVG6LNvp6Uzs7F6CxSgJlA_zVobq1hy';
 const ALLOWED_ORIGINS = ['https://app.meetezzy.com', 'https://meetezzy.com', 'https://scout-chat.vercel.app'];
 const ANON_MESSAGE_LIMIT = 8;
 
+// Backstop against a determined attacker who rotates IPs/VPNs to get past
+// the per-IP anon caps below - a single global ceiling on total anonymous
+// usage per day, independent of who's making the requests. Per-IP limits
+// bound one visitor's cost; this bounds worst-case cost for the whole app.
+// Tune to your budget/traffic - this is a rough starting point, not a
+// carefully-derived number.
+const GLOBAL_ANON_DAILY_LIMIT = 300;
+
 const MODEL_BY_MODE = {
   practice: 'claude-haiku-4-5',
   star: 'claude-haiku-4-5',
@@ -135,7 +143,30 @@ async function lockFreePrepMode(userId, mode) {
   }
 }
 
-const FREE_RESUME_REVIEW_LIMIT = 3;
+const FREE_PREP_TURN_LIMIT = 8;
+
+// Atomic, same reasoning as useFreeResumeReview below: fails closed on
+// infra errors since this exists to bound cost, not to be generous on
+// our own outages.
+async function useFreePrepTurn(userId) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/use_free_prep_turn', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+      },
+      body: JSON.stringify({ p_user_id: userId, p_limit: FREE_PREP_TURN_LIMIT })
+    });
+    if (!res.ok) return false;
+    return await res.json();
+  } catch (e) {
+    return false;
+  }
+}
+
+const FREE_RESUME_REVIEW_LIMIT = 1;
 
 // Atomic: only succeeds (and increments) while under the limit, so two
 // near-simultaneous requests can't both sneak through. Fails closed
@@ -202,7 +233,7 @@ function clientIp(req) {
   return (req.headers && req.headers['x-real-ip']) || 'unknown';
 }
 
-async function anonHitCount(ip) {
+async function anonHitCount(key, windowHours) {
   try {
     var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/increment_anon_usage', {
       method: 'POST',
@@ -211,12 +242,35 @@ async function anonHitCount(ip) {
         apikey: SUPABASE_ANON_KEY,
         Authorization: 'Bearer ' + SUPABASE_ANON_KEY
       },
-      body: JSON.stringify({ p_key: ip, p_window_hours: 24 })
+      body: JSON.stringify({ p_key: key, p_window_hours: windowHours || 24 })
     });
     if (!res.ok) return 0; // fail open on infra errors rather than blocking every anonymous visitor
     return await res.json();
   } catch (e) {
     return 0;
+  }
+}
+
+// ~10 years - used for the anonymous resume/prep caps below, which are
+// meant to be lifetime-per-IP rather than the 24h rolling window the
+// general anon message cap uses.
+const ANON_LIFETIME_WINDOW_HOURS = 24 * 365 * 10;
+
+async function lockAnonPrepMode(ip, mode) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/lock_anon_prep_mode', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ p_key: 'prep:' + ip, p_mode: mode })
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
   }
 }
 
@@ -247,10 +301,16 @@ export default async function handler(req, res) {
     var token = authHeader && authHeader.indexOf('Bearer ') === 0 ? authHeader.slice(7) : null;
     var user = token ? await getAuthedUser(token) : null;
 
+    var ip = clientIp(req);
+
     if (!user) {
-      var hits = await anonHitCount(clientIp(req));
+      var hits = await anonHitCount(ip);
       if (hits > ANON_MESSAGE_LIMIT) {
         return res.status(429).json({ error: 'anon_limit_reached' });
+      }
+      var globalAnonHits = await anonHitCount('global:anon');
+      if (globalAnonHits > GLOBAL_ANON_DAILY_LIMIT) {
+        return res.status(429).json({ error: 'anon_global_limit_reached' });
       }
     }
 
@@ -264,17 +324,28 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'research_requires_job_search' });
     }
 
-    if (user && !entitled && (mode === 'practice' || mode === 'star' || mode === 'mock')) {
-      var lockedMode = sub && sub.free_prep_mode;
-      if (lockedMode && lockedMode !== mode) {
-        return res.status(403).json({ error: 'free_mode_locked', lockedMode: lockedMode });
-      }
-      if (!lockedMode) {
-        await lockFreePrepMode(user.id, mode);
-      }
-      var priorTurns = messages.filter(function (m) { return m.role === 'assistant'; }).length;
-      if (priorTurns >= 10) {
-        return res.status(429).json({ error: 'free_prep_limit_reached' });
+    if (!entitled && (mode === 'practice' || mode === 'star' || mode === 'mock')) {
+      if (user) {
+        var lockedMode = sub && sub.free_prep_mode;
+        if (lockedMode && lockedMode !== mode) {
+          return res.status(403).json({ error: 'free_mode_locked', lockedMode: lockedMode });
+        }
+        if (!lockedMode) {
+          await lockFreePrepMode(user.id, mode);
+        }
+        var allowedPrepTurn = await useFreePrepTurn(user.id);
+        if (!allowedPrepTurn) {
+          return res.status(429).json({ error: 'free_prep_limit_reached' });
+        }
+      } else {
+        var lockedAnonMode = await lockAnonPrepMode(ip, mode);
+        if (lockedAnonMode && lockedAnonMode !== mode) {
+          return res.status(403).json({ error: 'free_mode_locked', lockedMode: lockedAnonMode });
+        }
+        var anonPrepHits = await anonHitCount('prep:' + ip, ANON_LIFETIME_WINDOW_HOURS);
+        if (anonPrepHits > FREE_PREP_TURN_LIMIT) {
+          return res.status(429).json({ error: 'free_prep_limit_reached' });
+        }
       }
     }
 
@@ -283,10 +354,17 @@ export default async function handler(req, res) {
     // messages.length === 1 is the initial resume(+JD) submission that kicks
     // off a review - the client always resets to a fresh 1-message array for
     // that turn. Later back-and-forth in the same review doesn't re-count.
-    if (mode === 'resume' && user && !resumeUnlocked && messages.length === 1) {
-      var allowedFreeReview = await useFreeResumeReview(user.id);
-      if (!allowedFreeReview) {
-        return res.status(403).json({ error: 'free_resume_limit_reached' });
+    if (mode === 'resume' && !resumeUnlocked && messages.length === 1) {
+      if (user) {
+        var allowedFreeReview = await useFreeResumeReview(user.id);
+        if (!allowedFreeReview) {
+          return res.status(403).json({ error: 'free_resume_limit_reached' });
+        }
+      } else {
+        var anonResumeHits = await anonHitCount('resume:' + ip, ANON_LIFETIME_WINDOW_HOURS);
+        if (anonResumeHits > FREE_RESUME_REVIEW_LIMIT) {
+          return res.status(403).json({ error: 'free_resume_limit_reached' });
+        }
       }
     }
 
