@@ -866,6 +866,12 @@ function showAnonLimitMessage(){
   showAuthModal('signup');
 }
 
+function showAnonGlobalLimitMessage(){
+  hideTyping();
+  addMsg('bot','Ezzy is experiencing high demand right now. Please sign in to continue, or try again later.');
+  showAuthModal('signup');
+}
+
 var FREE_MODE_LABEL = {practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview'};
 
 function showUpgradeGateMessage(errorCode, detail){
@@ -901,7 +907,12 @@ async function callClaudeWithSearch(messages,cb){
       showUpgradeGateMessage(gateBody.error, gateBody);
       return;
     }
-    if(res.status===429){ showAnonLimitMessage(); return; }
+    if(res.status===429){
+      var searchLimitBody=await res.json().catch(function(){return {};});
+      if(searchLimitBody.error==='anon_global_limit_reached') showAnonGlobalLimitMessage();
+      else showAnonLimitMessage();
+      return;
+    }
     var data=await res.json();
     if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
     var textBlocks=data.content.filter(function(b){return b.type==='text';});
@@ -943,6 +954,7 @@ async function callClaudeStream(messages,onChunk,onDone){
     if(res.status===429){
       var limitBody=await res.json().catch(function(){return {};});
       if(limitBody.error==='free_prep_limit_reached') showUpgradeGateMessage(limitBody.error, limitBody);
+      else if(limitBody.error==='anon_global_limit_reached') showAnonGlobalLimitMessage();
       else showAnonLimitMessage();
       if(onDone)onDone();
       return;
@@ -1374,10 +1386,36 @@ async function signInWithGoogle(){
   }
 }
 </script>
+<div id="welcomeGateOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>Welcome to Ezzy</h3><p>Create an account to save your progress, or try it first without one.</p><button class="onboarding-submit-btn" onclick="chooseCreateAccount()">Create an account</button><button class="goodbye-secondary-btn" onclick="chooseTryAnonymous()">Try it without an account</button></div></div>
 <script>
+var WELCOME_GATE_SEEN_KEY = 'ezzy_welcome_seen';
+
+function maybeShowWelcomeGate(){
+  try {
+    if(localStorage.getItem(WELCOME_GATE_SEEN_KEY)) return;
+  } catch(e){ return; } // storage unavailable - don't block the app over this
+  var overlay = document.getElementById('welcomeGateOverlay');
+  if(overlay) overlay.classList.add('active');
+}
+
+function dismissWelcomeGate(){
+  var overlay = document.getElementById('welcomeGateOverlay');
+  if(overlay) overlay.classList.remove('active');
+  try { localStorage.setItem(WELCOME_GATE_SEEN_KEY, '1'); } catch(e){}
+}
+
+function chooseCreateAccount(){
+  dismissWelcomeGate();
+  showAuthModal('signup');
+}
+
+function chooseTryAnonymous(){
+  dismissWelcomeGate();
+}
+
 (function(){
   if(!window.supabaseClient) return;
-  
+
   // Check on page load
   window.supabaseClient.auth.getSession().then(function(res){
     var session = res.data.session;
@@ -1385,6 +1423,7 @@ async function signInWithGoogle(){
       updateAuthUI(session.user);
     } else {
       updateAuthUI(null);
+      maybeShowWelcomeGate();
     }
   });
   
