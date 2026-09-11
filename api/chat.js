@@ -94,15 +94,92 @@ function researchSystemPrompt(role, company) {
   ].join('\n');
 }
 
-function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked) {
+function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText) {
   if (mode === 'resume') {
     if (!resumeUnlocked) return RESUME_SYSTEM + RESUME_UPSELL_LINE;
     if (!knownClaimsText) return RESUME_SYSTEM;
     return RESUME_SYSTEM + '\n\nAdditional context Ezzy already knows about this candidate from earlier sessions - reference it if it would strengthen the resume, but never fabricate beyond what is given here or in the resume itself:\n' + knownClaimsText;
   }
   if (mode === 'research') return researchSystemPrompt(role || 'candidate', company || 'the company');
-  return trainerSystemPrompt(mode, role || 'candidate');
+  var base = trainerSystemPrompt(mode, role || 'candidate');
+  if (base && knowledgeText) {
+    return base + '\n\nEzzy knowledge base - vetted interview knowledge relevant to this role. Use it to ask sharper, more specific questions and give more grounded feedback. Cite the source by name when you draw on it (e.g. "According to X..."); never fabricate a source that isn\'t listed here:\n' + knowledgeText;
+  }
+  return base;
 }
+
+// Shared, non-personal knowledge (see 0012_ezzy_knowledge_base.sql) -
+// reused across every user asking about this role, so this costs one
+// Postgres read, not an extra Anthropic call. Filters loosely on role name
+// since role is free text from the picker (including custom "Other" entries),
+// not a fixed enum.
+async function fetchInterviewKnowledge(role) {
+  try {
+    var filter = 'category=eq.interview&select=claim,status,topic,subject,knowledge_sources(domain,title)&order=confidence.desc.nullslast&limit=5';
+    if (role) {
+      filter += '&or=(subject.ilike.*' + encodeURIComponent(role) + '*,subject.is.null)';
+    } else {
+      filter += '&subject=is.null';
+    }
+    var res = await fetch(SUPABASE_URL + '/rest/v1/knowledge_items?' + filter, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+function knowledgeToText(items) {
+  if (!items || !items.length) return null;
+  return items.map(function (i) {
+    var src = i.knowledge_sources && (i.knowledge_sources.title || i.knowledge_sources.domain);
+    return '- ' + i.claim + (i.status === 'opinion' ? ' (advice)' : '') + (src ? ' [source: ' + src + ']' : '');
+  }).join('\n');
+}
+
+// Question archetypes (see 0014_question_archetypes.sql) - the richer
+// "what is this question actually testing" entity, one Postgres read like
+// fetchInterviewKnowledge above. star is explicitly the STAR/behavioral
+// coaching mode, so it filters to behavioral archetypes only; practice/mock
+// stay broad since either could reasonably touch any interview type for
+// the role.
+async function fetchQuestionArchetypes(role, interviewType) {
+  try {
+    var filter = 'select=title,competency,example_questions,testing_for,strong_evidence,failure_modes,likely_followups,status,knowledge_sources(domain,title)&order=confidence.desc.nullslast&limit=3';
+    if (interviewType) filter += '&interview_type=eq.' + encodeURIComponent(interviewType);
+    if (role) {
+      filter += '&or=(role.ilike.*' + encodeURIComponent(role) + '*,role.is.null)';
+    } else {
+      filter += '&role=is.null';
+    }
+    var res = await fetch(SUPABASE_URL + '/rest/v1/question_archetypes?' + filter, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+function archetypesToText(archetypes) {
+  if (!archetypes || !archetypes.length) return null;
+  return archetypes.map(function (a) {
+    var src = a.knowledge_sources && (a.knowledge_sources.title || a.knowledge_sources.domain);
+    return [
+      '- Archetype: ' + a.title + ' (competency: ' + a.competency + ')',
+      '  Tests for: ' + (a.testing_for || []).join(', '),
+      '  Strong evidence: ' + (a.strong_evidence || []).join('; '),
+      '  Common failure modes: ' + (a.failure_modes || []).join('; '),
+      '  Likely follow-ups: ' + (a.likely_followups || []).join(' / '),
+      src ? '  [source: ' + src + ']' : null
+    ].filter(Boolean).join('\n');
+  }).join('\n');
+}
+
+var INTERVIEW_TYPE_BY_MODE = { star: 'behavioral' };
 
 async function fetchSubscription(token, userId) {
   try {
@@ -373,10 +450,20 @@ export default async function handler(req, res) {
       knownClaimsText = claimsToText(await fetchKnownClaims(token, user.id));
     }
 
+    var knowledgeText = null;
+    if (mode === 'practice' || mode === 'star' || mode === 'mock') {
+      var factsText = knowledgeToText(await fetchInterviewKnowledge(role));
+      var archetypesText = archetypesToText(await fetchQuestionArchetypes(role, INTERVIEW_TYPE_BY_MODE[mode]));
+      var parts = [];
+      if (archetypesText) parts.push('Relevant question archetypes:\n' + archetypesText);
+      if (factsText) parts.push('General interview knowledge:\n' + factsText);
+      knowledgeText = parts.length ? parts.join('\n\n') : null;
+    }
+
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
       max_tokens: mode === 'research' ? 4000 : 1000,
-      system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked),
+      system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText),
       messages: messages,
       stream: isStreaming
     };
