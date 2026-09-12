@@ -181,6 +181,54 @@ function archetypesToText(archetypes) {
 
 var INTERVIEW_TYPE_BY_MODE = { star: 'behavioral' };
 
+// Company Research is the most expensive call in the app (Sonnet + live web
+// search, every time) and the most repeatable - the same company gets asked
+// about by many different users. Cache the initial brief by company+role
+// with a freshness window; follow-up questions in the conversation always
+// go live (see the messages.length === 1 check at the call site), since
+// those are genuinely per-conversation.
+const RESEARCH_CACHE_TTL_DAYS = 14;
+
+function normalizeKey(s) {
+  return (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+}
+
+async function fetchCachedResearch(companyKey, roleKey) {
+  try {
+    var cutoff = new Date(Date.now() - RESEARCH_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/company_research_cache?company_key=eq.' + encodeURIComponent(companyKey) +
+      '&role_key=eq.' + encodeURIComponent(roleKey) + '&created_at=gte.' + cutoff + '&select=brief&limit=1',
+      { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY } }
+    );
+    if (!res.ok) return null;
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0].brief : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function saveCachedResearch(companyKey, roleKey, company, role, brief) {
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/company_research_cache?on_conflict=company_key,role_key', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Prefer: 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify([{
+        company_key: companyKey, role_key: roleKey, company: company, role: role,
+        brief: brief, created_at: new Date().toISOString()
+      }])
+    });
+  } catch (e) {
+    // caching is best-effort - never fail the request over a cache write
+  }
+}
+
 async function fetchSubscription(token, userId) {
   try {
     var res = await fetch(
@@ -460,6 +508,22 @@ export default async function handler(req, res) {
       knowledgeText = parts.length ? parts.join('\n\n') : null;
     }
 
+    // Company Research: serve a cached brief for the initial message of a
+    // conversation when one exists and is still fresh - skips the
+    // Anthropic call (web search + Sonnet) entirely. Follow-up questions
+    // (messages.length > 1) always go live.
+    var researchCacheKeys = null;
+    if (mode === 'research' && messages.length === 1) {
+      researchCacheKeys = { companyKey: normalizeKey(company), roleKey: normalizeKey(role) };
+      var cachedBrief = await fetchCachedResearch(researchCacheKeys.companyKey, researchCacheKeys.roleKey);
+      if (cachedBrief) {
+        return res.status(200).json({
+          content: [{ type: 'text', text: cachedBrief }],
+          usage: { input_tokens: 0, output_tokens: 0 }
+        });
+      }
+    }
+
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
       max_tokens: mode === 'research' ? 4000 : 1000,
@@ -483,6 +547,13 @@ export default async function handler(req, res) {
 
     if (!isStreaming) {
       const data = await response.json();
+      if (researchCacheKeys && response.ok) {
+        var textBlocks = (data.content || []).filter(function (b) { return b.type === 'text'; });
+        var briefText = textBlocks.map(function (b) { return b.text; }).join('\n\n');
+        if (briefText) {
+          await saveCachedResearch(researchCacheKeys.companyKey, researchCacheKeys.roleKey, company, role, briefText);
+        }
+      }
       return res.status(response.status).json(data);
     }
 
