@@ -147,6 +147,30 @@ function claimsToText(claims) {
   }).join('\n');
 }
 
+// Shared, non-personal knowledge (see 0012_ezzy_knowledge_base.sql /
+// 0018_seed_recruiting_knowledge.sql) - one Postgres read, not an extra
+// Anthropic call, same pattern as api/chat.js's resume mode.
+async function fetchRecruitingKnowledge() {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/knowledge_items?category=eq.recruiting&subject=is.null' +
+      '&select=claim,status&order=confidence.desc.nullslast&limit=5',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY } }
+    );
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
+function knowledgeToText(items) {
+  if (!items || !items.length) return null;
+  return items.map(function (i) {
+    return '- ' + i.claim + (i.status === 'opinion' ? ' (advice)' : '');
+  }).join('\n');
+}
+
 async function anthropicToolCall(model, system, userContent, tool, maxTokens) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -214,7 +238,13 @@ export default async function handler(req, res) {
       claimsToText(claims)
     ].join('\n');
 
-    var gapOutput = await anthropicToolCall('claude-sonnet-4-5', GAP_SYSTEM, userContent, GAP_TOOL, 1500);
+    var recruitingKnowledgeText = knowledgeToText(await fetchRecruitingKnowledge());
+    var gapSystem = GAP_SYSTEM;
+    if (recruitingKnowledgeText) {
+      gapSystem += '\n\nEzzy knowledge base - general recruiting/resume-screening knowledge to inform your judgment (do not cite it in the notes, just use it to judge more like an experienced recruiter would):\n' + recruitingKnowledgeText;
+    }
+
+    var gapOutput = await anthropicToolCall('claude-sonnet-4-5', gapSystem, userContent, GAP_TOOL, 1500);
     var gaps = (gapOutput && Array.isArray(gapOutput.gaps)) ? gapOutput.gaps : [];
 
     if (gaps.length) {

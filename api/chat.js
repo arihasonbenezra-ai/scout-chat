@@ -96,9 +96,13 @@ function researchSystemPrompt(role, company) {
 
 function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText) {
   if (mode === 'resume') {
-    if (!resumeUnlocked) return RESUME_SYSTEM + RESUME_UPSELL_LINE;
-    if (!knownClaimsText) return RESUME_SYSTEM;
-    return RESUME_SYSTEM + '\n\nAdditional context Ezzy already knows about this candidate from earlier sessions - reference it if it would strengthen the resume, but never fabricate beyond what is given here or in the resume itself:\n' + knownClaimsText;
+    var resumeBase = RESUME_SYSTEM;
+    if (knowledgeText) {
+      resumeBase += '\n\nEzzy knowledge base - general recruiting and resume-screening knowledge you may draw on when relevant. Cite it by name when you use it; never fabricate a source that isn\'t listed here:\n' + knowledgeText;
+    }
+    if (!resumeUnlocked) return resumeBase + RESUME_UPSELL_LINE;
+    if (!knownClaimsText) return resumeBase;
+    return resumeBase + '\n\nAdditional context Ezzy already knows about this candidate from earlier sessions - reference it if it would strengthen the resume, but never fabricate beyond what is given here or in the resume itself:\n' + knownClaimsText;
   }
   if (mode === 'research') return researchSystemPrompt(role || 'candidate', company || 'the company');
   var base = trainerSystemPrompt(mode, role || 'candidate');
@@ -113,9 +117,9 @@ function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, k
 // Postgres read, not an extra Anthropic call. Filters loosely on role name
 // since role is free text from the picker (including custom "Other" entries),
 // not a fixed enum.
-async function fetchInterviewKnowledge(role) {
+async function fetchKnowledgeItems(category, role) {
   try {
-    var filter = 'category=eq.interview&select=claim,status,topic,subject,knowledge_sources(domain,title)&order=confidence.desc.nullslast&limit=5';
+    var filter = 'category=eq.' + encodeURIComponent(category) + '&select=claim,status,topic,subject,knowledge_sources(domain,title)&order=confidence.desc.nullslast&limit=5';
     if (role) {
       filter += '&or=(subject.ilike.*' + encodeURIComponent(role) + '*,subject.is.null)';
     } else {
@@ -141,7 +145,7 @@ function knowledgeToText(items) {
 
 // Question archetypes (see 0014_question_archetypes.sql) - the richer
 // "what is this question actually testing" entity, one Postgres read like
-// fetchInterviewKnowledge above. star is explicitly the STAR/behavioral
+// fetchKnowledgeItems above. star is explicitly the STAR/behavioral
 // coaching mode, so it filters to behavioral archetypes only; practice/mock
 // stay broad since either could reasonably touch any interview type for
 // the role.
@@ -500,12 +504,14 @@ export default async function handler(req, res) {
 
     var knowledgeText = null;
     if (mode === 'practice' || mode === 'star' || mode === 'mock') {
-      var factsText = knowledgeToText(await fetchInterviewKnowledge(role));
+      var factsText = knowledgeToText(await fetchKnowledgeItems('interview', role));
       var archetypesText = archetypesToText(await fetchQuestionArchetypes(role, INTERVIEW_TYPE_BY_MODE[mode]));
       var parts = [];
       if (archetypesText) parts.push('Relevant question archetypes:\n' + archetypesText);
       if (factsText) parts.push('General interview knowledge:\n' + factsText);
       knowledgeText = parts.length ? parts.join('\n\n') : null;
+    } else if (mode === 'resume') {
+      knowledgeText = knowledgeToText(await fetchKnowledgeItems('recruiting', role));
     }
 
     // Company Research: serve a cached brief for the initial message of a
