@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Ezzy Admin</title>
+<style>
+  :root{ --accent:#F26B5E; --accent-dark:#D9554A; --text:#111; --muted:#666; --border:#E5E5E5; --bg:#FAFAFA; }
+  *,*::before,*::after{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:420px;margin:0 auto;padding:32px 20px 60px;min-height:100dvh}
+  .brand{display:flex;align-items:center;gap:8px;margin-bottom:28px}
+  .brand-text{font-size:18px;font-weight:700}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 24px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:20px}
+  label{display:block;font-size:13px;font-weight:600;color:#333;margin:16px 0 6px}
+  label:first-of-type{margin-top:0}
+  input,select{width:100%;padding:12px 14px;font-size:16px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--text)}
+  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  .days-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .day-chip{flex:1;min-width:64px;padding:10px 8px;text-align:center;border:1px solid var(--border);border-radius:10px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;color:#333}
+  .day-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.submit{width:100%;margin-top:22px;padding:15px;font-size:15px;font-weight:700;color:#fff;background:var(--accent);border:none;border-radius:10px;cursor:pointer}
+  button.submit:disabled{background:#f3b6ae;cursor:not-allowed}
+  button.submit:hover:not(:disabled){background:var(--accent-dark)}
+  .msg{margin-top:16px;padding:12px 14px;border-radius:10px;font-size:14px;line-height:1.5;display:none}
+  .msg.show{display:block}
+  .msg.ok{background:#EAF7EE;color:#1E6B34;border:1px solid #BFE6CC}
+  .msg.err{background:#FCEAE6;color:#B23B2E;border:1px solid #F3C6BC}
+  .gate{max-width:340px;margin:60px auto 0;padding:0 20px}
+  .gate-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:24px;text-align:center}
+  .gate button{margin-top:16px;width:100%;padding:13px;font-size:14px;font-weight:700;color:#fff;background:var(--accent);border:none;border-radius:10px;cursor:pointer}
+  .gate button:disabled{background:#f3b6ae;cursor:not-allowed}
+  .signout{margin-top:24px;text-align:center}
+  .signout a{color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="gateScreen" class="gate">
+  <div class="gate-card">
+    <div class="brand" style="justify-content:center">
+      <svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg>
+      <span class="brand-text">Ezzy Admin</span>
+    </div>
+    <p class="sub">Sign in to continue.</p>
+    <label for="loginEmail" style="text-align:left">Email</label>
+    <input type="email" id="loginEmail" placeholder="you@company.com" autocomplete="username" />
+    <label for="loginPassword" style="text-align:left">Password</label>
+    <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" />
+    <button id="loginBtn" onclick="login()">Sign in</button>
+    <div class="msg err" id="loginError"></div>
+  </div>
+</div>
+
+<div id="appScreen" class="wrap" style="display:none">
+  <div class="brand">
+    <svg viewBox="0 0 32 32" width="32" height="32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <span class="brand-text">Ezzy Admin</span>
+  </div>
+
+  <h1>Grant access</h1>
+  <p class="sub">Give someone temporary access — a promo, a trial, or a goodwill extension. Time is added on top of whatever they already have, never overwritten.</p>
+
+  <div class="card">
+    <label for="email">Customer email</label>
+    <input type="email" id="email" placeholder="name@email.com" autocomplete="off" autocapitalize="off" />
+
+    <label for="plan">Plan to grant</label>
+    <select id="plan">
+      <option value="job_search">Job Search (prep, mock, research, resume reviews)</option>
+      <option value="career">Career</option>
+    </select>
+
+    <label>How many days</label>
+    <div class="days-row">
+      <div class="day-chip" data-days="1" onclick="pickDays(1)">1 day</div>
+      <div class="day-chip" data-days="7" onclick="pickDays(7)">1 week</div>
+      <div class="day-chip" data-days="30" onclick="pickDays(30)">1 month</div>
+      <div class="day-chip" data-days="90" onclick="pickDays(90)">90 days</div>
+    </div>
+    <input type="number" id="daysInput" min="1" max="365" placeholder="Or type a custom number of days" style="margin-top:10px" oninput="clearChipSelection()" />
+
+    <button class="submit" id="submitBtn" onclick="grantAccess()">Grant access</button>
+    <div class="msg" id="resultMsg"></div>
+  </div>
+
+  <div class="signout"><a onclick="signOut()">Sign out</a></div>
+</div>
+
+<script>
+var SESSION_KEY = 'ezzy_admin_session';
+
+function showApp(){
+  document.getElementById('gateScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+}
+
+function showGate(){
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('gateScreen').style.display = 'block';
+}
+
+function signOut(){
+  try { localStorage.removeItem(SESSION_KEY); } catch(e){}
+  showGate();
+}
+
+async function login(){
+  var email = document.getElementById('loginEmail').value.trim();
+  var password = document.getElementById('loginPassword').value;
+  var errEl = document.getElementById('loginError');
+  errEl.className = 'msg err';
+
+  if(!email || !password){
+    errEl.textContent = 'Enter your email and password.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+
+  try {
+    var res = await fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password })
+    });
+    var data = await res.json();
+    if(!res.ok){
+      errEl.textContent = data.error || 'Could not sign in.';
+      errEl.classList.add('show');
+      return;
+    }
+    try { localStorage.setItem(SESSION_KEY, data.token); } catch(e){}
+    document.getElementById('loginPassword').value = '';
+    showApp();
+  } catch(e){
+    errEl.textContent = 'Network error - try again.';
+    errEl.classList.add('show');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+function pickDays(n){
+  document.getElementById('daysInput').value = n;
+  Array.from(document.querySelectorAll('.day-chip')).forEach(function(el){
+    el.classList.toggle('active', Number(el.dataset.days) === n);
+  });
+}
+
+function clearChipSelection(){
+  Array.from(document.querySelectorAll('.day-chip')).forEach(function(el){ el.classList.remove('active'); });
+}
+
+function showMsg(text, ok){
+  var el = document.getElementById('resultMsg');
+  el.textContent = text;
+  el.className = 'msg show ' + (ok ? 'ok' : 'err');
+}
+
+async function grantAccess(){
+  var token = null;
+  try { token = localStorage.getItem(SESSION_KEY); } catch(e){}
+  if(!token){ showGate(); return; }
+
+  var email = document.getElementById('email').value.trim();
+  var plan = document.getElementById('plan').value;
+  var days = Number(document.getElementById('daysInput').value);
+
+  if(!email){ showMsg('Enter the customer\'s email.', false); return; }
+  if(!days || days <= 0){ showMsg('Pick or enter a number of days.', false); return; }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Granting...';
+
+  try {
+    var res = await fetch('/api/admin-grant-access', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-session': token },
+      body: JSON.stringify({ email: email, plan: plan, days: days })
+    });
+    var data = await res.json();
+
+    if(res.status === 401){
+      showMsg('Your session expired. Please sign in again.', false);
+      try { localStorage.removeItem(SESSION_KEY); } catch(e){}
+      setTimeout(showGate, 1200);
+      return;
+    }
+    if(!res.ok){
+      showMsg(data.error || 'Something went wrong.', false);
+      return;
+    }
+
+    var expiryDate = new Date(data.newExpiry);
+    var expiryStr = expiryDate.toLocaleString(undefined, { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+    var note = data.hadExistingAccess ? ' (added on top of their existing access)' : '';
+    showMsg('Granted. ' + email + ' now has ' + data.plan + ' access until ' + expiryStr + note + '.', true);
+  } catch(e){
+    showMsg('Network error - try again.', false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Grant access';
+  }
+}
+
+(function(){
+  var stored = null;
+  try { stored = localStorage.getItem(SESSION_KEY); } catch(e){}
+  if(stored) showApp();
+})();
+</script>
+</body>
+</html>
