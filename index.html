@@ -808,8 +808,12 @@ function handleSendText(text){
     if(RESUME_STAGE==='awaiting_resume'){
       RESUME_TEXT=text;
       RESUME_STAGE='awaiting_jd';
-      setTimeout(function(){addMsg('bot','Got it. Now paste the job description you\'re targeting.');},200);
+      setTimeout(function(){
+        addMsg('bot','Got it. Now paste the job description you\'re targeting.');
+        appendSkipJDButton();
+      },200);
     } else if(RESUME_STAGE==='awaiting_jd'){
+      removeSkipJDButton();
       JD_TEXT=text;
       RESUME_STAGE='feedback_given';
       var firstUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.';
@@ -823,6 +827,23 @@ function handleSendText(text){
         appendDownloadButton();
         extractCareerClaims(RESUME_TEXT, JD_TEXT);
         runGapAnalysis(RESUME_TEXT, JD_TEXT);
+      });
+    } else if(RESUME_STAGE==='awaiting_target'){
+      JD_TEXT=text;
+      RESUME_STAGE='feedback_given';
+      var targetUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have one specific job posting to target. They are looking for: '+JD_TEXT+'\n\nGive your feedback now, tailored to these types of roles in general rather than one specific posting, using the format specified.';
+      convoHistory=[{role:'user',content:targetUserMsg}];
+      isSending=true;updateSendBtnState();
+      showTyping();
+      streamBotReply(convoHistory.slice(),function(reply){
+        if(!reply) return;
+        convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
+        appendDownloadButton();
+        extractCareerClaims(RESUME_TEXT, null);
+        // No runGapAnalysis here - that feature checks a resume against a
+        // specific job's requirements, and there's no real posting to
+        // check it against, just a general target.
       });
     } else {
       convoHistory.push({role:'user',content:text});
@@ -872,17 +893,28 @@ function showAnonGlobalLimitMessage(){
   showAuthModal('signup');
 }
 
-var FREE_MODE_LABEL = {practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview'};
+// Practice Q&A and Resume Review both require a free account before Ezzy
+// actually generates anything - this fires the first time an anonymous
+// visitor tries either one, before any AI call happens server-side.
+function showSignupRequiredMessage(){
+  hideTyping();
+  addMsg('bot','Create a free account to see your results - it only takes a few seconds, and you\'re not paying anything yet.');
+  showAuthModal('signup');
+  var sub = document.getElementById('authModalSub');
+  if(sub) sub.textContent = 'Sign up to see your results';
+}
+
+var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview'};
 
 function showUpgradeGateMessage(errorCode, detail){
   hideTyping();
-  if(errorCode === 'free_mode_locked'){
-    var lockedLabel = FREE_MODE_LABEL[detail && detail.lockedMode] || 'one mode';
-    addMsg('bot','Free includes '+lockedLabel+' only. Upgrade to unlock Practice, STAR, and Mock Interview together.');
+  if(errorCode === 'prep_mode_requires_job_search'){
+    var modeLabel = FREE_MODE_LABEL[detail && detail.mode] || 'This mode';
+    addMsg('bot',modeLabel+' is part of Job Search. Sign up for in-depth interview prep and a full, recruiter-built resume review with gap analysis - not just general pointers.');
   } else if(errorCode === 'free_prep_limit_reached'){
-    addMsg('bot','You\'ve hit the 10-question limit for free practice. Upgrade for unlimited practice while you\'re job searching.');
+    addMsg('bot','You\'ve used your free practice session. Sign up for in-depth, unlimited interview prep - Practice, STAR, and Mock Interview - plus real resume feedback built by recruiters and hiring managers.');
   } else if(errorCode === 'free_resume_limit_reached'){
-    addMsg('bot','You\'ve used all your free resume reviews. Buy a Resume Review for a full recruiter-style breakdown, or Job Search for unlimited reviews.');
+    addMsg('bot','You\'ve used your free resume review. Sign up for an in-depth breakdown and gap analysis against the job you want - real resume feedback built by recruiters and hiring managers, not just general pointers.');
   } else if(errorCode === 'research_requires_job_search'){
     addMsg('bot','Company Research is part of Job Search. Upgrade to unlock it.');
   } else {
@@ -922,14 +954,26 @@ async function callClaudeWithSearch(messages,cb){
   }catch(e){cb('Sorry, something went wrong. Please try again.');}
 }
 
+// Set when a call gets stopped by the signup-required gate, so signing up
+// can automatically pick up exactly where the user left off instead of
+// requiring them to resend their resume/answer a second time.
+var pendingGatedRetry=null;
+
 function streamBotReply(messages,afterDone){
   var bubbleNode=null;var fullText='';
   callClaudeStream(messages,function(deltaText,fullSoFar){
     if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
     fullText=fullSoFar;
     setBubbleText(bubbleNode,fullSoFar);
-  },function(){
+  },function(gatedBySignup){
     isSending=false;updateSendBtnState();
+    if(gatedBySignup){
+      // No real reply happened - stash the retry and skip afterDone
+      // entirely rather than firing it with an empty reply, which would
+      // push a bogus empty turn into the conversation history.
+      pendingGatedRetry={messages:messages,afterDone:afterDone};
+      return;
+    }
     if(afterDone)afterDone(fullText);
   });
 }
@@ -945,6 +989,11 @@ async function callClaudeStream(messages,onChunk,onDone){
       messages:messages,
       stream:true
     })});
+    if(res.status===401){
+      showSignupRequiredMessage();
+      if(onDone)onDone(true);
+      return;
+    }
     if(res.status===403){
       var gateBody=await res.json().catch(function(){return {};});
       showUpgradeGateMessage(gateBody.error, gateBody);
@@ -1004,6 +1053,38 @@ function appendDownloadButton(){
   msgEl.appendChild(newBtn);
 
   scrollMain();
+}
+
+function appendSkipJDButton(){
+  removeSkipJDButton();
+  var btn=document.createElement('button');
+  btn.className='new-review-btn';
+  btn.id='skipJdBtn';
+  btn.textContent="Skip - I don't have a specific job";
+  btn.onclick=skipJobDescription;
+  msgEl.appendChild(btn);
+  scrollMain();
+}
+
+function removeSkipJDButton(){
+  var btn=document.getElementById('skipJdBtn');
+  if(btn) btn.remove();
+}
+
+// Not everyone reviewing a resume has one specific job posting in mind -
+// forcing a JD paste blocked general "make my resume stronger" reviews
+// entirely. Skipping asks for the target roles instead, which is enough
+// context for role-aware feedback without a literal posting to grade
+// against (so the structured JD-requirement gap analysis is skipped too -
+// there's no real requirement list to check the resume against).
+function skipJobDescription(){
+  removeSkipJDButton();
+  addMsg('user',"I don't have a specific job in mind");
+  RESUME_STAGE='awaiting_target';
+  window.RESUME_STAGE=RESUME_STAGE;
+  setTimeout(function(){
+    addMsg('bot','No problem. What type of roles are you looking for? (e.g. "Senior Product Manager roles" or "Software Engineering roles at early-stage startups")');
+  },200);
 }
 
 // Resume Feedback keeps exactly one conversation per account - re-entering
@@ -1543,6 +1624,13 @@ function signInFromGoodbye(){
 function onAuthSuccess(user){
   hideAuthModal();
   updateAuthUI(user);
+  if(pendingGatedRetry){
+    var retry=pendingGatedRetry;
+    pendingGatedRetry=null;
+    isSending=true;updateSendBtnState();
+    showTyping();
+    streamBotReply(retry.messages, retry.afterDone);
+  }
 }
 </script>
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>

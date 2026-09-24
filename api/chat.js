@@ -22,6 +22,9 @@ const MODEL_BY_MODE = {
   research: 'claude-sonnet-4-5'
 };
 
+// Full, specialized breakdown - entitled/credited reviews only. Free
+// reviews use RESUME_SYSTEM_FREE below instead: same input, deliberately
+// more basic output, not a stripped-down version of this same prompt.
 const RESUME_SYSTEM = [
   'You are Ezzy, a senior recruiting partner giving direct, specific resume feedback.',
   '',
@@ -40,10 +43,27 @@ const RESUME_SYSTEM = [
   '- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
 ].join('\n');
 
+// Free tier: general pointers only, not the specialized, ranked,
+// line-by-line breakdown above - no JD-specific gap identification, no
+// rewrites. Deliberately basic so there's a real reason to upgrade.
+const RESUME_SYSTEM_FREE = [
+  'You are Ezzy, giving a candidate a quick, general resume review.',
+  '',
+  'You will receive a resume and (optionally) a target job description or target roles.',
+  '',
+  'Give 3-4 general, high-level pointers - things like clarity, use of concrete metrics, strong vs. weak action verbs, structure. Keep it encouraging but honest.',
+  '',
+  'Do NOT do a deep, line-by-line or JD-specific breakdown. Do NOT rank issues by impact. Do NOT rewrite specific lines for them. This is a general first look, not the full recruiter-style review.',
+  '',
+  'Never invent experience, metrics, skills, or accomplishments the candidate did not state.',
+  '',
+  'Total response under 250 words.'
+].join('\n');
+
 // Free tier still gets real JD-matched feedback (same core prompt) - what
 // it doesn't get is the structured gap-analysis checklist, Career Brain
 // personalization/saving, or unlimited use. See FREE_RESUME_REVIEW_LIMIT.
-const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want a structured breakdown of exactly what this role requires and whether you meet it, saved to your profile for next time? Upgrade for a full recruiter-style review."';
+const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want in-depth feedback and a gap analysis against the job you want? Upgrade for a full, recruiter-built resume review."';
 
 function trainerSystemPrompt(mode, role) {
   if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
@@ -96,7 +116,7 @@ function researchSystemPrompt(role, company) {
 
 function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText) {
   if (mode === 'resume') {
-    var resumeBase = RESUME_SYSTEM;
+    var resumeBase = resumeUnlocked ? RESUME_SYSTEM : RESUME_SYSTEM_FREE;
     if (knowledgeText) {
       resumeBase += '\n\nEzzy knowledge base - general recruiting and resume-screening knowledge you may draw on when relevant. Cite it by name when you use it; never fabricate a source that isn\'t listed here:\n' + knowledgeText;
     }
@@ -254,21 +274,43 @@ function hasActiveAccess(sub) {
   return true;
 }
 
-async function lockFreePrepMode(userId, mode) {
+// Carries anonymous usage (by IP) into a freshly-signed-up account, so
+// signing up after using the free tier anonymously doesn't grant a second
+// free round - see 0019_free_tier_redesign.sql. Best-effort: an infra
+// failure here just means the DB-side gate re-evaluates without the
+// carry-over, which fails closed (denies) rather than open in practice
+// since a fresh account with no carried-over usage still hits its own
+// independent free limit correctly - it just might get a full fresh one
+// this one time rather than an already-exhausted one.
+async function carryOverAnonPrep(userId, anonKey) {
   try {
-    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/lock_free_prep_mode', {
+    await fetch(SUPABASE_URL + '/rest/v1/rpc/carry_over_anon_prep', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
         Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
       },
-      body: JSON.stringify({ p_user_id: userId, p_mode: mode })
+      body: JSON.stringify({ p_user_id: userId, p_anon_key: anonKey })
     });
-    if (!res.ok) return null;
-    return await res.json();
   } catch (e) {
-    return null;
+    // best-effort - see comment above
+  }
+}
+
+async function carryOverAnonResume(userId, anonKey) {
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/rpc/carry_over_anon_resume', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY
+      },
+      body: JSON.stringify({ p_user_id: userId, p_anon_key: anonKey })
+    });
+  } catch (e) {
+    // best-effort - see comment above
   }
 }
 
@@ -380,29 +422,6 @@ async function anonHitCount(key, windowHours) {
   }
 }
 
-// ~10 years - used for the anonymous resume/prep caps below, which are
-// meant to be lifetime-per-IP rather than the 24h rolling window the
-// general anon message cap uses.
-const ANON_LIFETIME_WINDOW_HOURS = 24 * 365 * 10;
-
-async function lockAnonPrepMode(ip, mode) {
-  try {
-    var res = await fetch(SUPABASE_URL + '/rest/v1/rpc/lock_anon_prep_mode', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: 'Bearer ' + SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({ p_key: 'prep:' + ip, p_mode: mode })
-    });
-    if (!res.ok) return null;
-    return await res.json();
-  } catch (e) {
-    return null;
-  }
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin(req));
   res.setHeader('Vary', 'Origin');
@@ -432,6 +451,17 @@ export default async function handler(req, res) {
 
     var ip = clientIp(req);
 
+    // Practice Q&A and Resume Review (the two free-tier features) now
+    // require a free account before Ezzy actually generates anything -
+    // someone can still paste a resume or start answering questions
+    // anonymously, but seeing the result requires signing up first. This
+    // also means no Anthropic cost is spent on anyone who abandons before
+    // signing up, and closes the old anon-then-signup double-dip at the
+    // source rather than needing the carry-over functions below to catch it.
+    if (!user && (mode === 'practice' || mode === 'resume')) {
+      return res.status(401).json({ error: 'signup_required' });
+    }
+
     if (!user) {
       var hits = await anonHitCount(ip);
       if (hits > ANON_MESSAGE_LIMIT) {
@@ -446,35 +476,26 @@ export default async function handler(req, res) {
     var sub = user ? await fetchSubscription(token, user.id) : null;
     var entitled = hasActiveAccess(sub);
 
-    // Company Research is always part of Job Search - not a Free feature at
-    // all (unlike prep, which gets a limited taste). Applies to anonymous
-    // callers too, since they have no way to be entitled either.
+    // Company Research, STAR Coaching, and Mock Interview are all fully
+    // paid features now - Practice Q&A is the only free prep mode (there's
+    // nothing left to "lock to whichever you tried first" since it's the
+    // only option), same treatment as Company Research already got.
     if (mode === 'research' && !entitled) {
       return res.status(403).json({ error: 'research_requires_job_search' });
     }
+    if ((mode === 'star' || mode === 'mock') && !entitled) {
+      return res.status(403).json({ error: 'prep_mode_requires_job_search', mode: mode });
+    }
 
-    if (!entitled && (mode === 'practice' || mode === 'star' || mode === 'mock')) {
-      if (user) {
-        var lockedMode = sub && sub.free_prep_mode;
-        if (lockedMode && lockedMode !== mode) {
-          return res.status(403).json({ error: 'free_mode_locked', lockedMode: lockedMode });
-        }
-        if (!lockedMode) {
-          await lockFreePrepMode(user.id, mode);
-        }
-        var allowedPrepTurn = await useFreePrepTurn(user.id);
-        if (!allowedPrepTurn) {
-          return res.status(429).json({ error: 'free_prep_limit_reached' });
-        }
-      } else {
-        var lockedAnonMode = await lockAnonPrepMode(ip, mode);
-        if (lockedAnonMode && lockedAnonMode !== mode) {
-          return res.status(403).json({ error: 'free_mode_locked', lockedMode: lockedAnonMode });
-        }
-        var anonPrepHits = await anonHitCount('prep:' + ip, ANON_LIFETIME_WINDOW_HOURS);
-        if (anonPrepHits > FREE_PREP_TURN_LIMIT) {
-          return res.status(429).json({ error: 'free_prep_limit_reached' });
-        }
+    // user is guaranteed non-null below - anonymous practice/resume
+    // requests already returned 401 above. carryOverAnonPrep/Resume are
+    // still called (harmless, idempotent) in case someone used the old
+    // anonymous flow in the window before this gate existed.
+    if (!entitled && mode === 'practice') {
+      await carryOverAnonPrep(user.id, 'prep:' + ip);
+      var allowedPrepTurn = await useFreePrepTurn(user.id);
+      if (!allowedPrepTurn) {
+        return res.status(429).json({ error: 'free_prep_limit_reached' });
       }
     }
 
@@ -484,16 +505,10 @@ export default async function handler(req, res) {
     // off a review - the client always resets to a fresh 1-message array for
     // that turn. Later back-and-forth in the same review doesn't re-count.
     if (mode === 'resume' && !resumeUnlocked && messages.length === 1) {
-      if (user) {
-        var allowedFreeReview = await useFreeResumeReview(user.id);
-        if (!allowedFreeReview) {
-          return res.status(403).json({ error: 'free_resume_limit_reached' });
-        }
-      } else {
-        var anonResumeHits = await anonHitCount('resume:' + ip, ANON_LIFETIME_WINDOW_HOURS);
-        if (anonResumeHits > FREE_RESUME_REVIEW_LIMIT) {
-          return res.status(403).json({ error: 'free_resume_limit_reached' });
-        }
+      await carryOverAnonResume(user.id, 'resume:' + ip);
+      var allowedFreeReview = await useFreeResumeReview(user.id);
+      if (!allowedFreeReview) {
+        return res.status(403).json({ error: 'free_resume_limit_reached' });
       }
     }
 
