@@ -80,13 +80,10 @@ button,input,textarea{font-family:inherit}
 .other-confirm:hover{background:#222}
 .other-cancel{padding:9px 14px;background:none;color:#888;border:none;font-size:13px;cursor:pointer;white-space:nowrap}
 .other-cancel:hover{color:#000;text-decoration:underline}
-.empty-or-divider{font-size:12px;color:#999;margin-top:20px;text-transform:uppercase;letter-spacing:0.05em;opacity:0;animation:emptyTextIn .6s ease 2.4s forwards}
-.empty-resume-shortcut{margin-top:8px;padding:11px 20px;background:var(--coral);color:#000;border:none;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;opacity:0;animation:emptyTextIn .6s ease 2.5s forwards}
-.empty-resume-shortcut:hover{background:#D9554A}
 /* The intro delays above are for the very first landing only - once the
    screen is being re-shown or moved between stages by JS, elements should
    appear right away instead of waiting out a 2s intro they've already seen. */
-.empty.quick .empty-face,.empty.quick .empty-headline,.empty.quick .empty-sub,.empty.quick .empty-pills,.empty.quick .empty-or-divider,.empty.quick .empty-resume-shortcut{animation-delay:.05s}
+.empty.quick .empty-face,.empty.quick .empty-headline,.empty.quick .empty-sub,.empty.quick .empty-pills{animation-delay:.05s}
 
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
@@ -204,6 +201,16 @@ button,input,textarea{font-family:inherit}
 .auth-error:empty{margin:0}
 .auth-toggle{color:#666;font-size:13px;margin-top:18px}
 .auth-toggle a{color:#F26B5E;cursor:pointer;text-decoration:underline;font-weight:500}
+.auth-forgot{display:none;text-align:right;margin:-4px 0 0;font-size:12px}
+.auth-modal.signin-mode .auth-forgot{display:block}
+.auth-forgot a,.auth-forgot-back a{color:#666;cursor:pointer;text-decoration:underline}
+.auth-forgot-view{display:none;flex-direction:column;gap:10px;margin-bottom:14px}
+.auth-forgot-back{color:#666;font-size:13px;margin:6px 0 0;text-align:center}
+.auth-note{color:#1E6B34;font-size:13px;min-height:18px;margin:8px 0 0}
+.auth-note:empty{margin:0;min-height:0}
+/* Forgot-password view: only the email field + send button, everything else tucked away */
+.auth-modal.forgot-mode .auth-forgot-view{display:flex}
+.auth-modal.forgot-mode .auth-google-btn,.auth-modal.forgot-mode .auth-divider,.auth-modal.forgot-mode #authForm,.auth-modal.forgot-mode .auth-toggle{display:none}
 .header{display:flex;align-items:center;justify-content:space-between}
 .header-right{display:flex;align-items:center;gap:8px;position:relative}
 .header-signin-btn{background:#000;color:#fff;border:none;border-radius:999px;padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s}
@@ -426,8 +433,6 @@ button,input,textarea{font-family:inherit}
           <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
           <button class="other-cancel" onclick="cancelOtherInput()" aria-label="Cancel">Cancel</button>
         </div>
-        <p class="empty-or-divider" id="resumeOrDivider" style="display:none">or</p>
-        <button class="empty-resume-shortcut" id="justResumeBtn" style="display:none" onclick="startResumeReviewDirect()">Just resume review</button>
       </div>
 
       <div id="messages"></div>
@@ -554,18 +559,19 @@ function confirmOtherRole(){
   pickRole(v);
 }
 
-// Landing flow is two stages on the same screen:
-//   1. "What can I help you with?"  -> Resume Review | Interview Prep
-//   2. "What role are you prepping for?" -> role pills
-//      (Resume Review also gets a "Just resume review" bypass here, for
-//      someone who just wants eyes on their resume with no target in mind)
-// A cold visitor learns what Ezzy actually does before being asked for a
-// role, and a resume-only visitor isn't forced through interview-prep steps.
+// Landing flow:
+//   "What can I help you with?" -> Resume Review | Interview Prep
+//   Resume Review  -> straight to the resume screen. No role step: a pasted
+//                     JD already says what the role is, and someone with no
+//                     JD just skips it there - asking for a role first was
+//                     redundant either way.
+//   Interview Prep -> "What role are you prepping for?" -> role pills ->
+//                     practice modes + company research.
+// A cold visitor learns what Ezzy actually does before being asked for
+// anything, and a resume-only visitor is one click from pasting.
 var TOP_INTENT=null;
 var intentPills=document.getElementById('intentPills');
 var emptySub=document.getElementById('emptySub');
-var resumeOrDivider=document.getElementById('resumeOrDivider');
-var justResumeBtn=document.getElementById('justResumeBtn');
 var inputArea=document.querySelector('.input-area');
 
 // The chat bar is hidden while the landing screen is up - nothing there is
@@ -578,13 +584,14 @@ setInputAreaVisible(false);
 
 function pickTopIntent(intent){
   TOP_INTENT=intent;
+  if(intent==='resume'){
+    startResumeReviewDirect();
+    return;
+  }
   emptyState.classList.add('quick');
   intentPills.style.display='none';
   emptySub.textContent='What role are you prepping for?';
   rolePills.style.display='';
-  var isResume = intent==='resume';
-  resumeOrDivider.style.display = isResume ? '' : 'none';
-  justResumeBtn.style.display = isResume ? '' : 'none';
 }
 
 function resetEmptyStateToStage1(){
@@ -594,8 +601,6 @@ function resetEmptyStateToStage1(){
   emptySub.textContent='What can I help you with?';
   intentPills.style.display='';
   rolePills.style.display='none';
-  resumeOrDivider.style.display='none';
-  justResumeBtn.style.display='none';
   setInputAreaVisible(false);
 }
 
@@ -618,10 +623,6 @@ function pickRole(role){
   ROLE=role;
   window.ROLE=role;
   enterAppShell(role);
-  if(TOP_INTENT==='resume'){
-    pickIntent('resume');
-    return;
-  }
   inputEl.disabled=true;
   inputEl.placeholder='Pick what you want to do first...';
   showPrepPicker();
@@ -644,8 +645,8 @@ function showPrepPicker(){
   }, 400);
 }
 
-// "Just resume review" - no role at all. Resume feedback works fine without
-// one; the role is only there for people who do have a target in mind.
+// Resume Review path - no role at all. The pasted JD carries the role when
+// there is one, and a general review doesn't need it.
 function startResumeReviewDirect(){
   ROLE=null; window.ROLE=null;
   enterAppShell(null);
@@ -1484,14 +1485,21 @@ setTimeout(updateDropZoneVisibility, 200);
   }
 })();
 </script>
-<div id="authModal" class="auth-modal" onclick="if(event.target===this) hideAuthModal();"><div class="auth-modal-card"><button class="auth-modal-close" onclick="hideAuthModal();">×</button><div class="auth-face"><svg viewBox="0 0 32 32" width="56" height="56" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3 id="authModalTitle">Welcome to Ezzy</h3><p id="authModalSub">Sign up to save your progress</p><button class="auth-google-btn" onclick="signInWithGoogle();"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg><span>Continue with Google</span></button><div class="auth-divider"><span>or</span></div><form id="authForm" class="auth-form" onsubmit="handleAuthSubmit(event)"><input type="text" id="authName" class="auth-input" placeholder="Your name" autocomplete="name"><input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="email" required><input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password" required><button type="submit" class="auth-submit-btn" id="authSubmitBtn">Sign Up</button></form><p class="auth-error" id="authError"></p><p class="auth-toggle">Already have an account? <a id="authToggleLink" onclick="toggleAuthMode();">Sign in</a></p></div></div>
+<div id="authModal" class="auth-modal" onclick="if(event.target===this) hideAuthModal();"><div class="auth-modal-card"><button class="auth-modal-close" onclick="hideAuthModal();">×</button><div class="auth-face"><svg viewBox="0 0 32 32" width="56" height="56" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3 id="authModalTitle">Welcome to Ezzy</h3><p id="authModalSub">Sign up to save your progress</p><button class="auth-google-btn" onclick="signInWithGoogle();"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg><span>Continue with Google</span></button><div class="auth-divider"><span>or</span></div><form id="authForm" class="auth-form" onsubmit="handleAuthSubmit(event)"><input type="text" id="authName" class="auth-input" placeholder="Your name" autocomplete="name"><input type="email" id="authEmail" class="auth-input" placeholder="Email" autocomplete="email" required><input type="password" id="authPassword" class="auth-input" placeholder="Password" autocomplete="current-password" required><p class="auth-forgot"><a onclick="showForgotPassword();">Forgot password?</a></p><button type="submit" class="auth-submit-btn" id="authSubmitBtn">Sign Up</button></form><div class="auth-forgot-view" id="authForgotView"><input type="email" id="forgotEmail" class="auth-input" placeholder="Email" autocomplete="email" onkeydown="if(event.key==='Enter'){event.preventDefault();sendPasswordReset();}"><button type="button" class="auth-submit-btn" id="forgotSubmitBtn" onclick="sendPasswordReset();">Send reset link</button><p class="auth-forgot-back"><a onclick="showAuthModal('signin');">Back to sign in</a></p></div><p class="auth-error" id="authError"></p><p class="auth-note" id="authNote"></p><p class="auth-toggle">Already have an account? <a id="authToggleLink" onclick="toggleAuthMode();">Sign in</a></p></div></div>
 <script>
+function setAuthNote(msg){
+  var el = document.getElementById('authNote');
+  if(el) el.textContent = msg || '';
+}
 function showAuthModal(mode){
   var m = document.getElementById('authModal');
   if(!m) return;
+  m.classList.remove('forgot-mode');
   if(mode === 'signin'){ m.classList.add('signin-mode'); }
   else { m.classList.remove('signin-mode'); }
   updateAuthCopy();
+  showAuthError('');
+  setAuthNote('');
   m.classList.add('active');
   setTimeout(function(){
     var emailEl = document.getElementById('authEmail');
@@ -1500,17 +1508,87 @@ function showAuthModal(mode){
 }
 function hideAuthModal(){
   var m = document.getElementById('authModal');
-  if(m) m.classList.remove('active');
-  var err = document.getElementById('authError');
-  if(err) err.textContent = '';
+  if(m){ m.classList.remove('active'); m.classList.remove('forgot-mode'); }
+  showAuthError('');
+  setAuthNote('');
 }
 function toggleAuthMode(){
   var m = document.getElementById('authModal');
   if(!m) return;
+  m.classList.remove('forgot-mode');
   m.classList.toggle('signin-mode');
   updateAuthCopy();
-  var err = document.getElementById('authError');
-  if(err) err.textContent = '';
+  showAuthError('');
+  setAuthNote('');
+}
+
+// Forgot password: Supabase emails a reset link that brings them back here
+// with a recovery session, which the onAuthStateChange listener turns into
+// the "set a new password" screen below.
+function showForgotPassword(){
+  var m = document.getElementById('authModal');
+  if(!m) return;
+  m.classList.add('forgot-mode');
+  showAuthError('');
+  setAuthNote('');
+  document.getElementById('authModalTitle').textContent = 'Reset your password';
+  document.getElementById('authModalSub').textContent = "Enter your email and we'll send you a reset link.";
+  var known = document.getElementById('authEmail').value.trim();
+  var forgotEmail = document.getElementById('forgotEmail');
+  if(known && !forgotEmail.value) forgotEmail.value = known;
+  setTimeout(function(){ forgotEmail.focus(); }, 100);
+}
+async function sendPasswordReset(){
+  if(!window.supabaseClient){ showAuthError('Auth is not ready yet — try again in a moment.'); return; }
+  var email = document.getElementById('forgotEmail').value.trim();
+  if(!email){ showAuthError('Enter your email address.'); return; }
+  var btn = document.getElementById('forgotSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  showAuthError(''); setAuthNote('');
+  try {
+    var result = await window.supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+    if(result.error) throw result.error;
+    setAuthNote('Check your email for a reset link. It can take a minute to arrive.');
+    btn.textContent = 'Sent';
+  } catch(err){
+    console.error('Password reset error:', err);
+    showAuthError(err.message || 'Could not send a reset link. Try again.');
+    btn.disabled = false; btn.textContent = 'Send reset link';
+  }
+}
+
+// "Set a new password" screen, shown when they arrive from the reset email.
+function showNewPasswordOverlay(){
+  var overlay = document.getElementById('newPasswordOverlay');
+  if(!overlay) return;
+  hideAuthModal();
+  overlay.classList.add('active');
+  setTimeout(function(){
+    var inp = document.getElementById('newPasswordInput');
+    if(inp) inp.focus();
+  }, 200);
+}
+async function submitNewPassword(e){
+  if(e) e.preventDefault();
+  if(!window.supabaseClient) return;
+  var inp = document.getElementById('newPasswordInput');
+  var btn = document.getElementById('newPasswordSubmitBtn');
+  var errEl = document.getElementById('newPasswordError');
+  var pw = inp.value;
+  if(pw.length < 8){ errEl.textContent = 'Use at least 8 characters.'; return; }
+  btn.disabled = true; btn.textContent = 'Saving...'; errEl.textContent = '';
+  try {
+    var result = await window.supabaseClient.auth.updateUser({ password: pw });
+    if(result.error) throw result.error;
+    document.getElementById('newPasswordOverlay').classList.remove('active');
+    inp.value = '';
+    addMsg('bot', 'Your password is updated and you\'re signed in.');
+  } catch(err){
+    console.error('Password update error:', err);
+    errEl.textContent = err.message || 'Could not update your password. Try again.';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Save new password';
+  }
 }
 function updateAuthCopy(){
   var m = document.getElementById('authModal');
@@ -1647,6 +1725,10 @@ async function signInWithGoogle(){
     } else {
       updateAuthUI(null);
     }
+    // Arriving from a "forgot password" email: Supabase signs them in with
+    // a recovery session and fires this event - that's the moment to ask
+    // for the new password.
+    if(event === 'PASSWORD_RECOVERY') showNewPasswordOverlay();
   });
   
   // Close dropdown on outside click
@@ -1760,6 +1842,7 @@ function onAuthSuccess(user){
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
 <div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
 
+<div id="newPasswordOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>Set a new password</h3><p>Pick something you'll remember this time.</p><form class="onboarding-form" onsubmit="submitNewPassword(event)"><input type="password" id="newPasswordInput" class="onboarding-input" placeholder="New password (8+ characters)" autocomplete="new-password" required minlength="8"><button type="submit" class="onboarding-submit-btn" id="newPasswordSubmitBtn">Save new password</button></form><p class="onboarding-error" id="newPasswordError"></p></div></div>
 <div id="brainOverlay" class="brain-overlay" onclick="if(event.target===this)closeCareerBrainPanel()">
   <div class="brain-panel">
     <div class="brain-header">
