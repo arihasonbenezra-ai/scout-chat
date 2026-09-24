@@ -81,8 +81,12 @@ button,input,textarea{font-family:inherit}
 .other-cancel{padding:9px 14px;background:none;color:#888;border:none;font-size:13px;cursor:pointer;white-space:nowrap}
 .other-cancel:hover{color:#000;text-decoration:underline}
 .empty-or-divider{font-size:12px;color:#999;margin-top:20px;text-transform:uppercase;letter-spacing:0.05em;opacity:0;animation:emptyTextIn .6s ease 2.4s forwards}
-.empty-resume-shortcut{margin-top:8px;padding:11px 20px;background:none;color:var(--coral);border:0.5px solid var(--coral);border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;opacity:0;animation:emptyTextIn .6s ease 2.5s forwards}
-.empty-resume-shortcut:hover{background:var(--tint,#FCEAE6)}
+.empty-resume-shortcut{margin-top:8px;padding:11px 20px;background:var(--coral);color:#000;border:none;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;opacity:0;animation:emptyTextIn .6s ease 2.5s forwards}
+.empty-resume-shortcut:hover{background:#D9554A}
+/* The intro delays above are for the very first landing only - once the
+   screen is being re-shown or moved between stages by JS, elements should
+   appear right away instead of waiting out a 2s intro they've already seen. */
+.empty.quick .empty-face,.empty.quick .empty-headline,.empty.quick .empty-sub,.empty.quick .empty-pills,.empty.quick .empty-or-divider,.empty.quick .empty-resume-shortcut{animation-delay:.05s}
 
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
@@ -404,8 +408,12 @@ button,input,textarea{font-family:inherit}
           <path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round" opacity="1"><animate attributeName="opacity" values="1;1;1;0.3;0.3;1;1" keyTimes="0;0.7;0.78;0.82;0.86;0.92;1" dur="4s" repeatCount="indefinite"/></path>
         </svg>
         <p class="empty-headline">Hi, I'm Ezzy.</p>
-        <p class="empty-sub">What role are you preparing for?</p>
-        <div class="empty-pills" id="rolePills">
+        <p class="empty-sub" id="emptySub">What can I help you with?</p>
+        <div class="empty-pills" id="intentPills">
+          <button class="empty-pill" onclick="pickTopIntent('resume')">Resume Review</button>
+          <button class="empty-pill" onclick="pickTopIntent('prep')">Interview Prep</button>
+        </div>
+        <div class="empty-pills" id="rolePills" style="display:none">
           <button class="empty-pill" onclick="pickRole('Software Engineer')">Software Engineer</button>
           <button class="empty-pill" onclick="pickRole('Product Manager')">Product Manager</button>
           <button class="empty-pill" onclick="pickRole('Product Designer')">Product Designer</button>
@@ -418,8 +426,8 @@ button,input,textarea{font-family:inherit}
           <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
           <button class="other-cancel" onclick="cancelOtherInput()" aria-label="Cancel">Cancel</button>
         </div>
-        <p class="empty-or-divider">or</p>
-        <button class="empty-resume-shortcut" onclick="startResumeReviewDirect()">Just review my resume →</button>
+        <p class="empty-or-divider" id="resumeOrDivider" style="display:none">or</p>
+        <button class="empty-resume-shortcut" id="justResumeBtn" style="display:none" onclick="startResumeReviewDirect()">Just resume review</button>
       </div>
 
       <div id="messages"></div>
@@ -546,47 +554,102 @@ function confirmOtherRole(){
   pickRole(v);
 }
 
+// Landing flow is two stages on the same screen:
+//   1. "What can I help you with?"  -> Resume Review | Interview Prep
+//   2. "What role are you prepping for?" -> role pills
+//      (Resume Review also gets a "Just resume review" bypass here, for
+//      someone who just wants eyes on their resume with no target in mind)
+// A cold visitor learns what Ezzy actually does before being asked for a
+// role, and a resume-only visitor isn't forced through interview-prep steps.
+var TOP_INTENT=null;
+var intentPills=document.getElementById('intentPills');
+var emptySub=document.getElementById('emptySub');
+var resumeOrDivider=document.getElementById('resumeOrDivider');
+var justResumeBtn=document.getElementById('justResumeBtn');
+var inputArea=document.querySelector('.input-area');
+
+// The chat bar is hidden while the landing screen is up - nothing there is
+// typed into, and a visible input box reads like "this is a chatbot, type
+// something" instead of "pick one of these".
+function setInputAreaVisible(visible){
+  if(inputArea) inputArea.style.display = visible ? '' : 'none';
+}
+setInputAreaVisible(false);
+
+function pickTopIntent(intent){
+  TOP_INTENT=intent;
+  emptyState.classList.add('quick');
+  intentPills.style.display='none';
+  emptySub.textContent='What role are you prepping for?';
+  rolePills.style.display='';
+  var isResume = intent==='resume';
+  resumeOrDivider.style.display = isResume ? '' : 'none';
+  justResumeBtn.style.display = isResume ? '' : 'none';
+}
+
+function resetEmptyStateToStage1(){
+  TOP_INTENT=null;
+  emptyState.classList.add('quick');
+  cancelOtherInput();
+  emptySub.textContent='What can I help you with?';
+  intentPills.style.display='';
+  rolePills.style.display='none';
+  resumeOrDivider.style.display='none';
+  justResumeBtn.style.display='none';
+  setInputAreaVisible(false);
+}
+
+// Leaves the landing screen for the app proper: header pills, chat bar.
+function enterAppShell(role){
+  emptyState.style.display='none';
+  setInputAreaVisible(true);
+  if(role){
+    roleLabel.textContent=role;
+    roleLabel.style.display='inline';
+    dotSep.style.display='inline';
+  } else {
+    roleLabel.style.display='none';
+    dotSep.style.display='none';
+  }
+  modePill.style.display='inline-flex';
+}
+
 function pickRole(role){
   ROLE=role;
   window.ROLE=role;
-  emptyState.style.display='none';
-  roleLabel.textContent=role;
-  roleLabel.style.display='inline';
-  dotSep.style.display='inline';
-  modePill.style.display='inline-flex';
+  enterAppShell(role);
+  if(TOP_INTENT==='resume'){
+    pickIntent('resume');
+    return;
+  }
   inputEl.disabled=true;
   inputEl.placeholder='Pick what you want to do first...';
-  showIntentPicker();
+  showPrepPicker();
 }
 
-function showIntentPicker(){
+// Everything interview-prep-related sits together at one step - the three
+// practice modes plus Company Research, which is part of prepping for an
+// interview rather than a separate top-level thing.
+function showPrepPicker(){
   msgEl.innerHTML='';
   convoHistory=[];
-  addMsg('bot','Great. What do you want to do first?');
+  addMsg('bot','Great. What kind of prep?');
   setTimeout(function(){
     var div = document.createElement('div');
     div.className = 'choice-bubbles';
     div.id = 'choiceBubbles';
-    div.innerHTML = '<button class="choice-pill" onclick="pickIntent(\'resume\')">Resume Review</button><button class="choice-pill" onclick="pickIntent(\'practice\')">Interview Prep</button><button class="choice-pill" onclick="pickIntent(\'research\')">Company Research <span class="beta-tag">Beta</span></button>';
+    div.innerHTML = '<button class="choice-pill" onclick="pickPracticeType(\'practice\',\'Practice Q&amp;A\')">Practice Q&A</button><button class="choice-pill" onclick="pickPracticeType(\'star\',\'STAR Coaching\')">STAR Coaching</button><button class="choice-pill" onclick="pickPracticeType(\'mock\',\'Mock Interview\')">Mock Interview</button><button class="choice-pill" onclick="pickIntent(\'research\')">Company Research <span class="beta-tag">Beta</span></button>';
     msgEl.appendChild(div);
     msgEl.scrollTop = msgEl.scrollHeight;
   }, 400);
 }
 
-// Resume review doesn't actually use the role picker's role at all - it
-// only mattered for interview prep/research. Someone who just wants their
-// resume looked at (the "aunt just wants a resume review" case) shouldn't
-// have to pick a role and a "what do you want to do" screen first.
+// "Just resume review" - no role at all. Resume feedback works fine without
+// one; the role is only there for people who do have a target in mind.
 function startResumeReviewDirect(){
   ROLE=null; window.ROLE=null;
-  emptyState.style.display='none';
-  roleLabel.style.display='none';
-  dotSep.style.display='none';
-  modePill.style.display='inline-flex';
-  resumeDropDismissed = false;
-  inputEl.disabled=false;
-  inputEl.placeholder='Type your answer...';
-  startMode('resume','Resume Feedback');
+  enterAppShell(null);
+  pickIntent('resume');
 }
 
 function pickIntent(intent){
@@ -601,21 +664,7 @@ function pickIntent(intent){
     inputEl.disabled=false;
     inputEl.placeholder='Type a company name...';
     startMode('research','Company Research');
-  } else {
-    showPracticeTypePicker();
   }
-}
-
-function showPracticeTypePicker(){
-  addMsg('bot','What kind of practice?');
-  setTimeout(function(){
-    var div = document.createElement('div');
-    div.className = 'choice-bubbles';
-    div.id = 'choiceBubbles';
-    div.innerHTML = '<button class="choice-pill" onclick="pickPracticeType(\'practice\',\'Practice Q&amp;A\')">Practice Q&A</button><button class="choice-pill" onclick="pickPracticeType(\'star\',\'STAR Coaching\')">STAR Coaching</button><button class="choice-pill" onclick="pickPracticeType(\'mock\',\'Mock Interview\')">Mock Interview</button>';
-    msgEl.appendChild(div);
-    msgEl.scrollTop = msgEl.scrollHeight;
-  }, 400);
 }
 
 function pickPracticeType(modeId, modeTitle){
@@ -941,6 +990,11 @@ function resumeGatedRetryIfAny(){
   if(!stash || (Date.now() - stash.ts) > 30*60*1000) return; // stale, ignore
 
   ROLE = stash.role; window.ROLE = stash.role;
+  // Fresh page load lands on the "What can I help you with?" screen - leave
+  // it the same way a click would, otherwise it sits on top of the restored chat.
+  enterAppShell(ROLE);
+  inputEl.disabled=false;
+  inputEl.placeholder='Type your answer...';
 
   if(stash.mode === 'resume' && stash.resumeText){
     MODE='resume'; window.MODE='resume';
@@ -1666,6 +1720,7 @@ function clearChatState(){
   if(roleLabel) roleLabel.style.display = 'none';
   if(dotSep) dotSep.style.display = 'none';
   if(emptyState) emptyState.style.display = '';
+  if(typeof resetEmptyStateToStage1 === 'function') resetEmptyStateToStage1();
   if(typeof syncWindowState === 'function') syncWindowState();
 }
 function showGoodbyeOverlay(name){

@@ -117,6 +117,11 @@ function researchSystemPrompt(role, company) {
 function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText) {
   if (mode === 'resume') {
     var resumeBase = resumeUnlocked ? RESUME_SYSTEM : RESUME_SYSTEM_FREE;
+    // Role is optional for resume review ("just resume review" sends none);
+    // when the candidate did pick one, keep the feedback pointed at it.
+    if (role) {
+      resumeBase += '\n\nThe candidate is targeting ' + role + ' roles - keep the feedback relevant to that kind of role.';
+    }
     if (knowledgeText) {
       resumeBase += '\n\nEzzy knowledge base - general recruiting and resume-screening knowledge you may draw on when relevant. Cite it by name when you use it; never fabricate a source that isn\'t listed here:\n' + knowledgeText;
     }
