@@ -80,6 +80,9 @@ button,input,textarea{font-family:inherit}
 .other-confirm:hover{background:#222}
 .other-cancel{padding:9px 14px;background:none;color:#888;border:none;font-size:13px;cursor:pointer;white-space:nowrap}
 .other-cancel:hover{color:#000;text-decoration:underline}
+.empty-or-divider{font-size:12px;color:#999;margin-top:20px;text-transform:uppercase;letter-spacing:0.05em;opacity:0;animation:emptyTextIn .6s ease 2.4s forwards}
+.empty-resume-shortcut{margin-top:8px;padding:11px 20px;background:none;color:var(--coral);border:0.5px solid var(--coral);border-radius:999px;font-size:14px;font-weight:600;cursor:pointer;opacity:0;animation:emptyTextIn .6s ease 2.5s forwards}
+.empty-resume-shortcut:hover{background:var(--tint,#FCEAE6)}
 
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
@@ -164,6 +167,8 @@ button,input,textarea{font-family:inherit}
 .drop-zone-icon{font-size:36px;margin-bottom:12px;color:#F26B5E}
 .drop-zone-title{font-size:18px;font-weight:600;color:#000;margin-bottom:6px}
 .drop-zone-sub{font-size:14px;color:#666;margin-bottom:18px}
+.drop-zone-browse-btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#F26B5E;color:#fff;border:none;border-radius:999px;font-size:14px;font-weight:600;cursor:pointer}
+.drop-zone-browse-btn:hover{background:#D9554A}
 .drop-zone-paste{font-size:13px;color:#666;margin-top:14px}
 .drop-zone-paste a{color:#F26B5E;cursor:pointer;text-decoration:underline}
 .drop-zone-helper{font-size:12px;color:#888;margin-top:18px;line-height:1.5}
@@ -381,6 +386,8 @@ button,input,textarea{font-family:inherit}
         <div class="drop-zone-icon">↑</div>
         <div class="drop-zone-title">Drop your resume here</div>
         <div class="drop-zone-sub">PDF or TXT</div>
+        <input type="file" id="resumeFileInput" accept=".pdf,.txt,application/pdf,text/plain" style="display:none">
+        <button type="button" class="drop-zone-browse-btn" id="resumeBrowseBtn">Choose file from computer</button>
         <div class="drop-zone-paste">or <a id="pasteResumeLink">paste it as text instead</a></div>
         <div class="drop-zone-helper">Got a Word doc? Open it in Word, choose File → Save As → PDF.</div>
       </div>
@@ -411,6 +418,8 @@ button,input,textarea{font-family:inherit}
           <button class="other-confirm" onclick="confirmOtherRole()">Confirm</button>
           <button class="other-cancel" onclick="cancelOtherInput()" aria-label="Cancel">Cancel</button>
         </div>
+        <p class="empty-or-divider">or</p>
+        <button class="empty-resume-shortcut" onclick="startResumeReviewDirect()">Just review my resume →</button>
       </div>
 
       <div id="messages"></div>
@@ -562,6 +571,22 @@ function showIntentPicker(){
     msgEl.appendChild(div);
     msgEl.scrollTop = msgEl.scrollHeight;
   }, 400);
+}
+
+// Resume review doesn't actually use the role picker's role at all - it
+// only mattered for interview prep/research. Someone who just wants their
+// resume looked at (the "aunt just wants a resume review" case) shouldn't
+// have to pick a role and a "what do you want to do" screen first.
+function startResumeReviewDirect(){
+  ROLE=null; window.ROLE=null;
+  emptyState.style.display='none';
+  roleLabel.style.display='none';
+  dotSep.style.display='none';
+  modePill.style.display='inline-flex';
+  resumeDropDismissed = false;
+  inputEl.disabled=false;
+  inputEl.placeholder='Type your answer...';
+  startMode('resume','Resume Feedback');
 }
 
 function pickIntent(intent){
@@ -828,23 +853,6 @@ function handleSendText(text){
         extractCareerClaims(RESUME_TEXT, JD_TEXT);
         runGapAnalysis(RESUME_TEXT, JD_TEXT);
       });
-    } else if(RESUME_STAGE==='awaiting_target'){
-      JD_TEXT=text;
-      RESUME_STAGE='feedback_given';
-      var targetUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have one specific job posting to target. They are looking for: '+JD_TEXT+'\n\nGive your feedback now, tailored to these types of roles in general rather than one specific posting, using the format specified.';
-      convoHistory=[{role:'user',content:targetUserMsg}];
-      isSending=true;updateSendBtnState();
-      showTyping();
-      streamBotReply(convoHistory.slice(),function(reply){
-        if(!reply) return;
-        convoHistory.push({role:'assistant',content:reply});
-      saveMessage('assistant', reply);
-        appendDownloadButton();
-        extractCareerClaims(RESUME_TEXT, null);
-        // No runGapAnalysis here - that feature checks a resume against a
-        // specific job's requirements, and there's no real posting to
-        // check it against, just a general target.
-      });
     } else {
       convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
@@ -899,9 +907,76 @@ function showAnonGlobalLimitMessage(){
 function showSignupRequiredMessage(){
   hideTyping();
   addMsg('bot','Create a free account to see your results - it only takes a few seconds, and you\'re not paying anything yet.');
+  stashRetryForAuth();
   showAuthModal('signup');
   var sub = document.getElementById('authModalSub');
   if(sub) sub.textContent = 'Sign up to see your results';
+}
+
+// Persists enough to resume exactly where they left off after signing in.
+// Needed specifically for Google sign-in, which does a full page reload
+// (redirect to Google and back) that wipes all in-memory state including
+// pendingGatedRetry below - email/password signup doesn't reload the page,
+// so it resolves faster via that in-memory path instead, but this covers
+// both the same way.
+function stashRetryForAuth(){
+  try {
+    localStorage.setItem('ezzy_pending_retry', JSON.stringify({
+      mode: window.MODE === 'resume' ? 'resume' : 'practice',
+      role: window.ROLE || null,
+      resumeText: window.RESUME_TEXT || null,
+      jdText: window.JD_TEXT || null,
+      ts: Date.now()
+    }));
+  } catch(e){}
+}
+
+function resumeGatedRetryIfAny(){
+  var raw;
+  try { raw = localStorage.getItem('ezzy_pending_retry'); } catch(e){ return; }
+  if(!raw) return;
+  try { localStorage.removeItem('ezzy_pending_retry'); } catch(e){}
+  var stash;
+  try { stash = JSON.parse(raw); } catch(e){ return; }
+  if(!stash || (Date.now() - stash.ts) > 30*60*1000) return; // stale, ignore
+
+  ROLE = stash.role; window.ROLE = stash.role;
+
+  if(stash.mode === 'resume' && stash.resumeText){
+    MODE='resume'; window.MODE='resume';
+    RESUME_TEXT = stash.resumeText; window.RESUME_TEXT = RESUME_TEXT;
+    JD_TEXT = stash.jdText || null; window.JD_TEXT = JD_TEXT;
+    RESUME_STAGE = 'feedback_given'; window.RESUME_STAGE = RESUME_STAGE;
+    window.resumeDropDismissed = true;
+
+    msgEl.innerHTML='';
+    setActiveMode('resume');
+    if(modePillLabel) modePillLabel.textContent = 'Resume Feedback';
+    addMsg('bot','Paste your resume below. Plain text is fine, formatting will be ignored.');
+    addMsg('user', RESUME_TEXT);
+    if(JD_TEXT){
+      addMsg('bot','Got it. Now paste the job description you\'re targeting.');
+      addMsg('user', JD_TEXT);
+    } else {
+      addMsg('user',"I don't have a specific job in mind");
+    }
+
+    var userMsg = JD_TEXT
+      ? 'Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.'
+      : 'Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have a specific job posting to target - give a general resume review using the format specified.';
+    convoHistory=[{role:'user',content:userMsg}];
+    isSending=true;updateSendBtnState();showTyping();
+    streamBotReply(convoHistory.slice(),function(reply){
+      if(!reply) return;
+      convoHistory.push({role:'assistant',content:reply});
+      saveMessage('assistant', reply);
+      appendDownloadButton();
+      extractCareerClaims(RESUME_TEXT, JD_TEXT);
+      if(JD_TEXT) runGapAnalysis(RESUME_TEXT, JD_TEXT);
+    });
+  } else if(stash.mode === 'practice'){
+    startMode('practice','Practice Q&A');
+  }
 }
 
 var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview'};
@@ -1073,18 +1148,27 @@ function removeSkipJDButton(){
 
 // Not everyone reviewing a resume has one specific job posting in mind -
 // forcing a JD paste blocked general "make my resume stronger" reviews
-// entirely. Skipping asks for the target roles instead, which is enough
-// context for role-aware feedback without a literal posting to grade
-// against (so the structured JD-requirement gap analysis is skipped too -
-// there's no real requirement list to check the resume against).
+// entirely. Skipping goes straight to a general review with no further
+// questions - asking a follow-up here would defeat the point of "just a
+// general review" (the structured JD-requirement gap analysis is skipped
+// too, since there's no real requirement list to check the resume against).
 function skipJobDescription(){
   removeSkipJDButton();
   addMsg('user',"I don't have a specific job in mind");
-  RESUME_STAGE='awaiting_target';
+  RESUME_STAGE='feedback_given';
   window.RESUME_STAGE=RESUME_STAGE;
-  setTimeout(function(){
-    addMsg('bot','No problem. What type of roles are you looking for? (e.g. "Senior Product Manager roles" or "Software Engineering roles at early-stage startups")');
-  },200);
+  JD_TEXT=null; window.JD_TEXT=null;
+  var generalUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have a specific job posting to target - give a general resume review using the format specified.';
+  convoHistory=[{role:'user',content:generalUserMsg}];
+  isSending=true;updateSendBtnState();
+  showTyping();
+  streamBotReply(convoHistory.slice(),function(reply){
+    if(!reply) return;
+    convoHistory.push({role:'assistant',content:reply});
+    saveMessage('assistant', reply);
+    appendDownloadButton();
+    extractCareerClaims(RESUME_TEXT, null);
+  });
 }
 
 // Resume Feedback keeps exactly one conversation per account - re-entering
@@ -1189,6 +1273,16 @@ setTimeout(updateDropZoneVisibility, 200);
   var dz = document.getElementById('dropZone');
   var dzBox = document.getElementById('dropZoneBox');
   if(!dz || !dzBox) return;
+
+  var browseBtn = document.getElementById('resumeBrowseBtn');
+  var fileInput = document.getElementById('resumeFileInput');
+  if(browseBtn && fileInput){
+    browseBtn.addEventListener('click', function(){ fileInput.click(); });
+    fileInput.addEventListener('change', function(){
+      if(fileInput.files && fileInput.files[0]) handleDroppedFile(fileInput.files[0]);
+      fileInput.value = ''; // allow picking the same file again later
+    });
+  }
 
   // Prevent default browser behavior on the entire overlay (including dead space)
   ['dragenter','dragover','dragleave','drop'].forEach(function(evt){
@@ -1467,33 +1561,7 @@ async function signInWithGoogle(){
   }
 }
 </script>
-<div id="welcomeGateOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>Welcome to Ezzy</h3><p>Create an account to save your progress, or try it first without one.</p><button class="onboarding-submit-btn" onclick="chooseCreateAccount()">Create an account</button><button class="goodbye-secondary-btn" onclick="chooseTryAnonymous()">Try it without an account</button></div></div>
 <script>
-var WELCOME_GATE_SEEN_KEY = 'ezzy_welcome_seen';
-
-function maybeShowWelcomeGate(){
-  try {
-    if(localStorage.getItem(WELCOME_GATE_SEEN_KEY)) return;
-  } catch(e){ return; } // storage unavailable - don't block the app over this
-  var overlay = document.getElementById('welcomeGateOverlay');
-  if(overlay) overlay.classList.add('active');
-}
-
-function dismissWelcomeGate(){
-  var overlay = document.getElementById('welcomeGateOverlay');
-  if(overlay) overlay.classList.remove('active');
-  try { localStorage.setItem(WELCOME_GATE_SEEN_KEY, '1'); } catch(e){}
-}
-
-function chooseCreateAccount(){
-  dismissWelcomeGate();
-  showAuthModal('signup');
-}
-
-function chooseTryAnonymous(){
-  dismissWelcomeGate();
-}
-
 (function(){
   if(!window.supabaseClient) return;
 
@@ -1502,9 +1570,9 @@ function chooseTryAnonymous(){
     var session = res.data.session;
     if(session && session.user){
       updateAuthUI(session.user);
+      resumeGatedRetryIfAny();
     } else {
       updateAuthUI(null);
-      maybeShowWelcomeGate();
     }
   });
   
@@ -1625,6 +1693,7 @@ function onAuthSuccess(user){
   hideAuthModal();
   updateAuthUI(user);
   if(pendingGatedRetry){
+    try { localStorage.removeItem('ezzy_pending_retry'); } catch(e){}
     var retry=pendingGatedRetry;
     pendingGatedRetry=null;
     isSending=true;updateSendBtnState();
