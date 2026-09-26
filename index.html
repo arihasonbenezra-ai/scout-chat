@@ -269,7 +269,7 @@ button,input,textarea{font-family:inherit}
 .brain-claim{border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px}
 .brain-claim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .brain-claim-label{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
-.brain-status{flex:none;font-size:10px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;padding:2px 7px;border-radius:5px;margin-top:1px}
+.brain-status{flex:none;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;margin-top:1px;white-space:nowrap}
 .brain-status.fact{background:#E6F4EA;color:#1E7A3D}
 .brain-status.inference{background:#FFF3DA;color:#966B0A}
 .brain-status.hypothesis{background:#F1EAFB;color:#6A3FBF}
@@ -2547,12 +2547,24 @@ function renderClaims(claims){
   body.innerHTML = html;
 }
 
+// Plain-language labels for the evidence status. The status values stay
+// as-is in the data (fact / inference / hypothesis); only the badge changes.
+function claimStatusLabel(c){
+  var src = c.evidence && c.evidence[0] && c.evidence[0].source;
+  if(src === 'user') return 'Added by you';
+  if(c.status === 'fact') return 'From your resume';
+  if(c.status === 'inference') return 'Ezzy\u2019s read';
+  if(c.status === 'hypothesis') return 'Ezzy\u2019s guess';
+  return 'Unknown';
+}
+
 function claimHtml(c){
   var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
+  if(c.evidence && c.evidence[0] && c.evidence[0].source === 'user') evidence = '';
   var prof = c.claim_type==='skill' && c.detail && c.detail.proficiency ? '<span class="brain-prof">'+escapeHtml(c.detail.proficiency)+'</span>' : '';
   return '<div class="brain-claim" data-id="'+c.id+'">'
     + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+prof+'</span>'
-    + '<span class="brain-status '+c.status+'">'+c.status+'</span></div>'
+    + '<span class="brain-status '+c.status+'">'+claimStatusLabel(c)+'</span></div>'
     + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
     + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
     + '</div>';
