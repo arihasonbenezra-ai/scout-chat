@@ -17,7 +17,10 @@ const EXTRACT_SYSTEM = [
   'Every claim needs an evidence_quote: the exact phrase from the resume it is based on.',
   '',
   'claim_type is one of: experience, skill, achievement, goal, preference.',
-  'Extract at most 20 claims. Prioritize the highest-signal ones over exhaustive coverage.'
+  'For skill claims, set detail.proficiency to one of beginner, intermediate, advanced based on how the resume uses the skill (years, depth, ownership). Include the important skills - tools, methods, domains - not just programming languages.',
+  'Extract at most 20 claims. Prioritize the highest-signal ones over exhaustive coverage.',
+  '',
+  'Profile fields: years_experience is total professional years (a number, estimate from dates). seniority_level is one of intern, entry, mid, senior, staff, principal, manager, director, vp, exec. Set target_role_title ONLY if the resume itself states an objective or target role (e.g. a headline or summary saying what they are looking for); otherwise omit it.'
 ].join('\n');
 
 const EXTRACT_TOOL = {
@@ -31,7 +34,10 @@ const EXTRACT_TOOL = {
         properties: {
           career_stage: { type: 'string' },
           current_role: { type: 'string' },
-          current_industry: { type: 'string' }
+          current_industry: { type: 'string' },
+          years_experience: { type: 'number' },
+          seniority_level: { type: 'string', enum: ['intern', 'entry', 'mid', 'senior', 'staff', 'principal', 'manager', 'director', 'vp', 'exec'] },
+          target_role_title: { type: 'string' }
         }
       },
       claims: {
@@ -67,6 +73,20 @@ async function getAuthedUser(token) {
   if (!res.ok) return null;
   var data = await res.json();
   return data && data.id ? data : null;
+}
+
+async function fetchProfile(token, userId) {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/career_profile?user_id=eq.' + userId + '&select=*',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
+    );
+    if (!res.ok) return null;
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
 }
 
 async function fetchSubscription(token, userId) {
@@ -173,23 +193,39 @@ export default async function handler(req, res) {
     }
 
     var profile = extracted.profile && typeof extracted.profile === 'object' ? extracted.profile : null;
-    if (profile && (profile.career_stage || profile.current_role || profile.current_industry)) {
-      await fetch(SUPABASE_URL + '/rest/v1/career_profile?on_conflict=user_id', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          apikey: SUPABASE_ANON_KEY,
-          Authorization: 'Bearer ' + token,
-          Prefer: 'resolution=merge-duplicates'
-        },
-        body: JSON.stringify([{
-          user_id: user.id,
-          career_stage: profile.career_stage || null,
-          current_role_title: profile.current_role || null,
-          current_industry: profile.current_industry || null,
-          updated_at: new Date().toISOString()
-        }])
-      });
+    if (profile) {
+      // Merge into the existing row rather than overwriting: a resume that
+      // says less than the last one must not blank out what Ezzy already
+      // knows, and a user-stated target (target_source = 'stated' or
+      // 'discovered') is never replaced by a resume objective line.
+      var existing = (await fetchProfile(token, user.id)) || {};
+      var next = { user_id: user.id, updated_at: new Date().toISOString() };
+      if (profile.career_stage) next.career_stage = String(profile.career_stage).slice(0, 80);
+      if (profile.current_role) next.current_role_title = String(profile.current_role).slice(0, 120);
+      if (profile.current_industry) next.current_industry = String(profile.current_industry).slice(0, 120);
+      if (typeof profile.years_experience === 'number' && profile.years_experience >= 0 && profile.years_experience < 70) {
+        next.years_experience = Math.round(profile.years_experience * 10) / 10;
+      }
+      if (profile.seniority_level) next.seniority_level = String(profile.seniority_level).slice(0, 40);
+      var resumeTarget = profile.target_role_title ? String(profile.target_role_title).trim().slice(0, 120) : '';
+      var canSetTarget = !existing.target_role_title || existing.target_source === 'prep_role';
+      if (resumeTarget && canSetTarget) {
+        next.target_role_title = resumeTarget;
+        next.target_source = 'resume';
+        next.target_set_at = new Date().toISOString();
+      }
+      if (Object.keys(next).length > 2) {
+        await fetch(SUPABASE_URL + '/rest/v1/career_profile?on_conflict=user_id', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: 'Bearer ' + token,
+            Prefer: 'resolution=merge-duplicates'
+          },
+          body: JSON.stringify([next])
+        });
+      }
     }
 
     return res.status(200).json({ savedCount: rows.length, claims: rows });

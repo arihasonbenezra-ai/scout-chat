@@ -269,6 +269,23 @@ button,input,textarea{font-family:inherit}
 .brain-evidence{font-size:12px;color:#888;margin-top:6px;font-style:italic;line-height:1.5}
 .brain-remove{background:none;border:none;color:#B8B4AE;font-size:11.5px;cursor:pointer;padding:6px 0 0;text-decoration:underline}
 .brain-remove:hover{color:#D9554A}
+.brain-target{border:0.5px solid #ECECEC;border-radius:12px;padding:14px;margin:4px 0 8px;background:#FAFAF9}
+.brain-target-row{display:flex;gap:8px;margin-bottom:8px}
+.brain-target-row:last-child{margin-bottom:0}
+.brain-field{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.brain-field label{font-size:10.5px;font-weight:600;letter-spacing:0.04em;text-transform:uppercase;color:#999}
+.brain-field input,.brain-field select{height:34px;border:0.5px solid #DDD;border-radius:8px;padding:0 10px;font-size:13px;background:#fff;color:#111;outline:none;width:100%}
+.brain-field input:focus,.brain-field select:focus{border-color:#F26B5E;box-shadow:0 0 0 3px rgba(242,107,94,.14)}
+.brain-target-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.brain-target-hint{font-size:11.5px;color:#999;line-height:1.4}
+.brain-save{border:none;background:#111;color:#fff;font-size:12.5px;font-weight:600;border-radius:999px;padding:7px 14px;cursor:pointer}
+.brain-save:disabled{opacity:.5;cursor:default}
+.brain-add-row{display:flex;gap:6px;margin:0 0 10px}
+.brain-add-row input{flex:1;height:34px;border:0.5px solid #DDD;border-radius:999px;padding:0 12px;font-size:13px;outline:none}
+.brain-add-row input:focus{border-color:#F26B5E}
+.brain-add-row button{border:0.5px solid #2A2020;background:#fff;border-radius:999px;padding:0 12px;font-size:12.5px;cursor:pointer}
+.brain-add-row button:hover{border-color:#F26B5E;background:#FCEAE6}
+.brain-prof{font-size:10.5px;color:#999;margin-left:6px;font-weight:500;text-transform:none;letter-spacing:0}
 
 .learned-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:960;opacity:1;transition:opacity .3s ease}
 .learned-toast a{color:#FFB3AB;text-decoration:underline;cursor:pointer}
@@ -626,6 +643,7 @@ function enterAppShell(role){
 function pickRole(role){
   ROLE=role;
   window.ROLE=role;
+  defaultTargetFromRole(role);
   enterAppShell(role);
   inputEl.disabled=true;
   inputEl.placeholder='Pick what you want to do first...';
@@ -1852,7 +1870,7 @@ function onAuthSuccess(user){
     <div class="brain-header">
       <div>
         <h3>What Ezzy knows about you</h3>
-        <p>Built from your resume. Facts, inferences, and hypotheses — you can remove anything.</p>
+        <p>Your target, and what Ezzy has learned from your resume and sessions. Edit or remove anything.</p>
       </div>
       <button class="brain-close" onclick="closeCareerBrainPanel()" aria-label="Close">&times;</button>
     </div>
@@ -2349,6 +2367,8 @@ function closeCareerBrainPanel(){
   document.getElementById('brainOverlay').classList.remove('active');
 }
 
+var BRAIN_PROFILE = null;
+
 async function loadCareerClaims(){
   var body = document.getElementById('brainBody');
   body.innerHTML = '<div class="brain-empty">Loading...</div>';
@@ -2359,12 +2379,17 @@ async function loadCareerClaims(){
     body.innerHTML = '<div class="brain-empty">Sign in to see what Ezzy has learned about you.</div>';
     return;
   }
-  var res = await window.supabaseClient.from('career_claims').select('*').eq('user_id', session.user.id);
-  if(res.error){
+  var uid = session.user.id;
+  var results = await Promise.all([
+    window.supabaseClient.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
+    window.supabaseClient.from('career_claims').select('*').eq('user_id', uid).order('last_seen_at', {ascending:false})
+  ]);
+  if(results[1].error){
     body.innerHTML = '<div class="brain-empty">Could not load your profile. Try again shortly.</div>';
     return;
   }
-  renderClaims(res.data || []);
+  BRAIN_PROFILE = results[0].data || null;
+  renderClaims(results[1].data || []);
 }
 
 function escapeHtml(s){
@@ -2373,33 +2398,155 @@ function escapeHtml(s){
   });
 }
 
+var TARGET_LEVELS = [['','Level'],['entry','Entry'],['mid','Mid'],['senior','Senior'],['staff','Staff'],['principal','Principal'],['manager','Manager'],['director','Director'],['vp','VP'],['exec','Exec']];
+var TARGET_WORK = [['','Work type'],['remote','Remote'],['hybrid','Hybrid'],['onsite','On-site'],['any','Any']];
+var TARGET_TIMELINE = [['','Timeline'],['asap','ASAP'],['3_months','~3 months'],['6_months','~6 months'],['12_months','~12 months'],['exploring','Just exploring']];
+
+function selectHtml(id, options, value){
+  return '<select id="'+id+'">' + options.map(function(o){
+    return '<option value="'+o[0]+'"'+(o[0]===(value||'')?' selected':'')+'>'+o[1]+'</option>';
+  }).join('') + '</select>';
+}
+
+function renderTargetBlock(p){
+  p = p || {};
+  var comp = function(v){ return v ? Math.round(v/1000) : ''; };
+  var hint;
+  if(!p.target_role_title) hint = 'Tell Ezzy what you’re going for. Matching and prep are pointed at this.';
+  else if(p.target_source==='stated' || p.target_source==='discovered') hint = 'Confirmed by you.';
+  else if(p.target_source==='resume') hint = 'Taken from your resume. Confirm or change it.';
+  else hint = 'Taken from the role you picked. Confirm or change it.';
+  return '<div class="brain-group-title">Your target</div>'
+    + '<div class="brain-target">'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Role</label><input id="tgtRole" type="text" placeholder="e.g. Senior Product Manager" value="'+escapeHtml(p.target_role_title||'')+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Level</label>'+selectHtml('tgtLevel', TARGET_LEVELS, p.target_level)+'</div>'
+    + '<div class="brain-field"><label>Work type</label>'+selectHtml('tgtWork', TARGET_WORK, p.target_work_type)+'</div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Comp min ($k)</label><input id="tgtCompMin" type="number" min="0" step="5" placeholder="e.g. 150" value="'+comp(p.target_comp_min)+'"/></div>'
+    + '<div class="brain-field"><label>Comp max ($k)</label><input id="tgtCompMax" type="number" min="0" step="5" placeholder="e.g. 200" value="'+comp(p.target_comp_max)+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Location(s)</label><input id="tgtLoc" type="text" placeholder="e.g. NYC, Remote US" value="'+escapeHtml((p.target_locations||[]).join(', '))+'"/></div>'
+    + '<div class="brain-field"><label>Timeline</label>'+selectHtml('tgtTimeline', TARGET_TIMELINE, p.target_timeline)+'</div></div>'
+    + '<div class="brain-target-foot"><div class="brain-target-hint" id="tgtHint">'+hint+'</div><button class="brain-save" id="tgtSave" onclick="saveTarget()">Save</button></div>'
+    + '</div>';
+}
+
+async function saveTarget(){
+  if(!window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session) return;
+  var btn = document.getElementById('tgtSave');
+  var hint = document.getElementById('tgtHint');
+  var role = (document.getElementById('tgtRole').value||'').trim().slice(0,120);
+  if(!role){ hint.textContent = 'Add a role first.'; return; }
+  var k = function(id){ var v = parseFloat(document.getElementById(id).value); return isNaN(v) || v<=0 ? null : Math.round(v*1000); };
+  var locs = (document.getElementById('tgtLoc').value||'').split(',').map(function(x){return x.trim().slice(0,60);}).filter(Boolean).slice(0,6);
+  var row = {
+    user_id: session.user.id,
+    target_role_title: role,
+    target_level: document.getElementById('tgtLevel').value || null,
+    target_work_type: document.getElementById('tgtWork').value || null,
+    target_comp_min: k('tgtCompMin'),
+    target_comp_max: k('tgtCompMax'),
+    target_locations: locs,
+    target_timeline: document.getElementById('tgtTimeline').value || null,
+    target_source: 'stated',
+    target_set_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  btn.disabled = true; hint.textContent = 'Saving...';
+  var res = await window.supabaseClient.from('career_profile').upsert(row, {onConflict:'user_id'});
+  btn.disabled = false;
+  if(res.error){ hint.textContent = 'Could not save. Try again.'; return; }
+  BRAIN_PROFILE = Object.assign({}, BRAIN_PROFILE||{}, row);
+  hint.textContent = 'Saved. Confirmed by you.';
+}
+
+// Landing role picker -> a working target, but only when the profile has
+// none. A target the user typed or that the "no idea" conversation produced
+// is never replaced by a pill click.
+async function defaultTargetFromRole(role){
+  try{
+    if(!role || !window.supabaseClient) return;
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    if(!session) return;
+    var uid = session.user.id;
+    var existing = await window.supabaseClient.from('career_profile').select('target_role_title,target_source').eq('user_id', uid).maybeSingle();
+    var cur = existing.data;
+    if(cur && cur.target_role_title && cur.target_source !== 'prep_role') return;
+    await window.supabaseClient.from('career_profile').upsert({
+      user_id: uid,
+      target_role_title: role,
+      target_source: 'prep_role',
+      target_set_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }, {onConflict:'user_id'});
+  }catch(e){ console.error('defaultTargetFromRole', e); }
+}
+
 function renderClaims(claims){
   var body = document.getElementById('brainBody');
-  if(!claims.length){
-    body.innerHTML = '<div class="brain-empty">Nothing yet. Do a Resume Feedback session and Ezzy will start building your profile here.</div>';
-    return;
-  }
+  var html = renderTargetBlock(BRAIN_PROFILE);
   var byType = {};
   claims.forEach(function(c){
     if(!byType[c.claim_type]) byType[c.claim_type] = [];
     byType[c.claim_type].push(c);
   });
-  var html = '';
   CLAIM_TYPE_ORDER.forEach(function(type){
-    var group = byType[type];
-    if(!group || !group.length) return;
+    var group = byType[type] || [];
+    if(!group.length && type!=='skill') return;
     html += '<div class="brain-group-title">'+CLAIM_TYPE_LABELS[type]+'</div>';
-    group.forEach(function(c){
-      var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
-      html += '<div class="brain-claim" data-id="'+c.id+'">'
-        + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+'</span>'
-        + '<span class="brain-status '+c.status+'">'+c.status+'</span></div>'
-        + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
-        + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
-        + '</div>';
-    });
+    if(type==='skill'){
+      html += '<div class="brain-add-row"><input id="skillAddInput" type="text" placeholder="Add a skill Ezzy missed..." onkeydown="if(event.key===\'Enter\')addSkill()"/><button onclick="addSkill()">Add</button></div>';
+      if(!group.length) html += '<div class="brain-empty" style="padding:6px 0 10px;text-align:left">Nothing yet. Do a Resume Review and Ezzy will pull your skills from it, or add them here.</div>';
+    }
+    group.forEach(function(c){ html += claimHtml(c); });
   });
+  if(!claims.length && !(BRAIN_PROFILE && BRAIN_PROFILE.target_role_title)){
+    html += '<div class="brain-empty">Do a Resume Review and Ezzy will start building your profile here.</div>';
+  }
   body.innerHTML = html;
+}
+
+function claimHtml(c){
+  var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
+  var prof = c.claim_type==='skill' && c.detail && c.detail.proficiency ? '<span class="brain-prof">'+escapeHtml(c.detail.proficiency)+'</span>' : '';
+  return '<div class="brain-claim" data-id="'+c.id+'">'
+    + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+prof+'</span>'
+    + '<span class="brain-status '+c.status+'">'+c.status+'</span></div>'
+    + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
+    + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
+    + '</div>';
+}
+
+async function addSkill(){
+  if(!window.supabaseClient) return;
+  var input = document.getElementById('skillAddInput');
+  var label = (input.value||'').trim().slice(0,200);
+  if(!label) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session) return;
+  var row = {
+    user_id: session.user.id,
+    claim_type: 'skill',
+    label: label,
+    status: 'fact',
+    detail: {},
+    evidence: [{source:'user', quote:'Added by you', date: new Date().toISOString().slice(0,10)}],
+    last_seen_at: new Date().toISOString()
+  };
+  input.disabled = true;
+  var res = await window.supabaseClient.from('career_claims').upsert(row, {onConflict:'user_id,claim_type,label'}).select('*').single();
+  input.disabled = false;
+  if(res.error){ console.error('addSkill', res.error); return; }
+  input.value = '';
+  var existing = document.querySelector('.brain-claim[data-id="'+res.data.id+'"]');
+  if(existing) existing.remove();
+  var addRow = input.parentNode;
+  addRow.insertAdjacentHTML('afterend', claimHtml(res.data));
+  var empty = addRow.nextElementSibling && addRow.nextElementSibling.nextElementSibling;
+  if(empty && empty.classList.contains('brain-empty')) empty.remove();
 }
 
 async function deleteClaim(id){
@@ -2412,8 +2559,6 @@ async function deleteClaim(id){
     return;
   }
   if(node) node.remove();
-  var body = document.getElementById('brainBody');
-  if(body && !body.querySelector('.brain-claim')) renderClaims([]);
 }
 
 // Gap analysis: how a resume matches a target job, using Career Brain evidence.

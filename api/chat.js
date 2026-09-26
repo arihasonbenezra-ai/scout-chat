@@ -132,7 +132,10 @@ function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, k
   if (mode === 'research') return researchSystemPrompt(role || 'candidate', company || 'the company');
   var base = trainerSystemPrompt(mode, role || 'candidate');
   if (base && knowledgeText) {
-    return base + '\n\nEzzy knowledge base - vetted interview knowledge relevant to this role. Use it to ask sharper, more specific questions and give more grounded feedback. Cite the source by name when you draw on it (e.g. "According to X..."); never fabricate a source that isn\'t listed here:\n' + knowledgeText;
+    base += '\n\nEzzy knowledge base - vetted interview knowledge relevant to this role. Use it to ask sharper, more specific questions and give more grounded feedback. Cite the source by name when you draw on it (e.g. "According to X..."); never fabricate a source that isn\'t listed here:\n' + knowledgeText;
+  }
+  if (base && knownClaimsText) {
+    base += '\n\nWhat Ezzy already knows about this candidate from their profile and earlier sessions. Use it to make questions specific to their real background and target (ask about the projects and skills listed, pitch difficulty at their level, frame feedback against the target role). Never state anything here as if the candidate just told you it, and never invent details beyond it:\n' + knownClaimsText;
   }
   return base;
 }
@@ -370,7 +373,7 @@ async function fetchKnownClaims(token, userId) {
   try {
     var res = await fetch(
       SUPABASE_URL + '/rest/v1/career_claims?user_id=eq.' + userId +
-      '&select=claim_type,label,status,evidence&order=last_seen_at.desc&limit=20',
+      '&select=claim_type,label,status,evidence,detail&order=last_seen_at.desc&limit=30',
       { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
     );
     if (!res.ok) return [];
@@ -384,8 +387,64 @@ function claimsToText(claims) {
   if (!claims || !claims.length) return null;
   return claims.map(function (c) {
     var quote = c.evidence && c.evidence[0] && c.evidence[0].quote;
-    return '- [' + c.claim_type + '] ' + c.label + ' (' + c.status + ')' + (quote ? ' - "' + quote + '"' : '');
+    var prof = c.claim_type === 'skill' && c.detail && c.detail.proficiency ? ', ' + c.detail.proficiency : '';
+    return '- [' + c.claim_type + '] ' + c.label + ' (' + c.status + prof + ')' + (quote ? ' - "' + quote + '"' : '');
   }).join('\n');
+}
+
+// The memory model's comparable fields (0020_memory_model.sql) - one row
+// per user. Read alongside claims so every mode can be pointed at the
+// candidate's actual target, not just the role pill they clicked today.
+async function fetchCareerProfile(token, userId) {
+  try {
+    var res = await fetch(
+      SUPABASE_URL + '/rest/v1/career_profile?user_id=eq.' + userId + '&select=*',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } }
+    );
+    if (!res.ok) return null;
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0] : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function profileToText(p) {
+  if (!p) return null;
+  var lines = [];
+  var now = [];
+  if (p.current_role_title) now.push(p.current_role_title);
+  if (p.current_industry) now.push('in ' + p.current_industry);
+  if (p.seniority_level) now.push('(' + p.seniority_level + ')');
+  if (typeof p.years_experience === 'number' || (p.years_experience && !isNaN(Number(p.years_experience)))) {
+    now.push(Number(p.years_experience) + ' years experience');
+  }
+  if (now.length) lines.push('Current: ' + now.join(' '));
+  if (p.target_role_title) {
+    var t = [p.target_role_title];
+    if (p.target_level) t.push(p.target_level + ' level');
+    if (p.target_comp_min || p.target_comp_max) {
+      var cur = p.target_comp_currency || 'USD';
+      var lo = p.target_comp_min ? Math.round(p.target_comp_min / 1000) + 'k' : '';
+      var hi = p.target_comp_max ? Math.round(p.target_comp_max / 1000) + 'k' : '';
+      t.push('comp ' + (lo && hi ? lo + '-' + hi : lo || hi) + ' ' + cur);
+    }
+    if (p.target_work_type && p.target_work_type !== 'any') t.push(p.target_work_type);
+    if (p.target_locations && p.target_locations.length) t.push(p.target_locations.join('/'));
+    if (p.target_timeline) t.push('timeline: ' + String(p.target_timeline).replace('_', ' '));
+    var how = p.target_source === 'stated' || p.target_source === 'discovered' ? 'confirmed by the candidate' : 'not yet confirmed by the candidate - treat as a working assumption';
+    lines.push('Target: ' + t.join(', ') + ' [' + how + ']');
+  }
+  return lines.length ? lines.join('\n') : null;
+}
+
+function memoryToText(profile, claims) {
+  var parts = [];
+  var pt = profileToText(profile);
+  var ct = claimsToText(claims);
+  if (pt) parts.push(pt);
+  if (ct) parts.push(ct);
+  return parts.length ? parts.join('\n') : null;
 }
 
 function corsOrigin(req) {
@@ -517,9 +576,14 @@ export default async function handler(req, res) {
       }
     }
 
+    // Memory injection: paying users get what Ezzy knows about them in every
+    // mode (the coach "knows your career"). Free tier stays memory-less, as
+    // before, which is also what keeps the free prompts cheap.
     var knownClaimsText = null;
-    if (mode === 'resume' && user && resumeUnlocked) {
-      knownClaimsText = claimsToText(await fetchKnownClaims(token, user.id));
+    var memoryOn = user && (entitled || resumeUnlocked) && mode !== 'research';
+    if (memoryOn) {
+      var memParts = await Promise.all([fetchCareerProfile(token, user.id), fetchKnownClaims(token, user.id)]);
+      knownClaimsText = memoryToText(memParts[0], memParts[1]);
     }
 
     var knowledgeText = null;

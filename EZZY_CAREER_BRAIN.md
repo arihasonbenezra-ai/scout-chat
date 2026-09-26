@@ -79,3 +79,25 @@ No LinkedIn import, no connected accounts, no onboarding form — all deferred u
 
 - **Market Brain linkage** (market_demand per skill, compensation positioning) — requires an external data source that doesn't exist yet (see EZZY_ARCHITECTURE.md §5). The `market_demand` field above is left in the schema as `null`-able so it can be populated later without a migration, but nothing should compute it in Phase 1.
 - **Career graph traversal queries** ("people with your background who wanted this role usually needed X") — needs a large cross-user corpus of outcomes that doesn't exist yet; premature before there are enough users and enough tracked outcomes to make any cohort statistically meaningful.
+
+## v1: the memory model (2026-09-26, migration 0020)
+
+v0 answered "what has Ezzy learned from your resume". v1 is the spine for Tier 2 (career navigation): a coach that persistently knows your career needs *comparable* fields it can match and score against, not just a bag of evidence-tagged claims. Five additions:
+
+| Piece | Where | Why it is its own thing |
+|---|---|---|
+| **Target** (role title, level, comp range, work type, locations, timeline) | columns on `career_profile` | Must be queryable and comparable across users. A `goal` claim with `dimension: 'role'` can't drive a job search or a cohort stat; a column can. `target_source` records whether the user stated it (front door 1), the "no idea" conversation produced it (front door 2), or it was defaulted from the role picker / resume. Only `stated` and `discovered` may overwrite a non-null target. |
+| **Story bank** | `career_stories` | STAR-shaped, competency-tagged, multi-paragraph. Distinct enough from a claim (per the v0 rule: split out a type once it needs its own structured columns). Prep pulls stories by competency; the user confirms drafts (`status`) before Ezzy relies on them. |
+| **Opportunities** | `career_opportunities` | A specific role at a specific company. Pasted JDs write here today; Adzuna matches write here next (`source`, `external_id`, `fit_score`, `fit_reasons`). Carries a denormalised `stage`. |
+| **Outcomes** | `career_outcomes` (append-only) | The hire-outcome tracking prerequisite. An event log: applied, screen, interview, offer, hired, and later promoted / comp_change. A trigger keeps the opportunity's `stage` in step. Self-reported first; `source` distinguishes self-reported vs. captured inside an Ezzy flow, and referral-fee logic must never trust `inferred` rows. |
+| **Decisions** | `career_decisions` | The "Your Decisions" layer from the Career OS framing. A question, options with pros/cons, what was chosen and why. Links to an opportunity when it is about one. |
+
+What is populated automatically as of this migration:
+
+- Target: defaulted from the landing role picker (`prep_role`) when the profile has no target yet, and from a resume objective line (`resume`) via `/api/extract`. Editable in the "What Ezzy knows about you" panel, which sets `stated`.
+- Skills: extracted from the resume with `proficiency` in `detail`; the user can add or remove them in the panel (added skills are `fact` with `source: 'user'`).
+- `years_experience` and `seniority_level` on the profile, from resume extraction.
+
+Everything else (stories, opportunities, outcomes, decisions) has a shape but no writer yet. Next writers, in order: STAR sessions → `career_stories`; pasted-JD gap analysis → `career_opportunities`; an "I applied / I got an offer" check-in → `career_outcomes`; the target-choosing conversation → `career_decisions` (kind `choose_target`) + `career_profile.target_*` with `source = 'discovered'`.
+
+Cohort insights ("people like you") stay off until there are enough users with tracked outcomes for a minimum cohort size; the comparable fields are designed for it, but nothing computes it.
