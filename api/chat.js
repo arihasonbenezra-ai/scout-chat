@@ -39,6 +39,7 @@ const RESUME_SYSTEM = [
   '- Never invent experience, metrics, skills, or accomplishments the candidate did not state.',
   '- If the resume is missing something the JD requires, say so explicitly. Do not fabricate.',
   '- Be specific to the JD. Generic resume tips are useless.',
+  '- If you were given only a target role or company instead of a posting, or no target at all, you have NOT seen the posting. Never present a requirement as coming from a posting you were not given. Say "roles like this typically ask for..." and keep the advice grounded in the resume itself.',
   '- Total response under 600 words. Use clear headers like "Change 1:" through "Change 5:".',
   '- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
 ].join('\n');

@@ -796,6 +796,30 @@ function confirmModeSwitch(){
   startMode(p.id,p.title);
 }
 
+// At the "paste the job description" step, people often type a role or a
+// company instead ("Senior Technical Recruiter @ Figma"). That is a target,
+// not a posting - treating it as a posting made the review and the gap
+// checklist grade the resume against requirements the model invented.
+var TARGET_HINT = null;
+function looksLikeJobDescription(text){
+  var t = (text || '').trim();
+  if(t.length >= 400) return true;
+  var lines = t.split(/\n/).filter(function(l){ return l.trim(); }).length;
+  return lines >= 4;
+}
+function parseTargetHint(text){
+  var t = (text || '').trim().replace(/\s+/g,' ');
+  var m = t.match(/^(.+?)\s*(?:@|\bat\b|\bfor\b|-|\u2013|\u2014)\s*(.+)$/i);
+  if(m && m[1].length >= 3 && m[2].length >= 2) return {role: m[1].trim(), company: m[2].trim()};
+  return {role: t, company: null};
+}
+function buildResumeFirstMessage(resumeText, jdText, targetHint){
+  var head = 'Here is the candidate\'s resume:\n\n' + resumeText + '\n\n---\n\n';
+  if(jdText) return head + 'Here is the target job description:\n\n' + jdText + '\n\nGive your feedback now using the format specified.';
+  if(targetHint) return head + 'The candidate did NOT paste a job posting. They said they are targeting: "' + targetHint + '". Review the resume for that kind of role. You have not seen the actual posting, so do not claim the resume matches or misses requirements of a posting; when you rely on what such roles typically ask for, say so explicitly ("roles like this typically look for..."). Give your feedback now using the format specified.';
+  return head + 'The candidate does not have a specific job posting to target - give a general resume review using the format specified.';
+}
+
 // A long paste (resume, job description) is a document, not a chat line.
 // Show it as a collapsed card with a word count and an expand toggle rather
 // than echoing the whole thing back as one wall of text.
@@ -950,10 +974,17 @@ function handleSendText(text){
       },200);
     } else if(RESUME_STAGE==='awaiting_jd'){
       removeSkipJDButton();
-      JD_TEXT=text;
+      var isJD = looksLikeJobDescription(text);
+      JD_TEXT = isJD ? text : null;
+      TARGET_HINT = isJD ? null : text.trim();
+      window.JD_TEXT = JD_TEXT; window.TARGET_HINT = TARGET_HINT;
       RESUME_STAGE='feedback_given';
-      var firstUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.';
-      convoHistory=[{role:'user',content:firstUserMsg}];
+      if(TARGET_HINT){
+        var parsed = parseTargetHint(TARGET_HINT);
+        defaultTargetFromRole(parsed.role);
+        addMsg('bot','Got it - I\'ll review for ' + (parsed.company ? parsed.role + ' roles at ' + parsed.company : parsed.role + ' roles') + '. I haven\'t seen the actual posting, so this is based on what those roles usually ask for. Paste the real posting any time and I\'ll check you against its exact requirements.');
+      }
+      convoHistory=[{role:'user',content:buildResumeFirstMessage(RESUME_TEXT, JD_TEXT, TARGET_HINT)}];
       isSending=true;updateSendBtnState();
       showTyping();
       streamBotReply(convoHistory.slice(),function(reply){
@@ -962,7 +993,9 @@ function handleSendText(text){
       saveMessage('assistant', reply);
         appendDownloadButton();
         extractCareerClaims(RESUME_TEXT, JD_TEXT);
-        runGapAnalysis(RESUME_TEXT, JD_TEXT);
+        // The requirement-by-requirement match only makes sense against a
+        // real posting; against a typed target it would be invented.
+        if(JD_TEXT) runGapAnalysis(RESUME_TEXT, JD_TEXT);
       });
     } else {
       convoHistory.push({role:'user',content:text});
@@ -1037,6 +1070,7 @@ function stashRetryForAuth(){
       role: window.ROLE || null,
       resumeText: window.RESUME_TEXT || null,
       jdText: window.JD_TEXT || null,
+      targetHint: window.TARGET_HINT || null,
       ts: Date.now()
     }));
   } catch(e){}
@@ -1062,6 +1096,7 @@ function resumeGatedRetryIfAny(){
     MODE='resume'; window.MODE='resume';
     RESUME_TEXT = stash.resumeText; window.RESUME_TEXT = RESUME_TEXT;
     JD_TEXT = stash.jdText || null; window.JD_TEXT = JD_TEXT;
+    TARGET_HINT = stash.targetHint || null; window.TARGET_HINT = TARGET_HINT;
     RESUME_STAGE = 'feedback_given'; window.RESUME_STAGE = RESUME_STAGE;
     window.resumeDropDismissed = true;
 
@@ -1070,17 +1105,14 @@ function resumeGatedRetryIfAny(){
     if(modePillLabel) modePillLabel.textContent = 'Resume Feedback';
     addMsg('bot','Paste your resume below. Plain text is fine, formatting will be ignored.');
     addMsg('user', RESUME_TEXT);
-    if(JD_TEXT){
+    if(JD_TEXT || TARGET_HINT){
       addMsg('bot','Got it. Now paste the job description you\'re targeting.');
-      addMsg('user', JD_TEXT);
+      addMsg('user', JD_TEXT || TARGET_HINT);
     } else {
       addMsg('user',"I don't have a specific job in mind");
     }
 
-    var userMsg = JD_TEXT
-      ? 'Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nHere is the target job description:\n\n'+JD_TEXT+'\n\nGive your feedback now using the format specified.'
-      : 'Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have a specific job posting to target - give a general resume review using the format specified.';
-    convoHistory=[{role:'user',content:userMsg}];
+    convoHistory=[{role:'user',content:buildResumeFirstMessage(RESUME_TEXT, JD_TEXT, TARGET_HINT)}];
     isSending=true;updateSendBtnState();showTyping();
     streamBotReply(convoHistory.slice(),function(reply){
       if(!reply) return;
@@ -1273,7 +1305,7 @@ function skipJobDescription(){
   addMsg('user',"I don't have a specific job in mind");
   RESUME_STAGE='feedback_given';
   window.RESUME_STAGE=RESUME_STAGE;
-  JD_TEXT=null; window.JD_TEXT=null;
+  JD_TEXT=null; window.JD_TEXT=null; TARGET_HINT=null; window.TARGET_HINT=null;
   var generalUserMsg='Here is the candidate\'s resume:\n\n'+RESUME_TEXT+'\n\n---\n\nThe candidate does not have a specific job posting to target - give a general resume review using the format specified.';
   convoHistory=[{role:'user',content:generalUserMsg}];
   isSending=true;updateSendBtnState();
