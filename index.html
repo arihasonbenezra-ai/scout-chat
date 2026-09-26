@@ -67,6 +67,9 @@ button,input,textarea{font-family:inherit}
 .empty-pill{padding:9px 16px;border:0.5px solid var(--border-strong);border-radius:999px;font-size:13px;color:var(--black);background:var(--white);cursor:pointer;transition:border-color .15s,background .15s}
 .empty-pill:hover{border-color:var(--black);background:#FAFAFA}
 .empty-pill.fade{opacity:.3;pointer-events:none}
+.empty-pill.soon{color:var(--muted);border-color:var(--border);background:var(--white);cursor:default;opacity:.55;display:inline-flex;align-items:center;gap:7px}
+.empty-pill.soon:hover{border-color:var(--border);background:var(--white)}
+.soon-tag{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:0.5px solid var(--border);border-radius:999px;padding:2px 6px;line-height:1.2}
 
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes emptyFaceIn{to{opacity:1;transform:translateY(0)}}
@@ -419,6 +422,7 @@ button,input,textarea{font-family:inherit}
         <div class="empty-pills" id="intentPills">
           <button class="empty-pill" onclick="pickTopIntent('resume')">Resume Review</button>
           <button class="empty-pill" onclick="pickTopIntent('prep')">Interview Prep</button>
+          <button class="empty-pill soon" type="button" disabled aria-disabled="true" title="Coming soon">Find my next role<span class="soon-tag">Coming soon</span></button>
         </div>
         <div class="empty-pills" id="rolePills" style="display:none">
           <button class="empty-pill" onclick="pickRole('Software Engineer')">Software Engineer</button>
