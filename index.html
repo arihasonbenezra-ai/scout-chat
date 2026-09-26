@@ -91,7 +91,14 @@ button,input,textarea{font-family:inherit}
 /* Messages */
 .msg{padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5;max-width:75%;animation:msgIn .3s ease}
 @keyframes msgIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
-.msg-user{align-self:flex-end;background:var(--black);color:var(--white)}
+.msg-user{align-self:flex-end;background:var(--black);color:var(--white);white-space:pre-wrap;overflow-wrap:anywhere}
+.msg-user.msg-doc{white-space:normal;min-width:min(320px,100%)}
+.msg-doc-head{display:flex;align-items:center;gap:8px;font-size:12px;color:rgba(255,255,255,.7);margin-bottom:6px}
+.msg-doc-head svg{flex:none}
+.msg-doc-body{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.5}
+.msg-doc:not(.open) .msg-doc-body{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+.msg-doc-toggle{background:none;border:none;color:rgba(255,255,255,.85);font-size:12px;cursor:pointer;padding:6px 0 0;text-decoration:underline}
+.msg-doc-toggle:hover{color:#fff}
 .msg-bot-row{display:flex;gap:8px;align-items:flex-start;align-self:flex-start;max-width:80%}
 .msg-bot-avatar{width:24px;height:24px;border-radius:50%;background:var(--coral-pale);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:500;color:var(--black);margin-top:2px}
 .msg-bot{background:var(--coral-pale);color:var(--black);padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5}
@@ -789,12 +796,44 @@ function confirmModeSwitch(){
   startMode(p.id,p.title);
 }
 
+// A long paste (resume, job description) is a document, not a chat line.
+// Show it as a collapsed card with a word count and an expand toggle rather
+// than echoing the whole thing back as one wall of text.
+var DOC_BUBBLE_MIN_CHARS = 600;
+function fillUserBubble(node, text){
+  text = text == null ? '' : String(text);
+  if(text.length < DOC_BUBBLE_MIN_CHARS){
+    node.textContent = text;
+    return;
+  }
+  node.classList.add('msg-doc');
+  var words = text.trim().split(/\s+/).filter(Boolean).length;
+  var head = document.createElement('div');
+  head.className = 'msg-doc-head';
+  head.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>';
+  head.appendChild(document.createTextNode('Pasted document \u00b7 ' + words.toLocaleString() + ' words'));
+  var body = document.createElement('div');
+  body.className = 'msg-doc-body';
+  body.textContent = text;
+  var toggle = document.createElement('button');
+  toggle.className = 'msg-doc-toggle';
+  toggle.type = 'button';
+  toggle.textContent = 'Show all';
+  toggle.onclick = function(){
+    var open = node.classList.toggle('open');
+    toggle.textContent = open ? 'Show less' : 'Show all';
+  };
+  node.appendChild(head);
+  node.appendChild(body);
+  node.appendChild(toggle);
+}
+
 function addMsg(role,text){
   var node;
   if(role==='user'){
     node=document.createElement('div');
     node.className='msg msg-user';
-    node.textContent=text;
+    fillUserBubble(node,text);
   } else {
     node=document.createElement('div');
     node.className='msg-bot-row';
@@ -2181,7 +2220,7 @@ function addMsgWithoutSave(role, text){
   if(role === 'user'){
     node = document.createElement('div');
     node.className = 'msg msg-user';
-    node.textContent = text;
+    fillUserBubble(node, text);
   } else {
     node = document.createElement('div');
     node.className = 'msg-bot-row';
