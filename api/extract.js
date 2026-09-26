@@ -160,17 +160,33 @@ export default async function handler(req, res) {
     var claims = Array.isArray(extracted.claims) ? extracted.claims.slice(0, 20) : [];
     var today = new Date().toISOString().slice(0, 10);
 
+    // A "fact" must be backed by a quote that is actually in the resume.
+    // The model is told to quote exactly but sometimes paraphrases (and
+    // can change a number in the process). Compare with whitespace and
+    // punctuation loosened; if the quote is not found, the claim is kept
+    // but downgraded to an inference so the panel never shows an invented
+    // quote as a fact.
+    var normalize = function (t) {
+      return String(t || '').toLowerCase().replace(/[\u2018\u2019\u201c\u201d]/g, "'").replace(/[^a-z0-9$%+.\-]+/g, ' ').trim();
+    };
+    var resumeNorm = normalize(resumeText + '\n' + jdText);
+    var quoteInSource = function (q) {
+      var n = normalize(q);
+      return n.length >= 8 && resumeNorm.indexOf(n) !== -1;
+    };
+
     var rows = claims
       .filter(function (c) { return c && c.claim_type && c.label && c.evidence_quote; })
       .map(function (c) {
+        var verified = quoteInSource(c.evidence_quote);
         return {
           user_id: user.id,
           claim_type: c.claim_type,
           label: String(c.label).slice(0, 200),
-          status: c.status === 'inference' ? 'inference' : 'fact',
+          status: (c.status === 'inference' || !verified) ? 'inference' : 'fact',
           confidence: typeof c.confidence === 'number' ? c.confidence : null,
           detail: c.detail && typeof c.detail === 'object' ? c.detail : {},
-          evidence: [{ source: 'resume', quote: String(c.evidence_quote).slice(0, 400), date: today }],
+          evidence: [{ source: 'resume', quote: String(c.evidence_quote).slice(0, 400), date: today, verified: verified }],
           last_seen_at: new Date().toISOString()
         };
       });

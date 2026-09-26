@@ -218,6 +218,14 @@ export default async function handler(req, res) {
     var resumeText = typeof body.resumeText === 'string' ? body.resumeText.slice(0, 20000) : '';
     var jdText = typeof body.jdText === 'string' ? body.jdText.slice(0, 20000) : '';
     if (!resumeText || !jdText) return res.status(400).json({ error: 'resumeText and jdText required' });
+    // A requirement list can only come from a real posting. A short entry
+    // ("Senior Recruiter @ Figma") would make the model invent requirements
+    // and then grade the resume against its own invention. Refuse here as
+    // well as in the client so no path can produce a fabricated match box.
+    var jdLines = jdText.split(/\n/).filter(function (l) { return l.trim(); }).length;
+    if (jdText.trim().length < 400 && jdLines < 4) {
+      return res.status(200).json({ requirements: [], gaps: [], skipped: 'jd_too_short' });
+    }
 
     var reqOutput = await anthropicToolCall(
       'claude-haiku-4-5', REQUIREMENTS_SYSTEM, 'Job description:\n\n' + jdText,
