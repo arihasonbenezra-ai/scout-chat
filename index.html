@@ -48,9 +48,12 @@ button,input,textarea{font-family:inherit}
 .mode-popover{display:none;position:absolute;top:42px;left:80px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;padding:6px;min-width:240px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.08)}
 .mode-popover.show{display:block}
 .mode-option{padding:10px 12px;border-radius:8px;display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:background .15s}
-.mode-popover-foot{display:flex;justify-content:flex-end;padding:4px 12px 2px;margin-top:2px;border-top:0.5px solid var(--border)}
-.mode-start-over{background:none;border:none;font-size:11.5px;color:var(--muted);cursor:pointer;padding:4px 0}
-.mode-start-over:hover{color:var(--black);text-decoration:underline}
+.start-over-btn{display:none;align-items:center;justify-content:center;width:26px;height:26px;border:0.5px solid var(--border-strong);border-radius:999px;background:var(--white);color:var(--dim);cursor:pointer;margin-left:6px;padding:0;position:relative;transition:color .15s,border-color .15s}
+.start-over-btn.show{display:inline-flex}
+.start-over-btn:hover{color:var(--black);border-color:var(--black)}
+.start-over-btn svg{width:13px;height:13px}
+.start-over-btn::after{content:'Start over';position:absolute;top:32px;left:50%;transform:translateX(-50%);background:var(--black);color:var(--white);font-size:11px;padding:4px 8px;border-radius:6px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s}
+.start-over-btn:hover::after{opacity:1}
 .mode-option:hover{background:#FAFAFA}
 .mode-option.active{background:var(--coral-pale)}
 .mode-option-title{font-size:13px;font-weight:500;color:var(--black)}
@@ -381,6 +384,9 @@ button,input,textarea{font-family:inherit}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
       </span>
       <span class="role-label" id="roleLabel"></span>
+      <button class="start-over-btn" id="startOverBtn" onclick="requestStartOver()" aria-label="Start over" title="Start over">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 4 3 10 9 10"/></svg>
+      </button>
 
       <div class="mode-popover" id="modePopover">
         <div class="mode-option" data-mode="practice" onclick="requestModeSwitch('practice','Practice Q&amp;A')">
@@ -395,7 +401,6 @@ button,input,textarea{font-family:inherit}
           <span class="mode-option-title">Mock Interview</span>
           <span class="mode-option-sub">Full simulated interview</span>
         </div>
-        <div class="mode-popover-foot" id="modeStartOverRow"><button class="mode-start-over" onclick="requestStartOver()">Start over</button></div>
         <div class="mode-option" data-mode="resume" onclick="requestModeSwitch('resume','Resume Feedback')">
           <span class="mode-option-title">Resume Feedback</span>
           <span class="mode-option-sub">Paste resume + JD for feedback</span>
@@ -765,7 +770,6 @@ function setActiveMode(modeId){
 }
 
 function toggleModePopover(){
-  refreshStartOverRow();
   var open=modePopover.classList.toggle('show');
   modePill.classList.toggle('open',open);
 }
@@ -1045,6 +1049,7 @@ function handleSendText(text){
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
+      refreshStartOverRow();
     });
   }
 }
@@ -1357,8 +1362,7 @@ async // Prep modes (Practice / STAR / Mock) keep one saved session per mode+rol
 // under every reply (each restart is a new API call).
 var pendingStartOver=false;
 function requestStartOver(){
-  closeModePopover();
-  if(isSending) return;
+  if(isSending || !startOverAvailable()) return;
   pendingStartOver=true;
   document.getElementById('modalTitle').textContent='Start over?';
   document.getElementById('modalDesc').textContent='This clears your current session and begins a new one with fresh questions.';
@@ -1381,8 +1385,8 @@ function startOverAvailable(){
   return (m.restart_count || 0) === 0 || (m.answer_count || 0) >= (PREP_SET_SIZE[modeId] || 5);
 }
 function refreshStartOverRow(){
-  var row=document.getElementById('modeStartOverRow');
-  if(row) row.style.display = startOverAvailable() ? '' : 'none';
+  var btn=document.getElementById('startOverBtn');
+  if(btn) btn.classList.toggle('show', startOverAvailable());
 }
 async function startNewPrepSession(){
   if(isSending) return;
@@ -1987,6 +1991,7 @@ function clearChatState(){
   if(msgEl) msgEl.innerHTML = '';
   if(modePill) modePill.style.display = 'none';
   if(roleLabel) roleLabel.style.display = 'none';
+  var sob=document.getElementById('startOverBtn'); if(sob) sob.classList.remove('show');
   if(dotSep) dotSep.style.display = 'none';
   if(emptyState) emptyState.style.display = '';
   if(typeof resetEmptyStateToStage1 === 'function') resetEmptyStateToStage1();
@@ -2350,6 +2355,7 @@ async function loadConversationForMode(modeId){
   if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
     appendDownloadButton();
   }
+  refreshStartOverRow();
 
   return true;
 }
