@@ -281,9 +281,10 @@ function prepProgressInstruction(p) {
 // signal that experience was invented or imported from the posting).
 function resumeSourceText(messages) {
   var first = messages && messages[0] && (typeof messages[0].content === 'string' ? messages[0].content : sessionText([messages[0]]));
-  if (!first) return '';
+  if (!first) return { resume: '', jd: '' };
   var m = first.match(/resume:\s*\n([\s\S]*?)(?:\n\s*---\s*\n|$)/i);
-  return m ? m[1] : first;
+  var j = first.match(/job description:\s*\n([\s\S]*?)(?:\n\s*Give your feedback|$)/i);
+  return { resume: m ? m[1] : first, jd: j ? j[1] : '' };
 }
 var RESUME_ATTR_RE = /\b(you|your|candidate('s)?|current line|the line|opening|headline|summary|bullet|reads|says|states|mentions|resume)\b/i;
 function extractResumeQuotes(reply) {
@@ -305,18 +306,23 @@ function extractRewrites(reply) {
   while ((m = re.exec(reply)) !== null) if (m[1] && m[1].trim()) out.push(m[1].trim());
   return out;
 }
-function checkResumeGrounding(reply, resumeText) {
+// Quotes may come from the resume OR the posting (a review legitimately
+// cites both). Numbers in a rewrite must come from the resume only.
+function checkResumeGrounding(reply, resumeText, jdText) {
   var src = normText(resumeText);
   var srcTokens = src.split(' ');
-  var badQuotes = extractResumeQuotes(reply).filter(function (q) { return !quoteSupported(q, src); });
+  var quoteSrc = normText(resumeText + '\n' + (jdText || ''));
+  var badQuotes = extractResumeQuotes(reply).filter(function (q) { return !quoteSupported(q, quoteSrc); });
+  // Whole-number comparison: "3" must not pass because "30s" exists.
+  var cores = {};
+  srcTokens.forEach(function (t) { var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, ''); if (c) cores[c] = true; });
   var badNumbers = [];
   extractRewrites(reply).forEach(function (rw) {
     normText(rw).split(' ').forEach(function (t) {
       if (!/\d/.test(t)) return;
-      // a bare 4-digit year or a number present anywhere in the resume is fine
       if (srcTokens.indexOf(t) !== -1) return;
-      var digits = t.replace(/[^0-9.]/g, '');
-      if (digits && src.indexOf(digits) !== -1) return;
+      var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, '');
+      if (c && cores[c]) return;
       if (badNumbers.indexOf(t) === -1) badNumbers.push(t);
     });
   });
@@ -337,11 +343,12 @@ function stripBadChanges(reply, check) {
   return text;
 }
 async function groundedResumeReply(anthropicBody, messages) {
-  var resume = resumeSourceText(messages);
+  var srcs = resumeSourceText(messages);
+  var resume = srcs.resume, jd = srcs.jd;
   if (!resume || resume.length < 200) return null; // nothing to check against - stream as before
   var first = await callOnce(anthropicBody);
   if (!first.ok) return first;
-  var check = checkResumeGrounding(first.text, resume);
+  var check = checkResumeGrounding(first.text, resume, jd);
   if (check.ok) return { ok: true, text: first.text, data: first.data, guard: { retried: false, stripped: 0 } };
   console.log('[resume-guard] retry', JSON.stringify(check));
   var correction = 'Your previous draft failed a check against the resume.'
@@ -350,7 +357,7 @@ async function groundedResumeReply(anthropicBody, messages) {
     + ' Rewrite the whole review. Quote only text that is in the resume, and use only facts and numbers the resume states.';
   var second = await callOnce(Object.assign({}, anthropicBody, { system: anthropicBody.system + '\n\n' + correction }));
   if (!second.ok) return second;
-  var check2 = checkResumeGrounding(second.text, resume);
+  var check2 = checkResumeGrounding(second.text, resume, jd);
   if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
   console.log('[resume-guard] strip', JSON.stringify(check2));
   return { ok: true, text: stripBadChanges(second.text, check2), data: second.data, guard: { retried: true, stripped: check2.badQuotes.length + check2.badNumbers.length, strippedQuotes: check2.badQuotes, strippedNumbers: check2.badNumbers } };
@@ -1186,7 +1193,7 @@ export default async function handler(req, res) {
 
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
-      max_tokens: mode === 'research' ? 4000 : 1000,
+      max_tokens: mode === 'research' ? 4000 : (mode === 'resume' ? 2500 : 1000),
       system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText),
       messages: messages,
       stream: isStreaming
