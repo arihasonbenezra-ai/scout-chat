@@ -102,6 +102,8 @@ button,input,textarea{font-family:inherit}
 .msg-bot-row{display:flex;gap:8px;align-items:flex-start;align-self:flex-start;max-width:80%}
 .msg-bot-avatar{width:24px;height:24px;border-radius:50%;background:var(--coral-pale);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:500;color:var(--black);margin-top:2px}
 .msg-bot{background:var(--coral-pale);color:var(--black);padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5}
+.msg-bot a{color:#C2493C;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.msg-bot a:hover{color:#8F3229}
 
 /* Typing indicator */
 .typing{display:flex;align-items:center;gap:6px;padding:12px 16px;background:var(--coral-pale);border-radius:12px;width:fit-content;margin-left:32px}
@@ -866,7 +868,7 @@ function addMsg(role,text){
     av.textContent='E';
     var bub=document.createElement('div');
     bub.className='msg-bot';
-    if(text){try{bub.innerHTML=marked.parse(text);}catch(e){bub.textContent=text;}}
+    if(text){try{bub.innerHTML=marked.parse(text);}catch(e){bub.textContent=text;} externalizeLinks(bub);}
     node.appendChild(av);
     node.appendChild(bub);
   }
@@ -875,10 +877,18 @@ function addMsg(role,text){
   return node;
 }
 
+function externalizeLinks(el){
+  if(!el) return;
+  Array.prototype.forEach.call(el.querySelectorAll('a[href]'), function(a){
+    a.target='_blank'; a.rel='noopener noreferrer';
+  });
+}
+
 function setBubbleText(node,text){
   var bub=node.querySelector('.msg-bot');
   if(bub){
     try{bub.innerHTML=marked.parse(text);}catch(e){bub.textContent=text;}
+    externalizeLinks(bub);
   } else {
     node.textContent=text;
   }
@@ -2261,7 +2271,7 @@ function addMsgWithoutSave(role, text){
     av.textContent = 'E';
     var bub = document.createElement('div');
     bub.className = 'msg-bot';
-    if(text){ try{ bub.innerHTML = marked.parse(text); }catch(e){ bub.textContent = text; } }
+    if(text){ try{ bub.innerHTML = marked.parse(text); }catch(e){ bub.textContent = text; } externalizeLinks(bub); }
     node.appendChild(av);
     node.appendChild(bub);
   }

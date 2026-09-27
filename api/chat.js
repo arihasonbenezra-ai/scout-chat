@@ -96,7 +96,7 @@ function researchSystemPrompt(role, company) {
     '',
     'CRITICAL ACCURACY RULES:',
     '',
-    '1. Every factual claim must include an inline source with date in this format: (source: domain.com, [year]). Example: "Zocdoc launched a new telehealth feature in 2024 (source: techcrunch.com, 2024)."',
+    '1. Every factual claim must come from a search result you retrieved this turn - sources are attached to your sentences automatically from those results, so do not type "(source: ...)" parentheticals yourself. Put the date of the information in the sentence itself, e.g. "In March 2026, Zocdoc launched...". A sentence you cannot back with a search result must be framed as unverified or left out.',
     '',
     '2. If web search did not return verified, dated information on something, write: "I could not find verified recent information on this." Do NOT guess. Do NOT pattern-match from training data. Do NOT use sources older than 12 months for anything except company founding dates and stable historical facts.',
     '',
@@ -260,6 +260,130 @@ async function saveCachedResearch(companyKey, roleKey, company, role, brief) {
   } catch (e) {
     // caching is best-effort - never fail the request over a cache write
   }
+}
+
+// --- Company Research fabrication guard --------------------------------
+// The model is told to cite everything, but a prompt rule is not a check.
+// The API attaches real citations (url, title, cited_text) to every text
+// block that draws on a web search result. This pass rebuilds the brief
+// from those citations instead of trusting whatever the model typed:
+//   - a cited block gets a real link to the page it came from
+//   - a model-typed "(source: x.com, 2024)" is removed if the block is
+//     cited (the real link replaces it), linked if x.com was actually in
+//     the search results, or marked "source not verified" otherwise
+//   - a Sources list of every page actually cited is appended
+// The result is what gets shown, cached, and served to later users.
+function hostOf(url) {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return ''; }
+}
+
+var TYPED_SOURCE_RE = /\s*\((?:sources?|via|per)\s*:\s*([^)]*)\)/gi;
+
+function verifyResearchBrief(content) {
+  var results = {};   // host -> {url, title, page_age}
+  var cited = [];     // ordered unique cited pages
+  var citedByUrl = {};
+  var unverified = 0;
+  var citedBlocks = 0;
+  var out = [];
+
+  (content || []).forEach(function (b) {
+    if (b.type === 'web_search_tool_result' && Array.isArray(b.content)) {
+      b.content.forEach(function (r) {
+        if (r && r.type === 'web_search_result' && r.url) {
+          var h = hostOf(r.url);
+          if (h && !results[h]) results[h] = { url: r.url, title: r.title || h, page_age: r.page_age || null };
+        }
+      });
+    }
+  });
+
+  (content || []).forEach(function (b) {
+    if (b.type !== 'text' || typeof b.text !== 'string') return;
+    var text = b.text;
+    var cites = Array.isArray(b.citations) ? b.citations.filter(function (c) { return c && c.type === 'web_search_result_location' && c.url; }) : [];
+
+    if (cites.length) {
+      citedBlocks++;
+      text = text.replace(TYPED_SOURCE_RE, '');
+      var links = [];
+      cites.forEach(function (c) {
+        if (!citedByUrl[c.url]) {
+          citedByUrl[c.url] = { url: c.url, title: c.title || hostOf(c.url), page_age: (results[hostOf(c.url)] || {}).page_age || null, n: cited.length + 1 };
+          cited.push(citedByUrl[c.url]);
+        }
+        var n = citedByUrl[c.url].n;
+        if (links.indexOf(n) === -1) links.push(n);
+      });
+      var tail = links.map(function (n) { return '[' + n + '](' + cited[n - 1].url + ')'; }).join(' ');
+      // Place the link before a trailing newline so it stays on the sentence.
+      var m = text.match(/(\s*)$/);
+      text = text.slice(0, text.length - m[1].length) + ' ' + tail + m[1];
+    } else {
+      text = text.replace(TYPED_SOURCE_RE, function (whole, inner) {
+        var hosts = String(inner).toLowerCase().match(/[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/g) || [];
+        var hit = null;
+        for (var i = 0; i < hosts.length && !hit; i++) {
+          var h = hosts[i].replace(/^www\./, '');
+          if (results[h]) hit = results[h];
+        }
+        if (hit) {
+          if (!citedByUrl[hit.url]) {
+            citedByUrl[hit.url] = { url: hit.url, title: hit.title, page_age: hit.page_age, n: cited.length + 1 };
+            cited.push(citedByUrl[hit.url]);
+          }
+          return ' [' + citedByUrl[hit.url].n + '](' + hit.url + ')';
+        }
+        unverified++;
+        return ' *(source not verified)*';
+      });
+    }
+    out.push(text);
+  });
+
+  var body = out.join('').trim();
+  if (cited.length) {
+    body += '\n\n**Sources**\n' + cited.map(function (c) {
+      return c.n + '. [' + String(c.title).replace(/[\[\]]/g, '') + '](' + c.url + ')' + (c.page_age ? ' · ' + c.page_age : '');
+    }).join('\n');
+  }
+  if (unverified) {
+    body += '\n\n_' + unverified + (unverified === 1 ? ' claim' : ' claims') + ' above could not be matched to a search result and ' + (unverified === 1 ? 'is' : 'are') + ' marked "source not verified". Treat ' + (unverified === 1 ? 'it' : 'them') + ' as unconfirmed._';
+  }
+  return { text: body, sources: cited, citedBlocks: citedBlocks, unverified: unverified, searched: Object.keys(results).length };
+}
+
+// Research runs non-streamed so the whole response can be verified before
+// anyone sees it, then is replayed to the client in the same SSE shape the
+// streaming path uses (one delta + [DONE]) so the client needs no change.
+function writeAsStream(res, text) {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.write('data: ' + JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text } }) + '\n\n');
+  res.write('data: [DONE]\n\n');
+  res.end();
+}
+
+async function callResearch(anthropicBody) {
+  // pause_turn: the API paused a long search turn; resend with the partial
+  // assistant content appended to continue. Bounded so a stuck turn ends.
+  var body = Object.assign({}, anthropicBody, { stream: false });
+  var merged = [];
+  for (var i = 0; i < 3; i++) {
+    var r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify(body)
+    });
+    var data = await r.json();
+    if (!r.ok) return { ok: false, status: r.status, data: data };
+    merged = merged.concat(data.content || []);
+    if (data.stop_reason !== 'pause_turn') return { ok: true, data: data, content: merged };
+    body = Object.assign({}, body, { messages: body.messages.concat([{ role: 'assistant', content: data.content }]) });
+  }
+  return { ok: true, content: merged };
 }
 
 async function fetchSubscription(token, userId) {
@@ -608,6 +732,7 @@ export default async function handler(req, res) {
       researchCacheKeys = { companyKey: normalizeKey(company), roleKey: normalizeKey(role) };
       var cachedBrief = await fetchCachedResearch(researchCacheKeys.companyKey, researchCacheKeys.roleKey);
       if (cachedBrief) {
+        if (isStreaming) return writeAsStream(res, cachedBrief);
         return res.status(200).json({
           content: [{ type: 'text', text: cachedBrief }],
           usage: { input_tokens: 0, output_tokens: 0 }
@@ -623,7 +748,20 @@ export default async function handler(req, res) {
       stream: isStreaming
     };
     if (mode === 'research') {
-      anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
+      anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }];
+      var rr = await callResearch(anthropicBody);
+      if (!rr.ok) return res.status(rr.status || 502).json(rr.data || { error: 'Research failed' });
+      var verified = verifyResearchBrief(rr.content);
+      if (!verified.text) return res.status(502).json({ error: 'Research returned no text' });
+      if (researchCacheKeys) {
+        await saveCachedResearch(researchCacheKeys.companyKey, researchCacheKeys.roleKey, company, role, verified.text);
+      }
+      if (isStreaming) return writeAsStream(res, verified.text);
+      return res.status(200).json({
+        content: [{ type: 'text', text: verified.text }],
+        research: { sources: verified.sources.length, unverified: verified.unverified, searched: verified.searched },
+        usage: (rr.data && rr.data.usage) || {}
+      });
     }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -638,13 +776,6 @@ export default async function handler(req, res) {
 
     if (!isStreaming) {
       const data = await response.json();
-      if (researchCacheKeys && response.ok) {
-        var textBlocks = (data.content || []).filter(function (b) { return b.type === 'text'; });
-        var briefText = textBlocks.map(function (b) { return b.text; }).join('\n\n');
-        if (briefText) {
-          await saveCachedResearch(researchCacheKeys.companyKey, researchCacheKeys.roleKey, company, role, briefText);
-        }
-      }
       return res.status(response.status).json(data);
     }
 
