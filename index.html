@@ -1366,21 +1366,38 @@ function requestStartOver(){
   modalOverlay.classList.add('show');
 }
 
+// One restart per set. After a restart, the candidate has to answer the
+// full set before they can start over again. Tracked on the conversation
+// row (restart_count / answer_count, migration 0021) so it survives a
+// refresh. The row is kept and its messages cleared, so the counts persist
+// and the next session reuses the same row.
+var PREP_SET_SIZE = { practice: 5, star: 5, mock: 6 };
 async function startNewPrepSession(){
   if(isSending) return;
   var modeId = TRAINER_MODE || window.TRAINER_MODE;
   if(!modeId) return;
+  var required = PREP_SET_SIZE[modeId] || 5;
   if(window.supabaseClient){
     try{
       var sessionRes = await window.supabaseClient.auth.getSession();
       var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
       if(uid){
-        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', modeId);
+        var query = window.supabaseClient.from('conversations').select('id,restart_count,answer_count').eq('user_id', uid).eq('mode', modeId);
         query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
         var existing = await query.maybeSingle();
-        if(existing.data && existing.data.id){
-          await window.supabaseClient.from('messages').delete().eq('conversation_id', existing.data.id);
-          await window.supabaseClient.from('conversations').delete().eq('id', existing.data.id);
+        var row = existing.data;
+        if(row && row.id){
+          var used = (row.restart_count || 0) >= 1;
+          var completed = (row.answer_count || 0) >= required;
+          if(used && !completed){
+            var left = required - (row.answer_count || 0);
+            showSimpleToast('You\u2019ve already started over once. Finish this set first (' + left + (left===1?' answer':' answers') + ' to go).');
+            return;
+          }
+          await window.supabaseClient.from('messages').delete().eq('conversation_id', row.id);
+          await window.supabaseClient.from('conversations').update({
+            restart_count: 1, answer_count: 0, updated_at: new Date().toISOString()
+          }).eq('id', row.id);
         }
       }
     }catch(e){ console.error('Could not clear previous session:', e); }
@@ -2225,7 +2242,7 @@ async function saveMessage(role, content){
   });
   
   // Update conversation's updated_at + mode-specific fields
-  await window.supabaseClient.from('conversations').update({
+  var patch = {
     role: window.ROLE || null,
     resume_text: window.RESUME_TEXT || null,
     jd_text: window.JD_TEXT || null,
@@ -2233,7 +2250,14 @@ async function saveMessage(role, content){
     research_company: window.RESEARCH_COMPANY || null,
     research_stage: window.RESEARCH_STAGE || null,
     updated_at: new Date().toISOString()
-  }).eq('id', conversationId);
+  };
+  // Prep modes: how many answers the candidate has given in this set
+  // (drives the one-restart-per-set rule in startNewPrepSession).
+  if(role === 'user' && window.MODE === 'trainer' && Array.isArray(window.convoHistory || convoHistory)){
+    var hist = window.convoHistory || convoHistory;
+    patch.answer_count = hist.filter(function(m){ return m.role === 'user'; }).length;
+  }
+  await window.supabaseClient.from('conversations').update(patch).eq('id', conversationId);
 }
 
 // Reset conversation tracking when mode changes
