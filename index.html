@@ -48,6 +48,9 @@ button,input,textarea{font-family:inherit}
 .mode-popover{display:none;position:absolute;top:42px;left:80px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;padding:6px;min-width:240px;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.08)}
 .mode-popover.show{display:block}
 .mode-option{padding:10px 12px;border-radius:8px;display:flex;flex-direction:column;gap:2px;cursor:pointer;transition:background .15s}
+.mode-popover-foot{display:flex;justify-content:flex-end;padding:4px 12px 2px;margin-top:2px;border-top:0.5px solid var(--border)}
+.mode-start-over{background:none;border:none;font-size:11.5px;color:var(--muted);cursor:pointer;padding:4px 0}
+.mode-start-over:hover{color:var(--black);text-decoration:underline}
 .mode-option:hover{background:#FAFAFA}
 .mode-option.active{background:var(--coral-pale)}
 .mode-option-title{font-size:13px;font-weight:500;color:var(--black)}
@@ -392,6 +395,7 @@ button,input,textarea{font-family:inherit}
           <span class="mode-option-title">Mock Interview</span>
           <span class="mode-option-sub">Full simulated interview</span>
         </div>
+        <div class="mode-popover-foot" id="modeStartOverRow"><button class="mode-start-over" onclick="requestStartOver()">Start over</button></div>
         <div class="mode-option" data-mode="resume" onclick="requestModeSwitch('resume','Resume Feedback')">
           <span class="mode-option-title">Resume Feedback</span>
           <span class="mode-option-sub">Paste resume + JD for feedback</span>
@@ -485,7 +489,7 @@ button,input,textarea{font-family:inherit}
       <p class="modal-desc" id="modalDesc">This will start a new conversation. Your current session won't be saved.</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="cancelModeSwitch()">Cancel</button>
-        <button class="modal-btn modal-btn-confirm" onclick="confirmModeSwitch()">Switch mode</button>
+        <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="confirmModeSwitch()">Switch mode</button>
       </div>
     </div>
   </div>
@@ -750,7 +754,6 @@ async function startMode(modeId,modeTitle){
   streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
     saveMessage('assistant', reply);
-    appendStartOverButton();
   });
 }
 
@@ -758,6 +761,8 @@ function setActiveMode(modeId){
   document.querySelectorAll('.mode-option').forEach(function(o){
     o.classList.toggle('active',o.getAttribute('data-mode')===modeId);
   });
+  var row=document.getElementById('modeStartOverRow');
+  if(row) row.style.display=(modeId==='practice'||modeId==='star'||modeId==='mock')?'':'none';
 }
 
 function toggleModePopover(){
@@ -783,15 +788,24 @@ function requestModeSwitch(modeId,modeTitle){
   }
   pendingModeSwitch={id:modeId,title:modeTitle};
   document.getElementById('modalTitle').textContent='Switch to '+modeTitle+'?';
+  document.getElementById('modalDesc').textContent='This will start a new conversation. Your current session won\'t be saved.';
+  document.getElementById('modalConfirmBtn').textContent='Switch mode';
   modalOverlay.classList.add('show');
 }
 
 function cancelModeSwitch(){
   pendingModeSwitch=null;
+  pendingStartOver=false;
   modalOverlay.classList.remove('show');
 }
 
 function confirmModeSwitch(){
+  if(pendingStartOver){
+    pendingStartOver=false;
+    modalOverlay.classList.remove('show');
+    startNewPrepSession();
+    return;
+  }
   if(!pendingModeSwitch)return;
   var p=pendingModeSwitch;
   pendingModeSwitch=null;
@@ -1024,7 +1038,6 @@ function handleSendText(text){
       });
     }
   } else if(MODE==='trainer'){
-    removeStartOverButton();
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
@@ -1032,7 +1045,6 @@ function handleSendText(text){
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
-      appendStartOverButton();
     });
   }
 }
@@ -1340,20 +1352,18 @@ function skipJobDescription(){
 async // Prep modes (Practice / STAR / Mock) keep one saved session per mode+role
 // and restore it on re-entry. "Start over" clears that saved session and
 // kicks off a fresh one, mirroring "Start a new review" for resumes.
-function appendStartOverButton(){
-  removeStartOverButton();
-  var btn=document.createElement('button');
-  btn.className='new-review-btn';
-  btn.id='startOverBtn';
-  btn.textContent='Start over';
-  btn.onclick=startNewPrepSession;
-  msgEl.appendChild(btn);
-  scrollMain();
-}
-
-function removeStartOverButton(){
-  var btn=document.getElementById('startOverBtn');
-  if(btn) btn.remove();
+// Lives at the bottom of the mode menu, small and behind a confirm - it's
+// for someone who genuinely wants a fresh session, not a reflex button
+// under every reply (each restart is a new API call).
+var pendingStartOver=false;
+function requestStartOver(){
+  closeModePopover();
+  if(isSending) return;
+  pendingStartOver=true;
+  document.getElementById('modalTitle').textContent='Start over?';
+  document.getElementById('modalDesc').textContent='This clears your current session and begins a new one with fresh questions.';
+  document.getElementById('modalConfirmBtn').textContent='Start over';
+  modalOverlay.classList.add('show');
 }
 
 async function startNewPrepSession(){
@@ -2298,9 +2308,6 @@ async function loadConversationForMode(modeId){
   // same root cause as the "no button" report, just a different path in.
   if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
     appendDownloadButton();
-  }
-  if(modeId === 'practice' || modeId === 'star' || modeId === 'mock'){
-    appendStartOverButton();
   }
 
   return true;
