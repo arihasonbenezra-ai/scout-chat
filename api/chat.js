@@ -66,11 +66,122 @@ const RESUME_SYSTEM_FREE = [
 // personalization/saving, or unlimited use. See FREE_RESUME_REVIEW_LIMIT.
 const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want in-depth feedback and a gap analysis against the job you want? Upgrade for a full, recruiter-built resume review."';
 
+// Applied to every prep mode. Prompt rules alone are not the guard - see
+// checkGrounding() below, which enforces (1) and (2) server-side.
+const GROUNDING_RULES = [
+  'Grounding rules (non-negotiable):',
+  '1. Every strength or improvement point must start by quoting the candidate\'s exact words in double quotes, copied verbatim from their answer - e.g. You said: "we finished two weeks early". Then comment on that quote.',
+  '2. Never attribute to the candidate anything they did not say. No numbers, names, team sizes, tools, or outcomes that are not in their answer.',
+  '3. No generic advice. If a point would apply to any answer to this question, cut it. Every point must be about something specific they said.',
+  '4. If the answer is too short or vague to assess, say so and ask for the missing piece instead of inventing feedback.'
+].join('\n');
+
 function trainerSystemPrompt(mode, role) {
+  var base = trainerBasePrompt(mode, role);
+  return base ? base + '\n\n' + GROUNDING_RULES : null;
+}
+
+function trainerBasePrompt(mode, role) {
   if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable), then move to the next question. Keep each feedback response under 120 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
   if (mode === 'star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a ' + role + ' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. Keep responses under 150 words. Then ask the next question.';
-  if (mode === 'mock') return 'You are conducting a realistic mock interview for a ' + role + ' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10.';
+  if (mode === 'mock') return 'You are conducting a realistic mock interview for a ' + role + ' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10. In the debrief, apply the grounding rules below: quote the candidate\'s exact words for each strength and each area to improve.';
   return null;
+}
+
+// --- Prep feedback fabrication guard ------------------------------------
+// The only source of truth in a prep session is what the candidate typed.
+// Feedback must quote it before judging it (GROUNDING_RULES), and this
+// check enforces that: every double-quoted span in the reply has to appear
+// verbatim (whitespace/punctuation loosened) in the candidate's messages.
+var PREP_MODES = { practice: true, star: true, mock: true };
+
+function normText(t) {
+  return String(t || '').toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"')
+    .replace(/[^a-z0-9$%'+.\-]+/g, ' ').trim();
+}
+
+function candidateText(messages) {
+  return (messages || []).filter(function (m) { return m.role === 'user'; }).map(function (m) {
+    if (typeof m.content === 'string') return m.content;
+    if (Array.isArray(m.content)) return m.content.map(function (b) { return b && b.text ? b.text : ''; }).join(' ');
+    return '';
+  }).join('\n');
+}
+
+function extractQuotes(reply) {
+  var out = [];
+  var re = /"([^"\n]{8,240})"|\u201c([^\u201d\n]{8,240})\u201d/g;
+  var m;
+  while ((m = re.exec(reply)) !== null) out.push(m[1] || m[2]);
+  return out;
+}
+
+function checkGrounding(reply, sourceText, requireQuote) {
+  var src = normText(sourceText);
+  var quotes = extractQuotes(reply);
+  var bad = quotes.filter(function (q) {
+    var n = normText(q);
+    return n.length >= 6 && src.indexOf(n) === -1;
+  });
+  var missing = requireQuote && quotes.length === 0;
+  return { ok: !bad.length && !missing, bad: bad, quotes: quotes.length, missing: missing };
+}
+
+// Last resort when a retry still fabricates: drop the sentences that hold
+// a bad quote and say so, rather than showing invented feedback.
+function stripBadQuotes(reply, bad) {
+  var sentences = reply.split(/(?<=[.!?])\s+|\n+/);
+  var kept = sentences.filter(function (sent) {
+    return !bad.some(function (q) { return sent.indexOf(q) !== -1; });
+  });
+  var removed = sentences.length - kept.length;
+  var text = kept.join(' ').replace(/\s{2,}/g, ' ').trim();
+  if (removed) text += '\n\n_' + (removed === 1 ? 'One point was' : removed + ' points were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' referred to something you didn\'t say._';
+  return text;
+}
+
+async function callOnce(anthropicBody) {
+  var r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify(Object.assign({}, anthropicBody, { stream: false }))
+  });
+  var data = await r.json();
+  if (!r.ok) return { ok: false, status: r.status, data: data };
+  var text = (data.content || []).filter(function (b) { return b.type === 'text'; }).map(function (b) { return b.text; }).join('');
+  return { ok: true, data: data, text: text };
+}
+
+// Runs a prep turn non-streamed, verifies it, retries once with a
+// corrective instruction, then strips as a last resort.
+async function groundedPrepReply(anthropicBody, messages, mode) {
+  var source = candidateText(messages);
+  var requireQuote = mode !== 'mock'; // mock stays in character between questions
+  var first = await callOnce(anthropicBody);
+  if (!first.ok) return first;
+  var check = checkGrounding(first.text, source, requireQuote);
+  if (check.ok) return { ok: true, text: first.text, data: first.data, guard: { retried: false, stripped: 0 } };
+
+  var correction = check.bad.length
+    ? 'Your previous draft quoted words the candidate did not say: ' + check.bad.map(function (q) { return '"' + q + '"'; }).join(', ') + '. That is not acceptable. Rewrite the whole reply. Only quote text that appears verbatim in the candidate\'s answers.'
+    : 'Your previous draft did not quote the candidate\'s words. Rewrite it so each point starts with an exact quote from their answer, in double quotes.';
+  var retryBody = Object.assign({}, anthropicBody, { system: anthropicBody.system + '\n\n' + correction });
+  var second = await callOnce(retryBody);
+  if (!second.ok) return second;
+  var check2 = checkGrounding(second.text, source, requireQuote);
+  if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
+
+  var text = check2.bad.length ? stripBadQuotes(second.text, check2.bad) : second.text;
+  return { ok: true, text: text, data: second.data, guard: { retried: true, stripped: check2.bad.length } };
+}
+
+function isPrepAnswerTurn(mode, messages) {
+  if (!PREP_MODES[mode] || !messages || messages.length < 2) return false;
+  var last = messages[messages.length - 1];
+  if (!last || last.role !== 'user') return false;
+  var text = typeof last.content === 'string' ? last.content : candidateText([last]);
+  return text.trim().length >= 30; // a real answer, not "ok" / "next"
 }
 
 function researchSystemPrompt(role, company) {
@@ -747,6 +858,13 @@ export default async function handler(req, res) {
       messages: messages,
       stream: isStreaming
     };
+    if (isPrepAnswerTurn(mode, messages)) {
+      var gp = await groundedPrepReply(anthropicBody, messages, mode);
+      if (!gp.ok) return res.status(gp.status || 502).json(gp.data || { error: 'Prep reply failed' });
+      if (isStreaming) return writeAsStream(res, gp.text);
+      return res.status(200).json({ content: [{ type: 'text', text: gp.text }], guard: gp.guard, usage: (gp.data && gp.data.usage) || {} });
+    }
+
     if (mode === 'research') {
       anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }];
       var rr = await callResearch(anthropicBody);
