@@ -909,8 +909,9 @@ function profileToText(p) {
     if (p.target_level) t.push(p.target_level + ' level');
     if (p.target_comp_min || p.target_comp_max) {
       var cur = p.target_comp_currency || 'USD';
-      var lo = p.target_comp_min ? Math.round(p.target_comp_min / 1000) + 'k' : '';
-      var hi = p.target_comp_max ? Math.round(p.target_comp_max / 1000) + 'k' : '';
+      var fix = function (v) { return v > 10000000 ? v / 1000 : v; };
+      var lo = p.target_comp_min ? Math.round(fix(p.target_comp_min) / 1000) + 'k' : '';
+      var hi = p.target_comp_max ? Math.round(fix(p.target_comp_max) / 1000) + 'k' : '';
       t.push('comp ' + (lo && hi ? lo + '-' + hi : lo || hi) + ' ' + cur);
     }
     if (p.target_work_type && p.target_work_type !== 'any') t.push(p.target_work_type);

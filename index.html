@@ -2773,6 +2773,7 @@ function showDashboard(){
   if(dotSep) dotSep.style.display = 'none';
   var sob=document.getElementById('startOverBtn'); if(sob) sob.classList.remove('show');
   el.classList.add('show');
+  var mi = document.getElementById('mainInner'); if(mi) mi.style.display = 'none';
   DASH_ON = true;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.remove('off');
   loadDashboard();
@@ -2781,6 +2782,7 @@ function showDashboard(){
 function hideDashboard(){
   var el = document.getElementById('dashboard');
   if(el) el.classList.remove('show');
+  var mi = document.getElementById('mainInner'); if(mi) mi.style.display = '';
   DASH_ON = false;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.add('off');
 }
@@ -2822,7 +2824,7 @@ function dashGreeting(name){
 function dashDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return ''; } }
 function dashComp(p){
   if(!p.target_comp_min && !p.target_comp_max) return null;
-  var k=function(v){ return v ? '$' + Math.round(v/1000) + 'k' : ''; };
+  var k=function(v){ if(!v) return ''; if(v > 10000000) v = v/1000; return '$' + Math.round(v/1000) + 'k'; };
   var lo=k(p.target_comp_min), hi=k(p.target_comp_max);
   return lo && hi ? lo + '\u2013' + hi : (lo || hi);
 }
@@ -3119,7 +3121,7 @@ function selectHtml(id, options, value){
 
 function renderTargetBlock(p){
   p = p || {};
-  var comp = function(v){ return v ? Math.round(v/1000) : ''; };
+  var comp = function(v){ if(!v) return ''; if(v > 10000000) v = v/1000; return Math.round(v/1000); };
   var hint;
   if(!p.target_role_title) hint = 'Tell Ezzy what you’re going for. Matching and prep are pointed at this.';
   else if(p.target_source==='stated' || p.target_source==='discovered') hint = 'Confirmed by you.';
@@ -3130,8 +3132,8 @@ function renderTargetBlock(p){
     + '<div class="brain-target-row"><div class="brain-field"><label>Role</label><input id="tgtRole" type="text" placeholder="e.g. Senior Product Manager" value="'+escapeHtml(p.target_role_title||'')+'"/></div></div>'
     + '<div class="brain-target-row"><div class="brain-field"><label>Level</label>'+selectHtml('tgtLevel', TARGET_LEVELS, p.target_level)+'</div>'
     + '<div class="brain-field"><label>Work type</label>'+selectHtml('tgtWork', TARGET_WORK, p.target_work_type)+'</div></div>'
-    + '<div class="brain-target-row"><div class="brain-field"><label>Comp min ($k)</label><input id="tgtCompMin" type="number" min="0" step="5" placeholder="e.g. 150" value="'+comp(p.target_comp_min)+'"/></div>'
-    + '<div class="brain-field"><label>Comp max ($k)</label><input id="tgtCompMax" type="number" min="0" step="5" placeholder="e.g. 200" value="'+comp(p.target_comp_max)+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Comp min ($)</label><input id="tgtCompMin" type="number" min="0" step="5" placeholder="e.g. 150000" value="'+(comp(p.target_comp_min) ? comp(p.target_comp_min)*1000 : '')+'"/></div>'
+    + '<div class="brain-field"><label>Comp max ($)</label><input id="tgtCompMax" type="number" min="0" step="5" placeholder="e.g. 200000" value="'+(comp(p.target_comp_max) ? comp(p.target_comp_max)*1000 : '')+'"/></div></div>'
     + '<div class="brain-target-row"><div class="brain-field"><label>Location(s)</label><input id="tgtLoc" type="text" placeholder="e.g. NYC, Remote US" value="'+escapeHtml((p.target_locations||[]).join(', '))+'"/></div>'
     + '<div class="brain-field"><label>Timeline</label>'+selectHtml('tgtTimeline', TARGET_TIMELINE, p.target_timeline)+'</div></div>'
     + '<div class="brain-target-foot"><div class="brain-target-hint" id="tgtHint">'+hint+'</div><button class="brain-save" id="tgtSave" onclick="saveTarget()">Save</button></div>'
@@ -3147,7 +3149,8 @@ async function saveTarget(){
   var hint = document.getElementById('tgtHint');
   var role = (document.getElementById('tgtRole').value||'').trim().slice(0,120);
   if(!role){ hint.textContent = 'Add a role first.'; return; }
-  var k = function(id){ var v = parseFloat(document.getElementById(id).value); return isNaN(v) || v<=0 ? null : Math.round(v*1000); };
+  // Field says $k, but people type full dollars too. Anything 10,000+ is dollars.
+  var k = function(id){ var v = parseFloat(String(document.getElementById(id).value).replace(/[$,\s]/g,'')); if(isNaN(v) || v<=0) return null; return v >= 10000 ? Math.round(v) : Math.round(v*1000); };
   var locs = (document.getElementById('tgtLoc').value||'').split(',').map(function(x){return x.trim().slice(0,60);}).filter(Boolean).slice(0,6);
   var row = {
     user_id: session.user.id,
