@@ -40,12 +40,12 @@ const GAP_SYSTEM = [
   "You are given the job's requirements, the candidate's resume, and additional career evidence Ezzy already has about this candidate from earlier sessions (may be empty).",
   '',
   'For every requirement, decide:',
-  '- "matched": clearly demonstrated in the resume or known evidence.',
-  '- "partial": related experience exists but does not fully cover the requirement.',
+  '- "matched": the resume shows this exact thing, at the level and scope the requirement names. Direct evidence, not adjacent evidence.',
+  '- "partial": related experience exists but the level, scope, function, or specificity differs - e.g. the requirement says staff engineers and the evidence is senior leaders; it says a skill and the evidence is a tool that touches it. Partial is the default whenever you have to reason from adjacent experience.',
   '- "missing": no supporting evidence anywhere provided.',
   '',
-  'Ground every judgment in the material given. Do not guess, assume, or go easy to be encouraging - an honest "missing" is more useful than a flattering "partial".',
-  'Keep each note under 20 words.'
+  'A recruiter reading this will check it against the resume. Calibrate like one: a list of ten matched is a red flag, not a compliment. Ground every judgment in the material given. Do not guess, assume, or go easy to be encouraging - an honest "missing" is more useful than a flattering "partial".',
+  'Notes: under 20 words, and every number in a note must be copied from the resume exactly (they are checked mechanically; a number not in the resume downgrades the match).'
 ].join('\n');
 
 const GAP_TOOL = {
@@ -254,6 +254,32 @@ export default async function handler(req, res) {
 
     var gapOutput = await anthropicToolCall('claude-sonnet-4-5', gapSystem, userContent, GAP_TOOL, 1500);
     var gaps = (gapOutput && Array.isArray(gapOutput.gaps)) ? gapOutput.gaps : [];
+
+    // Evidence notes are paraphrases, not quotes, so the one hard check that
+    // is cheap and decisive is numbers: every number in a note must exist in
+    // the resume (whole-number match). A note that fails is marked unverified
+    // and a "matched" on it drops to "partial".
+    var normT = function (t) { return String(t || '').toLowerCase().replace(/[\u2018\u2019]/g, "'").replace(/[^a-z0-9$%'+.\-]+/g, ' ').trim(); };
+    var srcTokens = normT(resumeText).split(' ');
+    var cores = {};
+    srcTokens.forEach(function (t) { var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, ''); if (c) cores[c] = true; });
+    var unverified = 0;
+    gaps = gaps.map(function (g) {
+      if (!g || typeof g.note !== 'string') return g;
+      var bad = normT(g.note).split(' ').filter(function (t) {
+        if (!/\d/.test(t) || srcTokens.indexOf(t) !== -1) return false;
+        var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, '');
+        return c && !cores[c];
+      });
+      if (!bad.length) return g;
+      unverified++;
+      return {
+        requirement: g.requirement,
+        status: g.status === 'matched' ? 'partial' : g.status,
+        note: 'Evidence not verified against your resume (' + bad.join(', ') + ' not found). Treat as partial.'
+      };
+    });
+    if (unverified) console.log('[gap-guard] unverified notes', unverified);
 
     if (gaps.length) {
       try {
