@@ -379,6 +379,10 @@ button,input,textarea{font-family:inherit}
 .dash-tag.coral{background:#FCEAE6;color:#8F3229}
 .dash-foot{font-size:14.5px;color:#8A8A8A}
 .dash-loading{padding:60px;text-align:center;color:#888;font-size:14px}
+.dash-lock{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px;border-radius:16px;background:#111;color:#fff;flex-wrap:wrap}
+.dash-lock-t{font-size:17px;font-weight:700}
+.dash-lock-s{font-size:14.5px;color:#CFCFCF;margin-top:4px;line-height:1.5;max-width:760px}
+.dash-lock .dash-btn.primary{background:#F26B5E;border-color:#F26B5E;color:#fff;flex:none}
 .nav-home{display:none;margin-left:14px;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#111;text-decoration:none;background:#FCEAE6;cursor:pointer}
 .nav-home.show{display:inline-block}
 .nav-home.off{background:none;color:#555}
@@ -2123,10 +2127,13 @@ async function updateAuthUI(user){
     // Migrate anonymous data first (if any), then check onboarding
     await migrateAnonymousToAccount(user);
     checkAndShowOnboarding(user);
-    // Signed in and not in the middle of a tool: the dashboard is home.
+    // Two versions of Ezzy: Career plan accounts get the dashboard as home;
+    // Job Search / free accounts keep the pill landing and can open the
+    // dashboard as a locked preview from the My Career link.
+    await loadPlan(user.id);
     var navHome = document.getElementById('navHome');
     if(navHome) navHome.classList.add('show');
-    if(!MODE && emptyState && emptyState.style.display !== 'none') showDashboard();
+    if(isCareerPlan() && !MODE && emptyState && emptyState.style.display !== 'none') showDashboard();
   } else {
     signInBtn.style.display = 'inline-flex';
     userMenu.style.display = 'none';
@@ -2767,6 +2774,22 @@ async function loadCareerClaims(){
   renderClaims(results[1].data || []);
 }
 
+// --- Plan (which version of Ezzy this account gets) ---------------------
+window._plan = null;
+async function loadPlan(uid){
+  try{
+    var r = await window.supabaseClient.from('subscriptions').select('plan,status,current_period_end').eq('user_id', uid).maybeSingle();
+    window._plan = r.data || null;
+  }catch(e){ window._plan = null; }
+}
+function planActive(){
+  var p = window._plan;
+  if(!p || p.status !== 'active') return false;
+  if(p.current_period_end && new Date(p.current_period_end).getTime() < Date.now()) return false;
+  return true;
+}
+function isCareerPlan(){ return planActive() && window._plan.plan === 'career'; }
+
 // --- My Career dashboard (signed-in home) ------------------------------
 // Everything shown here is read from tables the app already writes:
 // career_profile, career_claims, prep_scores, conversations (archived),
@@ -2909,6 +2932,12 @@ async function loadDashboard(){
 function renderDashboard(body, d){
   var p = d.profile, latest = d.latest;
   var html = '';
+  var locked = !isCareerPlan();
+  // In the locked preview, anything that edits or writes goes to the plans.
+  var EDIT = locked ? 'openPricingModal()' : 'openCareerBrainPanel()';
+  if(locked){
+    html += '<div class="dash-lock"><div><div class="dash-lock-t">This is your Career view</div><div class="dash-lock-s">Everything here is already yours: your target, what Ezzy knows, your scores. The Career plan makes it your home, keeps your stories and opportunities, and adds role matching.</div></div><button class="dash-btn primary" onclick="openPricingModal()">See the Career plan</button></div>';
+  }
 
   // Greeting + primary actions
   var sub = latest && latest.overall != null
@@ -2921,7 +2950,7 @@ function renderDashboard(body, d){
   html += '<div class="dash-grid">';
 
   // Target
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="openCareerBrainPanel()">Edit</button></div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="' + EDIT + '">Edit</button></div>';
   if(p.target_role_title){
     var fam = dashRoleFamily(p.target_role_title);
     var chips = [];
@@ -2939,7 +2968,7 @@ function renderDashboard(body, d){
       ? '<div class="dash-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Confirmed by you</div>'
       : '<div class="dash-warn">Taken from ' + (p.target_source==='resume' ? 'your resume' : 'the role you picked') + '. Confirm or change it.</div>';
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">No target yet</div><div class="dash-empty-s">Tell Ezzy the role you\u2019re going for. Matching and prep are pointed at it.</div><button class="dash-btn" onclick="openCareerBrainPanel()">Set your target</button></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">No target yet</div><div class="dash-empty-s">Tell Ezzy the role you\u2019re going for. Matching and prep are pointed at it.</div><button class="dash-btn" onclick="' + EDIT + '">Set your target</button></div>';
   }
   html += '</div>';
 
@@ -2964,7 +2993,7 @@ function renderDashboard(body, d){
 
   // What Ezzy knows
   var skills = d.claims.filter(function(c){ return c.claim_type==='skill'; });
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div><button class="dash-link" onclick="openCareerBrainPanel()">See all</button></div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div><button class="dash-link" onclick="' + EDIT + '">See all</button></div>';
   if(d.claims.length || p.current_role_title){
     // Two separate facts, kept separate: the current role (and its industry),
     // and total years of experience across the whole career.
@@ -3006,7 +3035,7 @@ function renderDashboard(body, d){
   var next = [];
   if(lowNames.length === 2) next.push({hot:true, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:true, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
-  if(!p.target_role_title) next.push({t:'Set your target role', s:'So matching and prep point at the right thing.', fn:'openCareerBrainPanel()'});
+  if(!p.target_role_title) next.push({t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
   if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashResume()'});
   if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
@@ -3038,7 +3067,7 @@ function renderDashboard(body, d){
       return '<div class="dash-empty" style="border-style:solid"><div class="dash-empty-t">' + (st.status==='draft'?'Draft: ':'') + escapeHtml(st.title) + '</div><div class="dash-empty-s">' + (st.competencies && st.competencies.length ? 'Tagged: ' + escapeHtml(st.competencies.join(', ')) + '. ' : '') + (st.result ? '' : 'Missing: the result.') + '</div></div>';
     }).join('');
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">No stories saved yet</div><div class="dash-empty-s">STAR sessions will save the stories you work through as drafts for you to confirm. Prep then pulls the right one by competency.</div><button class="dash-btn" onclick="dashStar()">Start STAR Coaching</button></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">No stories saved yet</div><div class="dash-empty-s">STAR sessions will save the stories you work through as drafts for you to confirm. Prep then pulls the right one by competency.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashStar()') + '">' + (locked ? 'Career plan' : 'Start STAR Coaching') + '</button></div>';
   }
   html += '</div>';
 
@@ -3049,7 +3078,7 @@ function renderDashboard(body, d){
       return '<div class="dash-row" style="cursor:default"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + '</div><div class="dash-row-s">' + escapeHtml(o.stage) + (o.fit_score != null ? ' \u00b7 fit ' + o.fit_score : '') + '</div></div></div>';
     }).join('');
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="dashResume()">Paste a posting</button></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashResume()') + '">' + (locked ? 'Career plan' : 'Paste a posting') + '</button></div>';
   }
   html += '</div>';
 
