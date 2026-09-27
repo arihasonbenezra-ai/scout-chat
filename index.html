@@ -750,6 +750,7 @@ async function startMode(modeId,modeTitle){
   streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
     saveMessage('assistant', reply);
+    appendStartOverButton();
   });
 }
 
@@ -1023,6 +1024,7 @@ function handleSendText(text){
       });
     }
   } else if(MODE==='trainer'){
+    removeStartOverButton();
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
@@ -1030,6 +1032,7 @@ function handleSendText(text){
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
+      appendStartOverButton();
     });
   }
 }
@@ -1334,6 +1337,50 @@ function skipJobDescription(){
 // interrupted mid-review). This clears it out for real, so someone
 // targeting a different job posting can actually get a second review
 // instead of always landing back on the first one.
+async // Prep modes (Practice / STAR / Mock) keep one saved session per mode+role
+// and restore it on re-entry. "Start over" clears that saved session and
+// kicks off a fresh one, mirroring "Start a new review" for resumes.
+function appendStartOverButton(){
+  removeStartOverButton();
+  var btn=document.createElement('button');
+  btn.className='new-review-btn';
+  btn.id='startOverBtn';
+  btn.textContent='Start over';
+  btn.onclick=startNewPrepSession;
+  msgEl.appendChild(btn);
+  scrollMain();
+}
+
+function removeStartOverButton(){
+  var btn=document.getElementById('startOverBtn');
+  if(btn) btn.remove();
+}
+
+async function startNewPrepSession(){
+  if(isSending) return;
+  var modeId = TRAINER_MODE || window.TRAINER_MODE;
+  if(!modeId) return;
+  if(window.supabaseClient){
+    try{
+      var sessionRes = await window.supabaseClient.auth.getSession();
+      var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+      if(uid){
+        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', modeId);
+        query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
+        var existing = await query.maybeSingle();
+        if(existing.data && existing.data.id){
+          await window.supabaseClient.from('messages').delete().eq('conversation_id', existing.data.id);
+          await window.supabaseClient.from('conversations').delete().eq('id', existing.data.id);
+        }
+      }
+    }catch(e){ console.error('Could not clear previous session:', e); }
+  }
+  window._currentConversationId = null;
+  convoHistory=[]; window.convoHistory=[];
+  msgEl.innerHTML='';
+  startMode(modeId, modePillLabel.textContent || modeId);
+}
+
 async function startNewResumeReview(){
   if(window.supabaseClient){
     try{
@@ -2251,6 +2298,9 @@ async function loadConversationForMode(modeId){
   // same root cause as the "no button" report, just a different path in.
   if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
     appendDownloadButton();
+  }
+  if(modeId === 'practice' || modeId === 'star' || modeId === 'mock'){
+    appendStartOverButton();
   }
 
   return true;
