@@ -73,7 +73,8 @@ const GROUNDING_RULES = [
   '1. Every strength or improvement point must start by quoting the candidate\'s exact words in double quotes, copied verbatim from their answer - e.g. You said: "we finished two weeks early". Then comment on that quote.',
   '2. Never attribute to the candidate anything they did not say. No numbers, names, team sizes, tools, or outcomes that are not in their answer.',
   '3. No generic advice. If a point would apply to any answer to this question, cut it. Every point must be about something specific they said.',
-  '4. If the answer is too short or vague to assess, say so and ask for the missing piece instead of inventing feedback.'
+  '4. When you restate what the candidate said outside of quotes, never upgrade it. "Offered a pilot" is not "the pilot was agreed"; "showed data" is not "convinced them". If they did not state an outcome, the outcome is unknown - say so or ask.',
+  '5. If the answer has at least one concrete thing in it, give feedback on that first, then ask for what is missing. Only skip feedback entirely when there is genuinely nothing specific to comment on.'
 ].join('\n');
 
 function trainerSystemPrompt(mode, role) {
