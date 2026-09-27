@@ -773,6 +773,8 @@ async function startMode(modeId,modeTitle){
     return;
   }
   MODE='trainer';
+  inputEl.disabled=false;
+  inputEl.placeholder='Type your answer...';
   showTyping();
   streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     convoHistory.push({role:'assistant',content:reply});
@@ -1066,9 +1068,12 @@ function handleSendText(text){
     isSending=true;updateSendBtnState();showTyping();
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
-      saveMessage('assistant', reply);
+      var saved = saveMessage('assistant', reply);
       recordReadinessScore(reply);
       refreshStartOverRow();
+      if(isPrepSetComplete(reply)){
+        Promise.resolve(saved).then(archiveCompletedPrepSession);
+      }
     });
   }
 }
@@ -1408,6 +1413,27 @@ async function requestStartOver(){
   modalOverlay.classList.add('show');
 }
 
+// A finished set is a past session, not a live one. Once the scorecard
+// has been delivered and saved, archive it so reopening the mode starts
+// fresh; the finished set stays readable under Past sessions.
+function isPrepSetComplete(reply){
+  return /\*\*Scorecard\*\*/.test(reply || '');
+}
+async function archiveCompletedPrepSession(){
+  var id = window._currentConversationId;
+  if(!id || !window.supabaseClient) return;
+  try{
+    var r = await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() }).eq('id', id);
+    if(r.error){ console.error('[set-complete] archive failed', r.error); return; }
+  }catch(e){ console.error('[set-complete]', e); return; }
+  window._currentConversationId = null;
+  window._prepMeta = { restart_count: 0, answer_count: 0 };
+  refreshStartOverRow();
+  inputEl.disabled = true;
+  inputEl.placeholder = 'Set complete. Use the restart icon for a new one.';
+  addMsgWithoutSave('bot', '_Set complete and saved to Past sessions. Use the \u21bb icon next to your role to start a new set._');
+}
+
 // One restart per set. After a restart, the candidate has to answer the
 // full set before they can start over again. Tracked on the conversation
 // row (restart_count / answer_count, migration 0021) so it survives a
@@ -1455,18 +1481,21 @@ async function startNewPrepSession(){
           var arch = await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() }).eq('id', row.id);
           if(arch.error){ console.error('Start over: could not archive session', arch.error); showSimpleToast('Could not start over. Try again.'); return; }
         }
+        var hadLive = !!(row && row.id);
         var ins = await window.supabaseClient.from('conversations').insert({
-          user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: 1, answer_count: 0
+          user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: hadLive ? 1 : 0, answer_count: 0
         });
         if(ins.error) console.error('[start-over] could not record restart', ins.error);
-        else console.log('[start-over] archived old session, new row created');
+        else console.log('[start-over] ' + (hadLive ? 'archived old session, ' : '') + 'new row created');
+        window._prepMeta = { restart_count: hadLive ? 1 : 0, answer_count: 0 };
       }
     }catch(e){ console.error('Could not clear previous session:', e); }
   }
-  window._prepMeta = { restart_count: 1, answer_count: 0 };
   window._currentConversationId = null;
   convoHistory=[]; window.convoHistory=[];
   msgEl.innerHTML='';
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your answer...';
   refreshStartOverRow();
   startMode(modeId, modePillLabel.textContent || modeId);
 }
