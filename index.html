@@ -109,6 +109,10 @@ button,input,textarea{font-family:inherit}
 .msg-bot-avatar{width:24px;height:24px;border-radius:50%;background:var(--coral-pale);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:12px;font-weight:500;color:var(--black);margin-top:2px}
 .msg-bot{background:var(--coral-pale);color:var(--black);padding:11px 14px;border-radius:12px;font-size:14px;line-height:1.5}
 .msg-bot a{color:#C2493C;text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}
+.msg-bot table{border-collapse:collapse;width:100%;font-size:12.5px;margin:8px 0;background:#fff;border-radius:8px;overflow:hidden}
+.msg-bot th,.msg-bot td{border:0.5px solid #EAD9D5;padding:6px 8px;text-align:left;vertical-align:top}
+.msg-bot th{background:#FBF1EE;font-weight:600}
+.msg-bot hr{border:none;border-top:0.5px solid #EAD9D5;margin:12px 0}
 .msg-bot a:hover{color:#8F3229}
 
 /* Typing indicator */
@@ -1255,6 +1259,7 @@ async function callClaudeStream(messages,onChunk,onDone){
       mode:currentModeKey(),
       role:ROLE,
       messages:messages,
+      conversationId: window._currentConversationId || null,
       stream:true
     })});
     if(res.status===401){

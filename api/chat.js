@@ -83,7 +83,7 @@ function trainerSystemPrompt(mode, role) {
 }
 
 function trainerBasePrompt(mode, role) {
-  if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable). If your areas to improve ask the candidate for something they could add right now (an outcome, a reason, a number), do NOT ask the next question yet - end by inviting them to add it or say "next". Ask the next question only when they say next or when the answer was complete. Keep each feedback response under 150 words. After 5 questions, give a brief overall summary with a readiness rating out of 10.';
+  if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable). If your areas to improve ask the candidate for something they could add right now (an outcome, a reason, a number), do NOT ask the next question yet - end by inviting them to add it or say "next". Ask the next question only when they say next or when the answer was complete. Keep each feedback response under 150 words. After 5 questions, give a brief overall summary of the set (3-4 sentences, grounded in what they actually said). Do NOT give a numeric score - the scorecard is computed separately.';
   if (mode === 'star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a ' + role + ' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. If elements are missing, do NOT ask the next question yet - end by inviting the candidate to fill them in or say "next". Ask the next question only when they say next or when all four elements were present. Keep responses under 150 words.';
   if (mode === 'mock') return 'You are conducting a realistic mock interview for a ' + role + ' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10. In the debrief, apply the grounding rules below: quote the candidate\'s exact words for each strength and each area to improve.';
   return null;
@@ -234,17 +234,168 @@ function prepProgress(messages, mode) {
     var t = typeof m.content === 'string' ? m.content : sessionText([m]);
     var mm; Q_MARK_RE.lastIndex = 0;
     while ((mm = Q_MARK_RE.exec(t)) !== null) asked = Math.max(asked, parseInt(mm[1], 10));
-    if (/readiness/i.test(t) && /\b\d+\s*(?:\/|out of)\s*10\b/i.test(t)) wrapped = true;
+    if (/\*\*Scorecard\*\*/.test(t) || (/readiness/i.test(t) && /\b\d+\s*(?:\/|out of)\s*10\b/i.test(t))) wrapped = true;
   });
   return { asked: Math.min(asked, size), size: size, wrapped: wrapped };
 }
 
 function prepProgressInstruction(p) {
   if (!p) return '';
-  if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and you already gave the summary and readiness rating. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the mode menu.';
-  if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then the overall summary with a readiness rating out of 10. Do NOT ask another question.';
+  if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and the summary and scorecard were already given. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the restart icon.';
+  if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then a 3-4 sentence overall summary of the set. Do NOT give a numeric score (a scorecard is computed separately and appended). Do NOT ask another question.';
   if (p.asked === 0) return '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
   return '\n\nSession state: you have asked ' + p.asked + ' of ' + p.size + ' questions so far. When you move on, the next one is "Question ' + (p.asked + 1) + ' of ' + p.size + '". Never restart the numbering.';
+}
+
+// --- Grounded scorecard ------------------------------------------------
+// The model fills a form (score + exact evidence quote per rubric dimension);
+// the server verifies each quote against the candidate's own answers, drops
+// dimensions whose evidence isn't real, and computes the overall itself.
+var RUBRIC_DEFAULTS = [
+  { family: 'All', dimension: 'Specificity', weight: 2, anchor_5: 'Names the company, team, timeframe, and exactly what they personally did.', anchor_3: 'Real example but missing one of: who, when, or their own part.', anchor_1: '"I worked on a project where we improved things." Nothing checkable.' },
+  { family: 'All', dimension: 'Ownership', weight: 2, anchor_5: 'Clear "I did X" with their decisions and why. "We" only for team outcomes.', anchor_3: 'Mix of I and we; their part is guessable but not stated.', anchor_1: 'Everything is "we" or "the team". Cannot tell what they owned.' },
+  { family: 'All', dimension: 'Results', weight: 3, anchor_5: 'A number or concrete outcome tied to their action.', anchor_3: 'An outcome without a number, or a number without a clear link to their action.', anchor_1: '"It went well" / "my manager was happy." No outcome.' },
+  { family: 'All', dimension: 'Structure', weight: 1, anchor_5: 'Situation, what they did, what happened, in that order. No rambling.', anchor_3: 'Right pieces, wrong order, or one long detour.', anchor_1: 'Starts mid-story, circles back, listener has to reconstruct it.' },
+  { family: 'Engineering', dimension: 'Technical judgment', weight: 2, anchor_5: 'Explains why this design over the alternatives, and what broke or surprised them.', anchor_3: 'Explains the design but not the alternatives considered.', anchor_1: 'Describes what was built, never why.' },
+  { family: 'Engineering', dimension: 'Scope', weight: 2, anchor_5: 'Clear about scale, systems touched, and who depended on it.', anchor_3: 'Some sense of size but vague on dependencies.', anchor_1: 'Cannot tell if it was a script or a platform.' },
+  { family: 'Product / Design / Ops', dimension: 'Decision quality', weight: 2, anchor_5: 'Shows the evidence behind the call: user data, tradeoffs, what they said no to.', anchor_3: 'A reason is given but no evidence or tradeoff.', anchor_1: '"We decided to" with no reasoning.' },
+  { family: 'Product / Design / Ops', dimension: 'Cross-functional influence', weight: 2, anchor_5: 'Names the teams, the disagreement, and how they moved it.', anchor_3: 'Names the teams; no real disagreement described.', anchor_1: 'Everyone just agreed.' },
+  { family: 'Go-to-market', dimension: 'Metrics fluency', weight: 2, anchor_5: 'Pipeline, conversion, CAC, retention (whichever fits) with real numbers.', anchor_3: 'Names the right metric but no number.', anchor_1: '"Engagement went up."' },
+  { family: 'Go-to-market', dimension: 'Customer insight', weight: 2, anchor_5: 'A specific thing learned about the customer and what changed because of it.', anchor_3: 'An insight stated but nothing changed because of it.', anchor_1: 'Generic audience talk.' },
+  { family: 'People & Talent', dimension: 'Stakeholder management', weight: 2, anchor_5: 'A hiring manager or leader who pushed back, and how they handled it.', anchor_3: 'Stakeholders mentioned; friction is vague.', anchor_1: 'No friction anywhere.' },
+  { family: 'People & Talent', dimension: 'Process & funnel', weight: 2, anchor_5: 'Time-to-hire, offer-accept, pass-through rates: what they changed and the effect.', anchor_3: 'One metric, or a change with no measured effect.', anchor_1: '"I hired a lot of people."' }
+];
+
+function familyForRole(role) {
+  var r = String(role || '').toLowerCase();
+  if (!r) return 'General';
+  if (/recruit|talent|\bhr\b|human resources|people ops|people partner|sourcer/.test(r)) return 'People & Talent';
+  if (/engineer|developer|\bswe\b|\bsde\b|\bdata\b|\bml\b|machine learning|devops|infra|\bsre\b|architect|scientist|analyst/.test(r)) return 'Engineering';
+  if (/marketing|sales|account exec|customer success|growth|brand|\bseo\b|content|revenue|\bbdr\b|\bsdr\b/.test(r)) return 'Go-to-market';
+  if (/product|designer|design|\bux\b|\bui\b|program manager|project manager|operations|\bops\b|\btpm\b/.test(r)) return 'Product / Design / Ops';
+  return 'General';
+}
+
+async function fetchRubric(family) {
+  var rows = null;
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/scoring_rubrics?active=eq.true&family=in.(' +
+      encodeURIComponent('"All","' + family + '"') + ')&select=family,dimension,weight,anchor_5,anchor_3,anchor_1&order=sort.asc',
+      { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY } });
+    if (res.ok) rows = await res.json();
+  } catch (e) { rows = null; }
+  if (!rows || !rows.length) rows = RUBRIC_DEFAULTS.filter(function (d) { return d.family === 'All' || d.family === family; });
+  return rows;
+}
+
+function rubricToText(rubric) {
+  return rubric.map(function (d, i) {
+    return (i + 1) + '. ' + d.dimension + ' (weight ' + d.weight + ')\n   5 = ' + d.anchor_5 + '\n   3 = ' + (d.anchor_3 || 'between 5 and 1') + '\n   1 = ' + d.anchor_1;
+  }).join('\n');
+}
+
+var SCORE_TOOL = {
+  name: 'record_scores',
+  description: 'Record a rubric score per dimension with the exact quote from the candidate that justifies it.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      dimensions: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            dimension: { type: 'string' },
+            score: { type: 'integer', minimum: 1, maximum: 5 },
+            evidence_quote: { type: 'string', description: 'Exact words copied verbatim from one of the candidate answers (8-200 chars). Never paraphrase.' },
+            improvement: { type: 'string', description: 'One concrete thing to change, tied to that quote. Under 30 words.' }
+          },
+          required: ['dimension', 'score', 'evidence_quote', 'improvement']
+        }
+      }
+    },
+    required: ['dimensions']
+  }
+};
+
+function candidateAnswersText(messages) {
+  return (messages || []).filter(function (m) { return m.role === 'user'; }).map(function (m) {
+    return typeof m.content === 'string' ? m.content : sessionText([m]);
+  }).filter(function (t) { return t.trim().length >= 30; }).join('\n---\n');
+}
+
+function computeOverall(dims) {
+  var num = 0, den = 0, scored = 0;
+  dims.forEach(function (d) {
+    if (d.score == null) return;
+    num += d.score * d.weight; den += 5 * d.weight; scored++;
+  });
+  if (scored < 3 || !den) return { overall: null, scored: scored };
+  return { overall: Math.round((num / den) * 100) / 10, scored: scored };
+}
+
+function renderScorecard(family, dims, overallInfo) {
+  var lines = ['', '---', '', '**Scorecard** (' + (family === 'General' ? 'general' : family) + ' rubric)', '',
+    '| Dimension | Score | Evidence | Change one thing |', '|---|---|---|---|'];
+  dims.forEach(function (d) {
+    var ev = d.score == null ? '_not enough verified evidence_' : '"' + d.evidence_quote.replace(/\|/g, '/') + '"';
+    var sc = d.score == null ? '-' : d.score + '/5';
+    var imp = d.score == null ? '' : String(d.improvement || '').replace(/\|/g, '/');
+    lines.push('| ' + d.dimension + ' | ' + sc + ' | ' + ev + ' | ' + imp + ' |');
+  });
+  lines.push('');
+  if (overallInfo.overall == null) {
+    lines.push('**Readiness: not rated yet.** Only ' + overallInfo.scored + ' of ' + dims.length + ' dimensions had evidence that could be verified against your answers. Give fuller answers and the score will follow.');
+  } else {
+    lines.push('**Readiness: ' + overallInfo.overall + '/10** - computed from ' + overallInfo.scored + ' of ' + dims.length + ' dimensions, weighted. Every score above is tied to your own words; nothing here is a guess.');
+  }
+  return lines.join('\n');
+}
+
+async function buildScorecard(messages, role, mode) {
+  var family = familyForRole(role);
+  var rubric = await fetchRubric(family);
+  var answers = candidateAnswersText(messages);
+  if (!answers) return null;
+  var sys = 'You are scoring a candidate\'s interview practice answers against a fixed rubric. For EACH rubric dimension, pick the score (1-5) whose anchor best matches the answers, copy one exact quote from the candidate\'s answers that justifies it (verbatim - it will be checked mechanically and discarded if it does not match), and give one improvement. Score every dimension. If the answers give you nothing for a dimension, score it 1 and quote the closest thing they said.\n\nRubric:\n' + rubricToText(rubric);
+  var r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5', max_tokens: 2000, system: sys,
+      messages: [{ role: 'user', content: 'Target role: ' + (role || 'not stated') + '\n\nCandidate answers, in order:\n\n' + answers }],
+      tools: [SCORE_TOOL], tool_choice: { type: 'tool', name: 'record_scores' }
+    })
+  });
+  var data = await r.json();
+  if (!r.ok) { console.error('[scorecard] api error', JSON.stringify(data).slice(0, 300)); return null; }
+  var tu = (data.content || []).find(function (b) { return b.type === 'tool_use'; });
+  var out = tu && tu.input && Array.isArray(tu.input.dimensions) ? tu.input.dimensions : [];
+  var src = normText(answers);
+  var dims = rubric.map(function (d) {
+    var got = out.find(function (o) { return o && String(o.dimension).toLowerCase().trim() === d.dimension.toLowerCase(); });
+    var quote = got ? String(got.evidence_quote || '').trim() : '';
+    var n = normText(quote);
+    var verified = n.length >= 6 && src.indexOf(n) !== -1;
+    var score = got && verified && typeof got.score === 'number' ? Math.max(1, Math.min(5, Math.round(got.score))) : null;
+    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: got ? String(got.improvement || '') : '' };
+  });
+  var overallInfo = computeOverall(dims);
+  return { family: family, dims: dims, overall: overallInfo.overall, scored: overallInfo.scored, markdown: renderScorecard(family, dims, overallInfo) };
+}
+
+async function saveScorecard(userId, conversationId, mode, role, card) {
+  var H = { 'Content-Type': 'application/json', apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY };
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/prep_scores', { method: 'POST', headers: H, body: JSON.stringify([{
+      conversation_id: conversationId || null, user_id: userId, mode: mode, role: role || null, family: card.family,
+      dimensions: card.dims, overall: card.overall, scored_dims: card.scored, total_dims: card.dims.length
+    }]) });
+    if (conversationId && card.overall != null) {
+      await fetch(SUPABASE_URL + '/rest/v1/conversations?id=eq.' + encodeURIComponent(conversationId) + '&user_id=eq.' + encodeURIComponent(userId),
+        { method: 'PATCH', headers: H, body: JSON.stringify({ readiness_score: Math.round(card.overall) }) });
+    }
+  } catch (e) { console.error('[scorecard] save failed', e && e.message); }
 }
 
 function isPrepAnswerTurn(mode, messages) {
@@ -934,8 +1085,17 @@ export default async function handler(req, res) {
     }
 
     if (isPrepAnswerTurn(mode, messages)) {
+      var progressNow = prepProgress(messages, mode);
+      var scorecardPromise = (progressNow && progressNow.asked >= progressNow.size && !progressNow.wrapped)
+        ? buildScorecard(messages, role, mode).catch(function (e) { console.error('[scorecard]', e && e.message); return null; })
+        : Promise.resolve(null);
       var gp = await groundedPrepReply(anthropicBody, messages, mode);
       if (!gp.ok) return res.status(gp.status || 502).json(gp.data || { error: 'Prep reply failed' });
+      var card = await scorecardPromise;
+      if (card) {
+        gp.text = gp.text.trim() + '\n' + card.markdown;
+        await saveScorecard(user.id, body.conversationId || null, mode, role, card);
+      }
       if (isStreaming) return writeAsStream(res, gp.text);
       return res.status(200).json({ content: [{ type: 'text', text: gp.text }], guard: gp.guard, usage: (gp.data && gp.data.usage) || {} });
     }
