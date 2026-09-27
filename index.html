@@ -961,10 +961,18 @@ function buildResumeFirstMessage(resumeText, jdText, targetHint){
 // A long paste (resume, job description) is a document, not a chat line.
 // Show it as a collapsed card with a word count and an expand toggle rather
 // than echoing the whole thing back as one wall of text.
+// A resume or posting pasted in Resume Review, or anything document-sized
+// anywhere. A long typed interview answer is a message, not a document.
 var DOC_BUBBLE_MIN_CHARS = 600;
+var DOC_BUBBLE_ALWAYS_CHARS = 2500;
+function looksLikeDocument(text){
+  var mode = window.MODE || (typeof MODE !== 'undefined' ? MODE : null);
+  if(text.length >= DOC_BUBBLE_ALWAYS_CHARS) return true;
+  return mode === 'resume' && text.length >= DOC_BUBBLE_MIN_CHARS;
+}
 function fillUserBubble(node, text){
   text = text == null ? '' : String(text);
-  if(text.length < DOC_BUBBLE_MIN_CHARS){
+  if(!looksLikeDocument(text)){
     node.textContent = text;
     return;
   }
