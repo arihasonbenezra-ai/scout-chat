@@ -761,11 +761,11 @@ function setActiveMode(modeId){
   document.querySelectorAll('.mode-option').forEach(function(o){
     o.classList.toggle('active',o.getAttribute('data-mode')===modeId);
   });
-  var row=document.getElementById('modeStartOverRow');
-  if(row) row.style.display=(modeId==='practice'||modeId==='star'||modeId==='mock')?'':'none';
+  refreshStartOverRow();
 }
 
 function toggleModePopover(){
+  refreshStartOverRow();
   var open=modePopover.classList.toggle('show');
   modePill.classList.toggle('open',open);
 }
@@ -1372,10 +1372,23 @@ function requestStartOver(){
 // refresh. The row is kept and its messages cleared, so the counts persist
 // and the next session reuses the same row.
 var PREP_SET_SIZE = { practice: 5, star: 5, mock: 6 };
+// Counts for the current prep session, mirrored from the conversation row.
+window._prepMeta = { restart_count: 0, answer_count: 0 };
+function startOverAvailable(){
+  var modeId = TRAINER_MODE || window.TRAINER_MODE;
+  if(!(modeId==='practice'||modeId==='star'||modeId==='mock')) return false;
+  var m = window._prepMeta || {};
+  return (m.restart_count || 0) === 0 || (m.answer_count || 0) >= (PREP_SET_SIZE[modeId] || 5);
+}
+function refreshStartOverRow(){
+  var row=document.getElementById('modeStartOverRow');
+  if(row) row.style.display = startOverAvailable() ? '' : 'none';
+}
 async function startNewPrepSession(){
   if(isSending) return;
   var modeId = TRAINER_MODE || window.TRAINER_MODE;
   if(!modeId) return;
+  if(!startOverAvailable()) { refreshStartOverRow(); return; }
   var required = PREP_SET_SIZE[modeId] || 5;
   if(window.supabaseClient){
     try{
@@ -1389,16 +1402,13 @@ async function startNewPrepSession(){
         if(row && row.id){
           var used = (row.restart_count || 0) >= 1;
           var completed = (row.answer_count || 0) >= required;
-          if(used && !completed){
-            var left = required - (row.answer_count || 0);
-            showSimpleToast('You\u2019ve already started over once. Finish this set first (' + left + (left===1?' answer':' answers') + ' to go).');
-            return;
-          }
+          if(used && !completed){ refreshStartOverRow(); return; }
           await window.supabaseClient.from('messages').delete().eq('conversation_id', row.id);
           await window.supabaseClient.from('conversations').update({
             restart_count: 1, answer_count: 0, updated_at: new Date().toISOString()
           }).eq('id', row.id);
         }
+        window._prepMeta = { restart_count: 1, answer_count: 0 };
       }
     }catch(e){ console.error('Could not clear previous session:', e); }
   }
@@ -2256,6 +2266,8 @@ async function saveMessage(role, content){
   if(role === 'user' && window.MODE === 'trainer' && Array.isArray(window.convoHistory || convoHistory)){
     var hist = window.convoHistory || convoHistory;
     patch.answer_count = hist.filter(function(m){ return m.role === 'user'; }).length;
+    window._prepMeta = window._prepMeta || {};
+    window._prepMeta.answer_count = patch.answer_count;
   }
   await window.supabaseClient.from('conversations').update(patch).eq('id', conversationId);
 }
@@ -2285,7 +2297,7 @@ async function loadConversationForMode(modeId){
   else { query = query.is('role', null); }
   var convoRes = await query.maybeSingle();
   
-  if(convoRes.error || !convoRes.data) return false;
+  if(convoRes.error || !convoRes.data){ window._prepMeta = { restart_count: 0, answer_count: 0 }; return false; }
   var convo = convoRes.data;
   
   // Fetch messages for this conversation
@@ -2296,13 +2308,16 @@ async function loadConversationForMode(modeId){
     .order('created_at', { ascending: true });
   
   if(msgRes.error || !msgRes.data || msgRes.data.length === 0){
-    // Conversation exists but no messages — treat as fresh
+    // Conversation exists but no messages — treat as fresh (but keep its
+    // restart/answer counts: a just-restarted set still counts as used)
+    window._prepMeta = { restart_count: convo.restart_count || 0, answer_count: convo.answer_count || 0 };
     return false;
   }
   
   // Restore state variables
   window.ROLE = convo.role || window.ROLE;
   window._currentConversationId = convo.id;
+  window._prepMeta = { restart_count: convo.restart_count || 0, answer_count: convo.answer_count || 0 };
   
   if(modeId === 'resume'){
     window.RESUME_TEXT = convo.resume_text || '';
