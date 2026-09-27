@@ -101,8 +101,12 @@ function normText(t) {
     .replace(/[^a-z0-9$%'+.\-]+/g, ' ').trim();
 }
 
-function candidateText(messages) {
-  return (messages || []).filter(function (m) { return m.role === 'user'; }).map(function (m) {
+// Everything said in the session, both sides. Quoting the interviewer's
+// own question back ("you were asked to ...") is legitimate and must not
+// be flagged; what the guard is for is words attributed to the candidate
+// that nobody said.
+function sessionText(messages) {
+  return (messages || []).map(function (m) {
     if (typeof m.content === 'string') return m.content;
     if (Array.isArray(m.content)) return m.content.map(function (b) { return b && b.text ? b.text : ''; }).join(' ');
     return '';
@@ -124,7 +128,10 @@ function checkGrounding(reply, sourceText, requireQuote) {
     var n = normText(q);
     return n.length >= 6 && src.indexOf(n) === -1;
   });
-  var missing = requireQuote && quotes.length === 0;
+  // A reply that asks the candidate for more (rule 4) is not feedback and
+  // has nothing to quote yet - only a verdict without a quote is a miss.
+  var asksForMore = /\?\s*$/.test(reply.trim()) || (reply.match(/\?/g) || []).length >= 2;
+  var missing = requireQuote && quotes.length === 0 && !asksForMore;
   return { ok: !bad.length && !missing, bad: bad, quotes: quotes.length, missing: missing };
 }
 
@@ -156,12 +163,13 @@ async function callOnce(anthropicBody) {
 // Runs a prep turn non-streamed, verifies it, retries once with a
 // corrective instruction, then strips as a last resort.
 async function groundedPrepReply(anthropicBody, messages, mode) {
-  var source = candidateText(messages);
+  var source = sessionText(messages);
   var requireQuote = mode !== 'mock'; // mock stays in character between questions
   var first = await callOnce(anthropicBody);
   if (!first.ok) return first;
   var check = checkGrounding(first.text, source, requireQuote);
   if (check.ok) return { ok: true, text: first.text, data: first.data, guard: { retried: false, stripped: 0 } };
+  console.log('[prep-guard] retry', JSON.stringify({ mode: mode, bad: check.bad, missing: check.missing }));
 
   var correction = check.bad.length
     ? 'Your previous draft quoted words the candidate did not say: ' + check.bad.map(function (q) { return '"' + q + '"'; }).join(', ') + '. That is not acceptable. Rewrite the whole reply. Only quote text that appears verbatim in the candidate\'s answers.'
@@ -172,6 +180,7 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
   var check2 = checkGrounding(second.text, source, requireQuote);
   if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
 
+  console.log('[prep-guard] strip', JSON.stringify({ mode: mode, bad: check2.bad, missing: check2.missing }));
   var text = check2.bad.length ? stripBadQuotes(second.text, check2.bad) : second.text;
   return { ok: true, text: text, data: second.data, guard: { retried: true, stripped: check2.bad.length } };
 }
@@ -180,7 +189,7 @@ function isPrepAnswerTurn(mode, messages) {
   if (!PREP_MODES[mode] || !messages || messages.length < 2) return false;
   var last = messages[messages.length - 1];
   if (!last || last.role !== 'user') return false;
-  var text = typeof last.content === 'string' ? last.content : candidateText([last]);
+  var text = typeof last.content === 'string' ? last.content : sessionText([last]);
   return text.trim().length >= 30; // a real answer, not "ok" / "next"
 }
 
