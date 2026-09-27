@@ -339,7 +339,12 @@ function stripBadChanges(reply, check) {
     return true;
   });
   var text = kept.join('').replace(/\n{3,}/g, '\n\n').trim();
-  if (removed) text += '\n\n_' + (removed === 1 ? 'One suggested change was' : removed + ' suggested changes were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' quoted or claimed something that is not in your resume._';
+  if (removed) {
+    // Renumber the survivors so it never reads "Change 1 ... Change 5".
+    var n = 0;
+    text = text.replace(/(^|\n)(\s*\*{0,2})change\s+\d+/gi, function (m, pre, stars) { n++; return pre + stars + 'Change ' + n; });
+    text += '\n\n_' + (removed === 1 ? 'One suggested change was' : removed + ' suggested changes were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' quoted or claimed something that is not in your resume._';
+  }
   return text;
 }
 async function groundedResumeReply(anthropicBody, messages) {
