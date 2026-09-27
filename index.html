@@ -2889,6 +2889,8 @@ function toggleDashClaims(){
   DASH_CLAIMS_OPEN = !DASH_CLAIMS_OPEN;
   var el = document.getElementById('dashClaims');
   if(el) el.innerHTML = dashClaimChips(DASH_CLAIMS_OPEN);
+  var t = document.getElementById('dashClaimsToggle');
+  if(t) t.textContent = DASH_CLAIMS_OPEN ? 'Show less' : 'See all';
 }
 async function dashRemoveClaim(id){
   if(!window.supabaseClient) return;
@@ -3039,7 +3041,7 @@ function renderDashboard(body, d){
 
   // What Ezzy knows
   var skills = d.claims.filter(function(c){ return c.claim_type==='skill'; });
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div><button class="dash-link" onclick="' + EDIT + '">See all</button></div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div>' + (d.claims.length ? '<button class="dash-link" id="dashClaimsToggle" onclick="toggleDashClaims()">See all</button>' : '') + '</div>';
   if(d.claims.length || p.current_role_title){
     // Two separate facts, kept separate: the current role (and its industry),
     // and total years of experience across the whole career.
