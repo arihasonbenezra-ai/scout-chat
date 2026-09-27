@@ -1407,18 +1407,26 @@ async function startNewPrepSession(){
           var used = (row.restart_count || 0) >= 1;
           var completed = (row.answer_count || 0) >= required;
           if(used && !completed){ refreshStartOverRow(); return; }
+          // Delete the conversation row (cascades to its messages - deleting
+          // messages directly can be refused by RLS and then the old
+          // session silently comes back on restore), then recreate it with
+          // the restart recorded so the count survives a refresh.
           await window.supabaseClient.from('messages').delete().eq('conversation_id', row.id);
-          await window.supabaseClient.from('conversations').update({
-            restart_count: 1, answer_count: 0, updated_at: new Date().toISOString()
-          }).eq('id', row.id);
+          var del = await window.supabaseClient.from('conversations').delete().eq('id', row.id);
+          if(del.error){ console.error('Start over: could not delete session', del.error); showSimpleToast('Could not start over. Try again.'); return; }
         }
-        window._prepMeta = { restart_count: 1, answer_count: 0 };
+        var ins = await window.supabaseClient.from('conversations').insert({
+          user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: 1, answer_count: 0
+        });
+        if(ins.error) console.error('Start over: could not record restart', ins.error);
       }
     }catch(e){ console.error('Could not clear previous session:', e); }
   }
+  window._prepMeta = { restart_count: 1, answer_count: 0 };
   window._currentConversationId = null;
   convoHistory=[]; window.convoHistory=[];
   msgEl.innerHTML='';
+  refreshStartOverRow();
   startMode(modeId, modePillLabel.textContent || modeId);
 }
 
