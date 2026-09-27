@@ -40,6 +40,8 @@ const RESUME_SYSTEM = [
   '- If the resume is missing something the JD requires, say so explicitly. Do not fabricate.',
   '- Be specific to the JD. Generic resume tips are useless.',
   '- If you were given only a target role or company instead of a posting, or no target at all, you have NOT seen the posting. Never present a requirement as coming from a posting you were not given. Say "roles like this typically ask for..." and keep the advice grounded in the resume itself.',
+  '- "Current line" must be copied verbatim from the resume. Every statement about what the resume says, leads with, or emphasizes must be backed by that quote. If a word is not in the quoted line, do not claim the line says it.',
+  '- A suggested rewrite may only reorder, tighten, and re-emphasize facts already in the resume. Never add a skill, level, scope, adjective, or number the resume does not state, and never move the posting\'s language into the candidate\'s experience as if they had done it. Rewrites are checked mechanically: a number that is not in the resume gets the whole change removed.',
   '- Total response under 600 words. Use clear headers like "Change 1:" through "Change 5:".',
   '- After the 5 changes, end with a one-line summary: "Biggest gap to close before applying: [X]".'
 ].join('\n');
@@ -270,6 +272,88 @@ function prepProgressInstruction(p) {
   if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then a 3-4 sentence overall summary of the set. Do NOT give a numeric score (a scorecard is computed separately and appended). Do NOT ask another question, and do NOT say "next" or offer to move on - there is nothing after this. If something is missing from this last answer, say what it is, but frame it as advice for their real interview.';
   if (p.asked === 0) return '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
   return '\n\nSession state: you have asked ' + p.asked + ' of ' + p.size + ' questions so far. When you move on, the next one is "Question ' + (p.asked + 1) + ' of ' + p.size + '". Never restart the numbering.';
+}
+
+// --- Resume review guard -------------------------------------------------
+// Same idea as the prep guard, against the resume text: anything the review
+// says the resume says must be a real quote from it, and a suggested rewrite
+// cannot carry a number the resume doesn't have (the cheapest, hardest
+// signal that experience was invented or imported from the posting).
+function resumeSourceText(messages) {
+  var first = messages && messages[0] && (typeof messages[0].content === 'string' ? messages[0].content : sessionText([messages[0]]));
+  if (!first) return '';
+  var m = first.match(/resume:\s*\n([\s\S]*?)(?:\n\s*---\s*\n|$)/i);
+  return m ? m[1] : first;
+}
+var RESUME_ATTR_RE = /\b(you|your|candidate('s)?|current line|the line|opening|headline|summary|bullet|reads|says|states|mentions|resume)\b/i;
+function extractResumeQuotes(reply) {
+  var out = [];
+  var re = /"([^"\n]{8,240})"|\u201c([^\u201d\n]{8,240})\u201d/g;
+  var m;
+  while ((m = re.exec(reply)) !== null) {
+    var before = reply.slice(Math.max(0, m.index - 80), m.index);
+    if (SUGGESTION_RE.test(before)) continue;
+    if (!RESUME_ATTR_RE.test(before)) continue;
+    out.push(m[1] || m[2]);
+  }
+  return out;
+}
+function extractRewrites(reply) {
+  var out = [];
+  var re = /suggested rewrite:?\*{0,2}\s*([\s\S]*?)(?=\n\s*\n|\n\s*\*{0,2}change\s+\d|$)/gi;
+  var m;
+  while ((m = re.exec(reply)) !== null) if (m[1] && m[1].trim()) out.push(m[1].trim());
+  return out;
+}
+function checkResumeGrounding(reply, resumeText) {
+  var src = normText(resumeText);
+  var srcTokens = src.split(' ');
+  var badQuotes = extractResumeQuotes(reply).filter(function (q) { return !quoteSupported(q, src); });
+  var badNumbers = [];
+  extractRewrites(reply).forEach(function (rw) {
+    normText(rw).split(' ').forEach(function (t) {
+      if (!/\d/.test(t)) return;
+      // a bare 4-digit year or a number present anywhere in the resume is fine
+      if (srcTokens.indexOf(t) !== -1) return;
+      var digits = t.replace(/[^0-9.]/g, '');
+      if (digits && src.indexOf(digits) !== -1) return;
+      if (badNumbers.indexOf(t) === -1) badNumbers.push(t);
+    });
+  });
+  return { ok: !badQuotes.length && !badNumbers.length, badQuotes: badQuotes, badNumbers: badNumbers };
+}
+// Remove every "Change N" block that contains a violation; keep the rest.
+function stripBadChanges(reply, check) {
+  var parts = reply.split(/(?=\n\s*\*{0,2}change\s+\d)/i);
+  var removed = 0;
+  var kept = parts.filter(function (part) {
+    var hit = check.badQuotes.some(function (q) { return part.indexOf(q) !== -1; })
+      || check.badNumbers.some(function (n) { return normText(part).split(' ').indexOf(n) !== -1; });
+    if (hit && /change\s+\d/i.test(part)) { removed++; return false; }
+    return true;
+  });
+  var text = kept.join('').replace(/\n{3,}/g, '\n\n').trim();
+  if (removed) text += '\n\n_' + (removed === 1 ? 'One suggested change was' : removed + ' suggested changes were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' quoted or claimed something that is not in your resume._';
+  return text;
+}
+async function groundedResumeReply(anthropicBody, messages) {
+  var resume = resumeSourceText(messages);
+  if (!resume || resume.length < 200) return null; // nothing to check against - stream as before
+  var first = await callOnce(anthropicBody);
+  if (!first.ok) return first;
+  var check = checkResumeGrounding(first.text, resume);
+  if (check.ok) return { ok: true, text: first.text, data: first.data, guard: { retried: false, stripped: 0 } };
+  console.log('[resume-guard] retry', JSON.stringify(check));
+  var correction = 'Your previous draft failed a check against the resume.'
+    + (check.badQuotes.length ? ' These quoted phrases are not in the resume: ' + check.badQuotes.map(function (q) { return '"' + q + '"'; }).join(', ') + '.' : '')
+    + (check.badNumbers.length ? ' These numbers appear in a suggested rewrite but not in the resume: ' + check.badNumbers.join(', ') + '.' : '')
+    + ' Rewrite the whole review. Quote only text that is in the resume, and use only facts and numbers the resume states.';
+  var second = await callOnce(Object.assign({}, anthropicBody, { system: anthropicBody.system + '\n\n' + correction }));
+  if (!second.ok) return second;
+  var check2 = checkResumeGrounding(second.text, resume);
+  if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
+  console.log('[resume-guard] strip', JSON.stringify(check2));
+  return { ok: true, text: stripBadChanges(second.text, check2), data: second.data, guard: { retried: true, stripped: check2.badQuotes.length + check2.badNumbers.length, strippedQuotes: check2.badQuotes, strippedNumbers: check2.badNumbers } };
 }
 
 // --- Grounded scorecard ------------------------------------------------
@@ -1109,6 +1193,15 @@ export default async function handler(req, res) {
     };
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode));
+    }
+
+    if (mode === 'resume') {
+      var gr = await groundedResumeReply(anthropicBody, messages);
+      if (gr) {
+        if (!gr.ok) return res.status(gr.status || 502).json(gr.data || { error: 'Review failed' });
+        if (isStreaming) return writeAsStream(res, gr.text, gr.guard);
+        return res.status(200).json({ content: [{ type: 'text', text: gr.text }], guard: gr.guard, usage: (gr.data && gr.data.usage) || {} });
+      }
     }
 
     if (isPrepAnswerTurn(mode, messages)) {
