@@ -2263,7 +2263,9 @@ async function saveMessage(role, content){
   };
   // Prep modes: how many answers the candidate has given in this set
   // (drives the one-restart-per-set rule in startNewPrepSession).
-  if(role === 'user' && window.MODE === 'trainer' && Array.isArray(window.convoHistory || convoHistory)){
+  var prepMode = window.TRAINER_MODE || (typeof TRAINER_MODE !== 'undefined' ? TRAINER_MODE : null);
+  var inPrep = (prepMode === 'practice' || prepMode === 'star' || prepMode === 'mock') && (window.MODE === 'trainer' || (typeof MODE !== 'undefined' && MODE === 'trainer'));
+  if(role === 'user' && inPrep && Array.isArray(window.convoHistory || convoHistory)){
     var hist = window.convoHistory || convoHistory;
     patch.answer_count = hist.filter(function(m){ return m.role === 'user'; }).length;
     window._prepMeta = window._prepMeta || {};

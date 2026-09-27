@@ -114,11 +114,21 @@ function sessionText(messages) {
   }).join('\n');
 }
 
+// Only quotes the model attributes to the candidate are checked. A quoted
+// suggestion ("try saying: '...'") is the model's own wording and would
+// never match the answer - flagging it was a false positive.
+var SUGGESTION_RE = /\b(try|instead|could|might|should|for example|e\.g\.|such as|like this|something like|say something|rewrite|stronger|better|version|consider|suggest|imagine|reframe)\b[^"\u201c]{0,60}$/i;
+var ATTRIBUTION_RE = /\b(you|your|candidate('s)?)\b/i;
 function extractQuotes(reply) {
   var out = [];
   var re = /"([^"\n]{8,240})"|\u201c([^\u201d\n]{8,240})\u201d/g;
   var m;
-  while ((m = re.exec(reply)) !== null) out.push(m[1] || m[2]);
+  while ((m = re.exec(reply)) !== null) {
+    var before = reply.slice(Math.max(0, m.index - 70), m.index);
+    if (SUGGESTION_RE.test(before)) continue;
+    if (!ATTRIBUTION_RE.test(before)) continue;
+    out.push(m[1] || m[2]);
+  }
   return out;
 }
 
@@ -139,12 +149,17 @@ function checkGrounding(reply, sourceText, requireQuote) {
 // Last resort when a retry still fabricates: drop the sentences that hold
 // a bad quote and say so, rather than showing invented feedback.
 function stripBadQuotes(reply, bad) {
-  var sentences = reply.split(/(?<=[.!?])\s+|\n+/);
-  var kept = sentences.filter(function (sent) {
-    return !bad.some(function (q) { return sent.indexOf(q) !== -1; });
+  var removed = 0;
+  var lines = reply.split('\n').map(function (line) {
+    var sentences = line.split(/(?<=[.!?])\s+/);
+    var kept = sentences.filter(function (sent) {
+      var hit = bad.some(function (q) { return sent.indexOf(q) !== -1; });
+      if (hit) removed++;
+      return !hit;
+    });
+    return kept.join(' ');
   });
-  var removed = sentences.length - kept.length;
-  var text = kept.join(' ').replace(/\s{2,}/g, ' ').trim();
+  var text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   if (removed) text += '\n\n_' + (removed === 1 ? 'One point was' : removed + ' points were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' referred to something you didn\'t say._';
   return text;
 }
@@ -166,10 +181,12 @@ async function callOnce(anthropicBody) {
 async function groundedPrepReply(anthropicBody, messages, mode) {
   var source = sessionText(messages);
   var requireQuote = mode !== 'mock'; // mock stays in character between questions
+  var progress = prepProgress(messages, mode);
+  anthropicBody = Object.assign({}, anthropicBody, { system: anthropicBody.system + prepProgressInstruction(progress) });
   var first = await callOnce(anthropicBody);
   if (!first.ok) return first;
   var check = checkGrounding(first.text, source, requireQuote);
-  if (check.ok) return { ok: true, text: first.text, data: first.data, guard: { retried: false, stripped: 0 } };
+  if (check.ok) return { ok: true, text: holdNextQuestion(first.text, mode, progress), data: first.data, guard: { retried: false, stripped: 0 } };
   console.log('[prep-guard] retry', JSON.stringify({ mode: mode, bad: check.bad, missing: check.missing }));
 
   var correction = check.bad.length
@@ -179,11 +196,55 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
   var second = await callOnce(retryBody);
   if (!second.ok) return second;
   var check2 = checkGrounding(second.text, source, requireQuote);
-  if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
+  if (check2.ok) return { ok: true, text: holdNextQuestion(second.text, mode, progress), data: second.data, guard: { retried: true, stripped: 0 } };
 
   console.log('[prep-guard] strip', JSON.stringify({ mode: mode, bad: check2.bad, missing: check2.missing }));
   var text = check2.bad.length ? stripBadQuotes(second.text, check2.bad) : second.text;
-  return { ok: true, text: text, data: second.data, guard: { retried: true, stripped: check2.bad.length } };
+  return { ok: true, text: holdNextQuestion(text, mode, progress), data: second.data, guard: { retried: true, stripped: check2.bad.length } };
+}
+
+// If the feedback asks the candidate for something, the next question
+// must wait. The prompt says so; this makes it true. Finds the next
+// question marker after the feedback and, if the feedback part contains
+// an open question, cuts from there and invites them to add it.
+var NEXT_Q_RE = /\n\s*(?:-{3,}\s*\n\s*)?(?:\*\*)?\s*(?:question\s+\d+\s*(?:of|\/)\s*\d+|next question)\b/i;
+function holdNextQuestion(reply, mode, progress) {
+  if (mode === 'mock') return reply;
+  if (progress && progress.asked >= progress.size) return reply;
+  var m = reply.match(NEXT_Q_RE);
+  if (!m) return reply;
+  var feedback = reply.slice(0, m.index);
+  var improve = feedback.search(/area|improve|missing|gap|weaker/i);
+  var tail = improve === -1 ? feedback : feedback.slice(improve);
+  if (tail.indexOf('?') === -1) return reply;
+  return feedback.replace(/\s*-{3,}\s*$/, '').trim() + '\n\nAdd that if you can, or say **next** and I\'ll move on.';
+}
+
+// Where the set actually stands, counted from the transcript rather than
+// trusted to the model's memory: the highest "Question N of M" it has
+// asked so far, and whether the wrap-up already happened.
+var PREP_SET_SIZE = { practice: 5, star: 5 };
+var Q_MARK_RE = /question\s+(\d+)\s*(?:of|\/)\s*\d+/gi;
+function prepProgress(messages, mode) {
+  var size = PREP_SET_SIZE[mode];
+  if (!size) return null;
+  var asked = 0, wrapped = false;
+  (messages || []).forEach(function (m) {
+    if (m.role !== 'assistant') return;
+    var t = typeof m.content === 'string' ? m.content : sessionText([m]);
+    var mm; Q_MARK_RE.lastIndex = 0;
+    while ((mm = Q_MARK_RE.exec(t)) !== null) asked = Math.max(asked, parseInt(mm[1], 10));
+    if (/readiness/i.test(t) && /\b\d+\s*(?:\/|out of)\s*10\b/i.test(t)) wrapped = true;
+  });
+  return { asked: Math.min(asked, size), size: size, wrapped: wrapped };
+}
+
+function prepProgressInstruction(p) {
+  if (!p) return '';
+  if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and you already gave the summary and readiness rating. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the mode menu.';
+  if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then the overall summary with a readiness rating out of 10. Do NOT ask another question.';
+  if (p.asked === 0) return '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
+  return '\n\nSession state: you have asked ' + p.asked + ' of ' + p.size + ' questions so far. When you move on, the next one is "Question ' + (p.asked + 1) + ' of ' + p.size + '". Never restart the numbering.';
 }
 
 function isPrepAnswerTurn(mode, messages) {
@@ -868,6 +929,10 @@ export default async function handler(req, res) {
       messages: messages,
       stream: isStreaming
     };
+    if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
+      anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode));
+    }
+
     if (isPrepAnswerTurn(mode, messages)) {
       var gp = await groundedPrepReply(anthropicBody, messages, mode);
       if (!gp.ok) return res.status(gp.status || 502).json(gp.data || { error: 'Prep reply failed' });
