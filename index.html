@@ -1297,6 +1297,7 @@ async function callClaudeStream(messages,onChunk,onDone){
         if(data==='[DONE]')continue;
         try{
           var json=JSON.parse(data);
+          if(json.type==='ezzy_guard'){ console.warn('[ezzy-guard]', JSON.stringify(json.guard)); continue; }
           if(json.type==='content_block_delta'&&json.delta&&json.delta.text){
             fullText+=json.delta.text;
             onChunk(json.delta.text,fullText);

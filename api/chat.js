@@ -132,13 +132,35 @@ function extractQuotes(reply) {
   return out;
 }
 
+// A quote counts as the candidate's words if it appears verbatim, or if
+// most of it appears as one contiguous run in what they said and every
+// number in it is present. Models fix a typo or drop a filler word when
+// "quoting"; that is not fabrication. Changing a number or inventing a
+// phrase is, and still fails.
+function quoteSupported(quote, srcNorm) {
+  var n = normText(quote);
+  if (n.length < 6) return true;
+  if (srcNorm.indexOf(n) !== -1) return true;
+  var qt = n.split(' ').filter(Boolean);
+  var st = srcNorm.split(' ').filter(Boolean);
+  if (qt.length < 3) return false;
+  var nums = qt.filter(function (t) { return /\d/.test(t); });
+  for (var k = 0; k < nums.length; k++) if (st.indexOf(nums[k]) === -1) return false;
+  var best = 0, prev = new Array(st.length + 1).fill(0);
+  for (var i = 1; i <= qt.length; i++) {
+    var cur = new Array(st.length + 1).fill(0);
+    for (var j = 1; j <= st.length; j++) {
+      if (qt[i - 1] === st[j - 1]) { cur[j] = prev[j - 1] + 1; if (cur[j] > best) best = cur[j]; }
+    }
+    prev = cur;
+  }
+  return best / qt.length >= 0.7;
+}
+
 function checkGrounding(reply, sourceText, requireQuote) {
   var src = normText(sourceText);
   var quotes = extractQuotes(reply);
-  var bad = quotes.filter(function (q) {
-    var n = normText(q);
-    return n.length >= 6 && src.indexOf(n) === -1;
-  });
+  var bad = quotes.filter(function (q) { return !quoteSupported(q, src); });
   // A reply that asks the candidate for more (rule 4) is not feedback and
   // has nothing to quote yet - only a verdict without a quote is a miss.
   var asksForMore = /\?\s*$/.test(reply.trim()) || (reply.match(/\?/g) || []).length >= 2;
@@ -157,8 +179,10 @@ function stripBadQuotes(reply, bad) {
       if (hit) removed++;
       return !hit;
     });
-    return kept.join(' ');
-  });
+    var out = kept.join(' ');
+    if (/^\s*(?:\d+[.)]|[-*\u2022])\s*(?:\*\*\s*)?$/.test(out)) return null;
+    return out;
+  }).filter(function (l) { return l !== null; });
   var text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   if (removed) text += '\n\n_' + (removed === 1 ? 'One point was' : removed + ' points were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' referred to something you didn\'t say._';
   return text;
@@ -188,6 +212,7 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
   var check = checkGrounding(first.text, source, requireQuote);
   if (check.ok) return { ok: true, text: holdNextQuestion(first.text, mode, progress), data: first.data, guard: { retried: false, stripped: 0 } };
   console.log('[prep-guard] retry', JSON.stringify({ mode: mode, bad: check.bad, missing: check.missing }));
+  var firstBad = check.bad.slice();
 
   var correction = check.bad.length
     ? 'Your previous draft quoted words the candidate did not say: ' + check.bad.map(function (q) { return '"' + q + '"'; }).join(', ') + '. That is not acceptable. Rewrite the whole reply. Only quote text that appears verbatim in the candidate\'s answers.'
@@ -196,11 +221,11 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
   var second = await callOnce(retryBody);
   if (!second.ok) return second;
   var check2 = checkGrounding(second.text, source, requireQuote);
-  if (check2.ok) return { ok: true, text: holdNextQuestion(second.text, mode, progress), data: second.data, guard: { retried: true, stripped: 0 } };
+  if (check2.ok) return { ok: true, text: holdNextQuestion(second.text, mode, progress), data: second.data, guard: { retried: true, firstBad: firstBad, stripped: 0 } };
 
   console.log('[prep-guard] strip', JSON.stringify({ mode: mode, bad: check2.bad, missing: check2.missing }));
   var text = check2.bad.length ? stripBadQuotes(second.text, check2.bad) : second.text;
-  return { ok: true, text: holdNextQuestion(text, mode, progress), data: second.data, guard: { retried: true, stripped: check2.bad.length } };
+  return { ok: true, text: holdNextQuestion(text, mode, progress), data: second.data, guard: { retried: true, firstBad: firstBad, stripped: check2.bad.length, strippedQuotes: check2.bad } };
 }
 
 // If the feedback asks the candidate for something, the next question
@@ -689,11 +714,12 @@ function verifyResearchBrief(content) {
 // Research runs non-streamed so the whole response can be verified before
 // anyone sees it, then is replayed to the client in the same SSE shape the
 // streaming path uses (one delta + [DONE]) so the client needs no change.
-function writeAsStream(res, text) {
+function writeAsStream(res, text, meta) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
+  if (meta) res.write('data: ' + JSON.stringify({ type: 'ezzy_guard', guard: meta }) + '\n\n');
   res.write('data: ' + JSON.stringify({ type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: text } }) + '\n\n');
   res.write('data: [DONE]\n\n');
   res.end();
@@ -1096,7 +1122,7 @@ export default async function handler(req, res) {
         gp.text = gp.text.trim() + '\n' + card.markdown;
         await saveScorecard(user.id, body.conversationId || null, mode, role, card);
       }
-      if (isStreaming) return writeAsStream(res, gp.text);
+      if (isStreaming) return writeAsStream(res, gp.text, gp.guard);
       return res.status(200).json({ content: [{ type: 'text', text: gp.text }], guard: gp.guard, usage: (gp.data && gp.data.usage) || {} });
     }
 
