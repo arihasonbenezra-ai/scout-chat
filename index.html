@@ -305,6 +305,75 @@ button,input,textarea{font-family:inherit}
 .brain-add-row button{border:0.5px solid #2A2020;background:#fff;border-radius:999px;padding:0 12px;font-size:12.5px;cursor:pointer}
 .brain-add-row button:hover{border-color:#F26B5E;background:#FCEAE6}
 .brain-prof{font-size:10.5px;color:#999;margin-left:6px;font-weight:500;text-transform:none;letter-spacing:0}
+/* My Career dashboard (signed-in home) */
+.dash{display:none;flex:1;overflow-y:auto;background:#F7F6F3}
+.dash.show{display:block}
+.dash-inner{max-width:1200px;margin:0 auto;padding:32px 40px 48px;display:flex;flex-direction:column;gap:22px}
+.dash-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.dash-h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em}
+.dash-sub{font-size:14px;color:#555;margin-top:4px;line-height:1.5}
+.dash-actions{display:flex;gap:10px;flex-wrap:wrap}
+.dash-btn{padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid #C9C6C0;background:#fff;color:#111;font-family:inherit}
+.dash-btn.primary{background:#111;color:#fff;border-color:#111}
+.dash-btn:hover{border-color:#111}
+.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.dash-card.dark{background:#111;color:#fff;border-color:#111}
+.dash-card.span2{grid-column:span 2}
+.dash-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B6B6B}
+.dash-card.dark .dash-label{color:#BDBDBD}
+.dash-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.dash-link{font-size:12.5px;font-weight:600;color:#C2493C;background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
+.dash-link:hover{text-decoration:underline}
+.dash-title{font-size:20px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.dash-text{font-size:13.5px;color:#333;line-height:1.5}
+.dash-card.dark .dash-text{color:#DDDDDD}
+.dash-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dash-chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#F3F1EC;color:#333}
+.dash-chip.coral{background:#FCEAE6;color:#8F3229}
+.dash-ok{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1E7A3D;margin-top:auto}
+.dash-warn{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#966B0A;margin-top:auto}
+.dash-muted{font-size:12px;color:#6B6B6B;margin-top:auto;line-height:1.5}
+.dash-card.dark .dash-muted{color:#9A9A9A}
+.dash-big{display:flex;align-items:baseline;gap:8px}
+.dash-big-n{font-size:50px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.dash-big-d{font-size:18px;color:#BDBDBD}
+.dash-bars{display:flex;gap:6px;align-items:flex-end;height:44px;margin-top:auto}
+.dash-bar{width:18px;border-radius:3px;background:#4A4A4A}
+.dash-bar.now{background:#F26B5E}
+.dash-dims{display:flex;flex-direction:column;gap:9px}
+.dash-dim{display:grid;grid-template-columns:170px 110px minmax(0,1fr);gap:12px;align-items:center}
+.dash-dim-name{font-size:13.5px;font-weight:600}
+.dash-meter{display:flex;align-items:center;gap:8px}
+.dash-meter-track{width:70px;height:8px;border-radius:4px;background:#F3F1EC;overflow:hidden;flex:none}
+.dash-meter-fill{height:8px;background:#1E7A3D}
+.dash-meter-fill.low{background:#F26B5E}
+.dash-meter-n{font-size:12.5px;color:#555}
+.dash-dim-note{font-size:12.5px;color:#555;line-height:1.45}
+.dash-next{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:12px;background:#F3F1EC;color:#111;cursor:pointer;border:none;text-align:left;font-family:inherit;width:100%}
+.dash-next.hot{background:#FCEAE6}
+.dash-next:hover{outline:1px solid #C9C6C0}
+.dash-next-t{font-size:13.5px;font-weight:600}
+.dash-next-s{font-size:12.5px;color:#555}
+.dash-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid #ECEAE5;border-radius:12px;cursor:pointer;background:#fff;text-align:left;font-family:inherit;color:#111;width:100%}
+.dash-row:hover{border-color:#F26B5E}
+.dash-row-t{font-size:13.5px;font-weight:600}
+.dash-row-s{font-size:12px;color:#6B6B6B;margin-top:2px}
+.dash-score{font-size:12px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px;flex:none}
+.dash-nr{font-size:12px;color:#9A9A9A;flex:none}
+.dash-empty{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding:14px;border:1px dashed #D5D2CB;border-radius:12px}
+.dash-empty-t{font-size:13.5px;font-weight:600;color:#333}
+.dash-empty-s{font-size:12.5px;color:#6B6B6B;line-height:1.5}
+.dash-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:#F3F1EC;color:#555}
+.dash-tag.coral{background:#FCEAE6;color:#8F3229}
+.dash-foot{font-size:12px;color:#8A8A8A}
+.dash-loading{padding:60px;text-align:center;color:#888;font-size:14px}
+.nav-home{display:none;margin-left:14px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:#111;text-decoration:none;background:#FCEAE6;cursor:pointer}
+.nav-home.show{display:inline-block}
+.nav-home.off{background:none;color:#555}
+.nav-home.off:hover{background:#F5F5F5}
+@media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;background:#fff}
 .sess-row:hover{border-color:#F26B5E;background:#FFF8F6}
 .sess-main{min-width:0}
@@ -395,6 +464,7 @@ button,input,textarea{font-family:inherit}
         </svg>
         <span class="brand-name">Ezzy.</span>
       </div>
+      <a class="nav-home" id="navHome" onclick="goToDashboard();return false;" href="#">My Career</a>
       <span class="dot-sep" id="dotSep" style="display:none">&middot;</span>
       <span class="mode-pill" id="modePill" onclick="toggleModePopover()">
         <span id="modePillLabel">Practice Q&amp;A</span>
@@ -459,6 +529,9 @@ button,input,textarea{font-family:inherit}
         <div class="drop-zone-helper">Got a Word doc? Open it in Word, choose File → Save As → PDF.</div>
       </div>
     </div>
+    <section class="dash" id="dashboard" aria-label="My Career">
+      <div class="dash-inner" id="dashBody"><div class="dash-loading">Loading your career...</div></div>
+    </section>
     <div class="main-inner" id="mainInner">
 
       <div class="empty" id="emptyState">
@@ -640,6 +713,7 @@ function setInputAreaVisible(visible){
 setInputAreaVisible(false);
 
 function pickTopIntent(intent){
+  if(typeof hideDashboard === 'function') hideDashboard();
   TOP_INTENT=intent;
   if(intent==='resume'){
     startResumeReviewDirect();
@@ -663,6 +737,7 @@ function resetEmptyStateToStage1(){
 
 // Leaves the landing screen for the app proper: header pills, chat bar.
 function enterAppShell(role){
+  if(typeof hideDashboard === 'function') hideDashboard();
   emptyState.style.display='none';
   setInputAreaVisible(true);
   if(role){
@@ -2037,9 +2112,16 @@ async function updateAuthUI(user){
     // Migrate anonymous data first (if any), then check onboarding
     await migrateAnonymousToAccount(user);
     checkAndShowOnboarding(user);
+    // Signed in and not in the middle of a tool: the dashboard is home.
+    var navHome = document.getElementById('navHome');
+    if(navHome) navHome.classList.add('show');
+    if(!MODE && emptyState && emptyState.style.display !== 'none') showDashboard();
   } else {
     signInBtn.style.display = 'inline-flex';
     userMenu.style.display = 'none';
+    var navHome2 = document.getElementById('navHome');
+    if(navHome2) navHome2.classList.remove('show');
+    hideDashboard();
   }
 }
 
@@ -2672,6 +2754,267 @@ async function loadCareerClaims(){
   }
   BRAIN_PROFILE = results[0].data || null;
   renderClaims(results[1].data || []);
+}
+
+// --- My Career dashboard (signed-in home) ------------------------------
+// Everything shown here is read from tables the app already writes:
+// career_profile, career_claims, prep_scores, conversations (archived),
+// career_stories, career_opportunities. Nothing is computed by a model.
+var DASH_ON = false;
+var DASH_ROLE = null;
+
+function showDashboard(){
+  var el = document.getElementById('dashboard');
+  if(!el) return;
+  if(emptyState) emptyState.style.display = 'none';
+  setInputAreaVisible(false);
+  if(modePill) modePill.style.display = 'none';
+  if(roleLabel) roleLabel.style.display = 'none';
+  if(dotSep) dotSep.style.display = 'none';
+  var sob=document.getElementById('startOverBtn'); if(sob) sob.classList.remove('show');
+  el.classList.add('show');
+  DASH_ON = true;
+  var nav = document.getElementById('navHome'); if(nav) nav.classList.remove('off');
+  loadDashboard();
+}
+
+function hideDashboard(){
+  var el = document.getElementById('dashboard');
+  if(el) el.classList.remove('show');
+  DASH_ON = false;
+  var nav = document.getElementById('navHome'); if(nav) nav.classList.add('off');
+}
+
+function goToDashboard(){
+  if(isSending) return;
+  clearChatState();
+  showDashboard();
+}
+
+// Entry points from the dashboard straight into a tool, skipping the
+// landing's pick-a-role step when the role is already known.
+function dashStartMode(role, modeId, title){
+  hideDashboard();
+  if(!role){ clearChatState(); pickTopIntent('prep'); return; }
+  ROLE = role; window.ROLE = role;
+  defaultTargetFromRole(role);
+  enterAppShell(role);
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your answer...';
+  startMode(modeId, title);
+}
+function dashPractice(){ dashStartMode(DASH_ROLE, 'practice', 'Practice Q&A'); }
+function dashStar(){ dashStartMode(DASH_ROLE, 'star', 'STAR Coaching'); }
+function dashResume(){ hideDashboard(); startResumeReviewDirect(); }
+function dashResearch(){
+  hideDashboard();
+  if(!DASH_ROLE){ clearChatState(); pickTopIntent('prep'); return; }
+  ROLE = DASH_ROLE; window.ROLE = DASH_ROLE;
+  enterAppShell(DASH_ROLE);
+  pickIntent('research');
+}
+
+function dashGreeting(name){
+  var h = new Date().getHours();
+  var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  return part + (name ? ', ' + escapeHtml(name.split(' ')[0]) : '') + '.';
+}
+function dashDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+function dashComp(p){
+  if(!p.target_comp_min && !p.target_comp_max) return null;
+  var k=function(v){ return v ? '$' + Math.round(v/1000) + 'k' : ''; };
+  var lo=k(p.target_comp_min), hi=k(p.target_comp_max);
+  return lo && hi ? lo + '\u2013' + hi : (lo || hi);
+}
+function dashRoleFamily(role){
+  var r = String(role||'').toLowerCase();
+  if(!r) return null;
+  if(/recruit|talent|\bhr\b|human resources|people ops|people partner|sourcer/.test(r)) return 'People & Talent';
+  if(/engineer|developer|\bswe\b|\bsde\b|\bdata\b|\bml\b|machine learning|devops|infra|\bsre\b|architect|scientist|analyst/.test(r)) return 'Engineering';
+  if(/marketing|sales|account exec|customer success|growth|brand|\bseo\b|content|revenue|\bbdr\b|\bsdr\b/.test(r)) return 'Go-to-market';
+  if(/product|designer|design|\bux\b|\bui\b|program manager|project manager|operations|\bops\b|\btpm\b/.test(r)) return 'Product / Design / Ops';
+  return 'General';
+}
+
+async function loadDashboard(){
+  var body = document.getElementById('dashBody');
+  if(!body || !window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session){ body.innerHTML = '<div class="dash-loading">Sign in to see your career.</div>'; return; }
+  var uid = session.user.id;
+  var sb = window.supabaseClient;
+  var q = await Promise.all([
+    sb.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
+    sb.from('career_claims').select('id,claim_type,label,status,detail').eq('user_id', uid).order('last_seen_at',{ascending:false}),
+    sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
+    sb.from('conversations').select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company').eq('user_id', uid).not('archived_at','is',null).order('archived_at',{ascending:false}).limit(3),
+    sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
+    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3)
+  ].map(function(pr){ return pr.then(function(r){ return r; }, function(e){ return {error:e}; }); }));
+  var profile = (q[0] && q[0].data) || {};
+  var claims = (q[1] && q[1].data) || [];
+  var scores = (q[2] && q[2].data) || [];
+  var past = (q[3] && q[3].data) || [];
+  var stories = (q[4] && q[4].data) || [];
+  var opps = (q[5] && q[5].data) || [];
+  var nameEl = document.getElementById('authUserName');
+  var name = nameEl ? nameEl.textContent.trim() : '';
+  var latest = scores[0] || null;
+  var lastRole = latest && latest.role ? latest.role : (past[0] && past[0].role) || null;
+  DASH_ROLE = profile.target_role_title || lastRole || null;
+  renderDashboard(body, { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest });
+}
+
+function renderDashboard(body, d){
+  var p = d.profile, latest = d.latest;
+  var html = '';
+
+  // Greeting + primary actions
+  var sub = latest && latest.overall != null
+    ? 'Your latest set scored ' + latest.overall + ' out of 10. The next one is aimed at your two lowest marks.'
+    : (p.target_role_title ? 'Run a Practice set to get your first scorecard.' : 'Start by telling Ezzy what you\u2019re going for, or paste your resume.');
+  html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div>'
+    + '<div class="dash-actions"><button class="dash-btn primary" onclick="dashPractice()">Practice' + (latest ? ' again' : '') + '</button>'
+    + '<button class="dash-btn" onclick="dashResume()">Paste a job posting</button></div></div>';
+
+  html += '<div class="dash-grid">';
+
+  // Target
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="openCareerBrainPanel()">Edit</button></div>';
+  if(p.target_role_title){
+    var fam = dashRoleFamily(p.target_role_title);
+    var chips = [];
+    if(fam) chips.push(fam);
+    if(p.target_level) chips.push(p.target_level.charAt(0).toUpperCase()+p.target_level.slice(1));
+    if(p.target_work_type && p.target_work_type!=='any') chips.push(p.target_work_type.charAt(0).toUpperCase()+p.target_work_type.slice(1));
+    if(p.target_locations && p.target_locations.length) chips.push(p.target_locations.join(' / '));
+    var comp = dashComp(p);
+    html += '<div class="dash-title">' + escapeHtml(p.target_role_title) + '</div><div class="dash-chips">'
+      + chips.map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
+      + (comp ? '<span class="dash-chip">' + escapeHtml(comp) + '</span>' : '<span class="dash-chip" style="color:#8A8A8A">Add comp range</span>')
+      + '</div>';
+    var confirmed = p.target_source==='stated' || p.target_source==='discovered';
+    html += confirmed
+      ? '<div class="dash-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Confirmed by you</div>'
+      : '<div class="dash-warn">Taken from ' + (p.target_source==='resume' ? 'your resume' : 'the role you picked') + '. Confirm or change it.</div>';
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">No target yet</div><div class="dash-empty-s">Tell Ezzy the role you\u2019re going for. Matching and prep are pointed at it.</div><button class="dash-btn" onclick="openCareerBrainPanel()">Set your target</button></div>';
+  }
+  html += '</div>';
+
+  // Readiness
+  html += '<div class="dash-card dark"><div class="dash-label">Interview readiness</div>';
+  if(latest && latest.overall != null){
+    html += '<div class="dash-big"><div class="dash-big-n">' + latest.overall + '</div><div class="dash-big-d">/ 10</div></div>'
+      + '<div class="dash-text">From your ' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + ' set on ' + dashDate(latest.created_at) + '. Computed from ' + latest.scored_dims + ' of ' + latest.total_dims + ' rubric dimensions, every score tied to your own words.</div>';
+  } else if(latest){
+    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">Not rated yet</div></div><div class="dash-text">Your last set didn\u2019t have enough verifiable evidence to score. Fuller answers fix that.</div>';
+  } else {
+    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">No score yet</div></div><div class="dash-text">Finish a five-question Practice set and the score appears here, computed from your answers.</div>';
+  }
+  var hist = d.scores.slice(0,4).reverse();
+  html += '<div class="dash-bars">';
+  for(var i=0;i<4;i++){
+    var sc = hist[i - (4 - hist.length)];
+    if(i < 4 - hist.length || !sc || sc.overall == null) html += '<div class="dash-bar" style="height:6px"></div>';
+    else html += '<div class="dash-bar' + (i===3?' now':'') + '" style="height:' + Math.max(6, Math.round(sc.overall/10*32)+6) + 'px" title="' + sc.overall + '/10"></div>';
+  }
+  html += '</div><div class="dash-muted">' + (d.scores.length ? d.scores.length + (d.scores.length===1?' rated set':' rated sets') + ' so far. The bars fill in as you complete more.' : 'The bars fill in as you complete sets.') + '</div></div>';
+
+  // What Ezzy knows
+  var skills = d.claims.filter(function(c){ return c.claim_type==='skill'; });
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div><button class="dash-link" onclick="openCareerBrainPanel()">See all</button></div>';
+  if(d.claims.length || p.current_role_title){
+    var now = [];
+    if(p.current_role_title) now.push(escapeHtml(p.current_role_title));
+    if(p.current_industry) now.push('in ' + escapeHtml(p.current_industry));
+    if(p.years_experience) now.push(Number(p.years_experience) + ' years');
+    if(now.length) html += '<div class="dash-text">' + now.join(' \u00b7 ') + '</div>';
+    html += '<div class="dash-chips">' + skills.slice(0,4).map(function(c){ return '<span class="dash-chip coral">' + escapeHtml(c.label) + '</span>'; }).join('')
+      + (d.claims.length > 4 ? '<span class="dash-chip">+ ' + (d.claims.length - Math.min(4, skills.length)) + ' more</span>' : '') + '</div>';
+    html += '<div class="dash-muted">Every item carries the resume line it came from. Remove anything that\u2019s wrong.</div>';
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
+  }
+  html += '</div>';
+
+  // Latest scorecard (span 2)
+  html += '<div class="dash-card span2"><div class="dash-card-head"><div><div class="dash-label">Latest scorecard</div>';
+  if(latest) html += '<div class="dash-row-s">' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + (latest.role ? ' \u00b7 ' + escapeHtml(latest.role) : '') + ' \u00b7 ' + escapeHtml(latest.family) + ' rubric \u00b7 ' + dashDate(latest.created_at) + '</div>';
+  html += '</div>' + (latest && latest.conversation_id ? '<button class="dash-link" onclick="openPastSessions().then(function(){openPastSession(\'' + latest.conversation_id + '\',\'' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + '\')})">Open session</button>' : '') + '</div>';
+  var lowNames = [];
+  if(latest && Array.isArray(latest.dimensions) && latest.dimensions.length){
+    var scored = latest.dimensions.filter(function(x){ return x.score != null; }).slice().sort(function(a,b){ return a.score - b.score; });
+    lowNames = scored.slice(0,2).map(function(x){ return x.dimension; });
+    html += '<div class="dash-dims">' + latest.dimensions.map(function(x){
+      var isLow = lowNames.indexOf(x.dimension) !== -1;
+      var meter = x.score == null
+        ? '<div class="dash-meter"><div class="dash-meter-track"></div><div class="dash-meter-n">\u2014</div></div>'
+        : '<div class="dash-meter"><div class="dash-meter-track"><div class="dash-meter-fill' + (isLow?' low':'') + '" style="width:' + (x.score/5*100) + '%"></div></div><div class="dash-meter-n">' + x.score + '/5</div></div>';
+      var note = x.score == null ? 'Not enough verified evidence in your answers.' : escapeHtml(x.improvement || '');
+      return '<div class="dash-dim"><div class="dash-dim-name">' + escapeHtml(x.dimension) + '</div>' + meter + '<div class="dash-dim-note">' + note + '</div></div>';
+    }).join('') + '</div>';
+    html += '<div class="dash-muted" style="border-top:1px solid #EEECE7;padding-top:10px">' + (latest.overall != null ? 'Weighted overall ' + latest.overall + '. ' : '') + 'Coral bars are your two lowest marks.</div>';
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">No scorecard yet</div><div class="dash-empty-s">After five Practice answers you get a score per rubric dimension, each backed by a quote from what you said, and the overall is computed from those. Nothing guessed.</div><button class="dash-btn" onclick="dashPractice()">Start a Practice set</button></div>';
+  }
+  html += '</div>';
+
+  // Do next (rule-based, from the data on this page)
+  var next = [];
+  if(lowNames.length === 2) next.push({hot:true, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
+  else if(!latest) next.push({hot:true, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
+  if(!p.target_role_title) next.push({t:'Set your target role', s:'So matching and prep point at the right thing.', fn:'openCareerBrainPanel()'});
+  if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashResume()'});
+  if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
+  if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
+  html += '<div class="dash-card"><div class="dash-label">Do next</div>' + next.slice(0,3).map(function(n){
+    return '<button class="dash-next' + (n.hot?' hot':'') + '" onclick="' + n.fn + '"><div class="dash-next-t">' + escapeHtml(n.t) + '</div><div class="dash-next-s">' + escapeHtml(n.s) + '</div></button>';
+  }).join('') + '<div class="dash-muted">Each of these comes from something on this page, not a generic checklist.</div></div>';
+
+  // Past sessions
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Past sessions</div><button class="dash-link" onclick="openPastSessions()">All</button></div>';
+  if(d.past.length){
+    html += d.past.map(function(r){
+      var label = SESSION_MODE_LABELS[r.mode] || r.mode;
+      var bits = [];
+      if(r.role) bits.push(escapeHtml(r.role)); if(r.research_company) bits.push(escapeHtml(r.research_company));
+      bits.push(dashDate(r.archived_at || r.created_at));
+      if((r.mode==='practice'||r.mode==='star'||r.mode==='mock') && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
+      var right = r.readiness_score != null ? '<span class="dash-score">' + r.readiness_score + '/10</span>' : '<span class="dash-nr">' + ((r.mode==='practice'||r.mode==='star'||r.mode==='mock') ? 'not rated' : '') + '</span>';
+      return '<button class="dash-row" onclick="openPastSessions().then(function(){openPastSession(\'' + r.id + '\',\'' + escapeHtml(label) + '\')})"><div><div class="dash-row-t">' + escapeHtml(label) + '</div><div class="dash-row-s">' + bits.join(' \u00b7 ') + '</div></div>' + right + '</button>';
+    }).join('');
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
+  }
+  html += '</div>';
+
+  // Story bank
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Story bank</div>' + (d.stories.length ? '' : '<span class="dash-tag coral">Next up</span>') + '</div>';
+  if(d.stories.length){
+    html += d.stories.map(function(st){
+      return '<div class="dash-empty" style="border-style:solid"><div class="dash-empty-t">' + (st.status==='draft'?'Draft: ':'') + escapeHtml(st.title) + '</div><div class="dash-empty-s">' + (st.competencies && st.competencies.length ? 'Tagged: ' + escapeHtml(st.competencies.join(', ')) + '. ' : '') + (st.result ? '' : 'Missing: the result.') + '</div></div>';
+    }).join('');
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">No stories saved yet</div><div class="dash-empty-s">STAR sessions will save the stories you work through as drafts for you to confirm. Prep then pulls the right one by competency.</div><button class="dash-btn" onclick="dashStar()">Start STAR Coaching</button></div>';
+  }
+  html += '</div>';
+
+  // Opportunities
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div>' + (d.opps.length ? '' : '<span class="dash-tag">Coming</span>') + '</div>';
+  if(d.opps.length){
+    html += d.opps.map(function(o){
+      return '<div class="dash-row" style="cursor:default"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + '</div><div class="dash-row-s">' + escapeHtml(o.stage) + (o.fit_score != null ? ' \u00b7 fit ' + o.fit_score : '') + '</div></div></div>';
+    }).join('');
+  } else {
+    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="dashResume()">Paste a posting</button></div>';
+  }
+  html += '</div>';
+
+  html += '</div>'; // grid
+  html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
+  body.innerHTML = html;
 }
 
 // --- Past sessions (archived conversations, read-only) ------------------
