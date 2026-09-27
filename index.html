@@ -301,6 +301,19 @@ button,input,textarea{font-family:inherit}
 .brain-add-row button{border:0.5px solid #2A2020;background:#fff;border-radius:999px;padding:0 12px;font-size:12.5px;cursor:pointer}
 .brain-add-row button:hover{border-color:#F26B5E;background:#FCEAE6}
 .brain-prof{font-size:10.5px;color:#999;margin-left:6px;font-weight:500;text-transform:none;letter-spacing:0}
+.sess-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;background:#fff}
+.sess-row:hover{border-color:#F26B5E;background:#FFF8F6}
+.sess-main{min-width:0}
+.sess-title{font-size:13.5px;font-weight:600;color:#111}
+.sess-meta{font-size:12px;color:#888;margin-top:2px}
+.sess-score{flex:none;font-size:12px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px}
+.sess-back{background:none;border:none;color:#888;font-size:12.5px;cursor:pointer;padding:0 0 10px;text-decoration:underline}
+.sess-back:hover{color:#111}
+.sess-msg{font-size:13px;line-height:1.55;border-radius:10px;padding:10px 12px;margin-bottom:8px;overflow-wrap:anywhere}
+.sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
+.sess-msg.bot{background:var(--coral-pale);color:#111;margin-right:24px}
+.sess-msg.bot p{margin:0 0 8px}.sess-msg.bot p:last-child{margin:0}
+.sess-msg.bot ol,.sess-msg.bot ul{margin:4px 0 8px 18px;padding:0}
 
 .learned-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1A1A1A;color:#fff;font-size:13px;padding:11px 18px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.18);z-index:960;opacity:1;transition:opacity .3s ease}
 .learned-toast a{color:#FFB3AB;text-decoration:underline;cursor:pointer}
@@ -422,6 +435,7 @@ button,input,textarea{font-family:inherit}
             <div class="header-user-dropdown-email" id="authUserEmail"></div>
             <hr class="header-user-dropdown-sep">
             <button class="header-user-dropdown-item" onclick="openCareerBrainPanel()">What Ezzy knows about you</button>
+            <button class="header-user-dropdown-item" onclick="openPastSessions()">Past sessions</button>
             <button class="header-user-dropdown-item" onclick="openPricingModal()">Upgrade</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
@@ -1049,6 +1063,7 @@ function handleSendText(text){
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
       saveMessage('assistant', reply);
+      recordReadinessScore(reply);
       refreshStartOverRow();
     });
   }
@@ -1399,7 +1414,7 @@ async function startNewPrepSession(){
       var sessionRes = await window.supabaseClient.auth.getSession();
       var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
       if(uid){
-        var query = window.supabaseClient.from('conversations').select('id,restart_count,answer_count').eq('user_id', uid).eq('mode', modeId);
+        var query = window.supabaseClient.from('conversations').select('id,restart_count,answer_count').eq('user_id', uid).eq('mode', modeId).is('archived_at', null);
         query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
         var existing = await query.maybeSingle();
         var row = existing.data;
@@ -1411,9 +1426,10 @@ async function startNewPrepSession(){
           // messages directly can be refused by RLS and then the old
           // session silently comes back on restore), then recreate it with
           // the restart recorded so the count survives a refresh.
-          await window.supabaseClient.from('messages').delete().eq('conversation_id', row.id);
-          var del = await window.supabaseClient.from('conversations').delete().eq('id', row.id);
-          if(del.error){ console.error('Start over: could not delete session', del.error); showSimpleToast('Could not start over. Try again.'); return; }
+          // Archive rather than delete: the transcript stays readable under
+          // "Past sessions" and feeds the story bank later.
+          var arch = await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() }).eq('id', row.id);
+          if(arch.error){ console.error('Start over: could not archive session', arch.error); showSimpleToast('Could not start over. Try again.'); return; }
         }
         var ins = await window.supabaseClient.from('conversations').insert({
           user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: 1, answer_count: 0
@@ -1436,12 +1452,11 @@ async function startNewResumeReview(){
       var sessionRes = await window.supabaseClient.auth.getSession();
       var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
       if(uid){
-        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', 'resume');
+        var query = window.supabaseClient.from('conversations').select('id').eq('user_id', uid).eq('mode', 'resume').is('archived_at', null);
         query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
         var existing = await query.maybeSingle();
         if(existing.data && existing.data.id){
-          await window.supabaseClient.from('messages').delete().eq('conversation_id', existing.data.id);
-          await window.supabaseClient.from('conversations').delete().eq('id', existing.data.id);
+          await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() }).eq('id', existing.data.id);
         }
       }
     }catch(e){ console.error('Could not clear previous review:', e); }
@@ -2058,6 +2073,20 @@ function onAuthSuccess(user){
   </div>
 </div>
 
+<div id="sessionsOverlay" class="brain-overlay" onclick="if(event.target===this)closePastSessions()">
+  <div class="brain-panel">
+    <div class="brain-header">
+      <div>
+        <h3 id="sessionsTitle">Past sessions</h3>
+        <p id="sessionsSub">Sessions you started over. Read-only; start a fresh set to keep prepping.</p>
+      </div>
+      <button class="brain-close" onclick="closePastSessions()" aria-label="Close">&times;</button>
+    </div>
+    <div class="brain-body" id="sessionsBody">
+      <div class="brain-empty">Loading...</div>
+    </div>
+  </div>
+</div>
 <div id="pricingOverlay" class="brain-overlay" onclick="if(event.target===this)closePricingModal()">
   <div class="pricing-panel">
     <div class="brain-header">
@@ -2211,7 +2240,8 @@ async function ensureConversation(){
     .from('conversations')
     .select('id')
     .eq('user_id', userId)
-    .eq('mode', mode);
+    .eq('mode', mode)
+    .is('archived_at', null);
   if(role){ query = query.eq('role', role); }
   else { query = query.is('role', null); }
   var existing = await query.maybeSingle();
@@ -2307,7 +2337,8 @@ async function loadConversationForMode(modeId){
     .from('conversations')
     .select('*')
     .eq('user_id', userId)
-    .eq('mode', dbMode);
+    .eq('mode', dbMode)
+    .is('archived_at', null);
   if(role){ query = query.eq('role', role); }
   else { query = query.is('role', null); }
   var convoRes = await query.maybeSingle();
@@ -2463,11 +2494,15 @@ async function migrateAnonymousToAccount(user){
       resume_stage: snapshot.resumeStage
     };
     
-    var convoRes = await window.supabaseClient
-      .from('conversations')
-      .upsert(insertConvo, { onConflict: 'user_id,mode,role' })
-      .select('id')
-      .single();
+    var activeQ = window.supabaseClient.from('conversations').select('id').eq('user_id', insertConvo.user_id).eq('mode', insertConvo.mode).is('archived_at', null);
+    activeQ = insertConvo.role ? activeQ.eq('role', insertConvo.role) : activeQ.is('role', null);
+    var activeRes = await activeQ.maybeSingle();
+    var convoRes;
+    if(activeRes.data && activeRes.data.id){
+      convoRes = await window.supabaseClient.from('conversations').update(insertConvo).eq('id', activeRes.data.id).select('id').single();
+    } else {
+      convoRes = await window.supabaseClient.from('conversations').insert(insertConvo).select('id').single();
+    }
     
     if(convoRes.error || !convoRes.data){
       console.error('Migration: convo insert failed', convoRes.error);
@@ -2583,6 +2618,90 @@ async function loadCareerClaims(){
   }
   BRAIN_PROFILE = results[0].data || null;
   renderClaims(results[1].data || []);
+}
+
+// --- Past sessions (archived conversations, read-only) ------------------
+var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview', resume:'Resume Review', research:'Company Research' };
+
+function recordReadinessScore(reply){
+  if(!window.supabaseClient || !window._currentConversationId || !reply) return;
+  var m = reply.match(/readiness[^\n]{0,60}?(\d{1,2})\s*(?:\/|out of)\s*10/i) || reply.match(/(\d{1,2})\s*\/\s*10\b/);
+  if(!m) return;
+  var score = parseInt(m[1],10);
+  if(isNaN(score) || score < 0 || score > 10) return;
+  window.supabaseClient.from('conversations').update({ readiness_score: score }).eq('id', window._currentConversationId)
+    .then(function(r){ if(r.error) console.error('readiness save', r.error); });
+}
+
+async function openPastSessions(){
+  var dropdown = document.getElementById('authUserDropdown');
+  if(dropdown) dropdown.classList.remove('active');
+  document.getElementById('sessionsOverlay').classList.add('active');
+  await loadPastSessions();
+}
+
+function closePastSessions(){
+  document.getElementById('sessionsOverlay').classList.remove('active');
+}
+
+function fmtSessionDate(iso){
+  try{ return new Date(iso).toLocaleDateString(undefined, {month:'short', day:'numeric'}); }catch(e){ return ''; }
+}
+
+async function loadPastSessions(){
+  var body = document.getElementById('sessionsBody');
+  document.getElementById('sessionsTitle').textContent = 'Past sessions';
+  document.getElementById('sessionsSub').textContent = 'Sessions you started over. Read-only; start a fresh set to keep prepping.';
+  body.innerHTML = '<div class="brain-empty">Loading...</div>';
+  if(!window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session){ body.innerHTML = '<div class="brain-empty">Sign in to see your past sessions.</div>'; return; }
+  var res = await window.supabaseClient.from('conversations')
+    .select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company')
+    .eq('user_id', session.user.id).not('archived_at','is',null)
+    .order('archived_at', {ascending:false}).limit(50);
+  if(res.error){ body.innerHTML = '<div class="brain-empty">Could not load sessions. Try again shortly.</div>'; return; }
+  var rows = res.data || [];
+  if(!rows.length){ body.innerHTML = '<div class="brain-empty">Nothing here yet. When you start over, the old session lands here.</div>'; return; }
+  body.innerHTML = rows.map(function(r){
+    var label = SESSION_MODE_LABELS[r.mode] || r.mode;
+    var bits = [];
+    if(r.role) bits.push(escapeHtml(r.role));
+    if(r.research_company) bits.push(escapeHtml(r.research_company));
+    bits.push(fmtSessionDate(r.archived_at || r.created_at));
+    if((r.mode==='practice'||r.mode==='star'||r.mode==='mock') && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
+    var score = (r.readiness_score!=null) ? '<span class="sess-score">'+r.readiness_score+'/10</span>' : '';
+    return '<div class="sess-row" onclick="openPastSession(\''+r.id+'\', \''+escapeHtml(label)+'\')">'
+      + '<div class="sess-main"><div class="sess-title">'+label+'</div><div class="sess-meta">'+bits.join(' \u00b7 ')+'</div></div>'
+      + score + '</div>';
+  }).join('');
+}
+
+async function openPastSession(id, label){
+  var body = document.getElementById('sessionsBody');
+  document.getElementById('sessionsTitle').textContent = label;
+  document.getElementById('sessionsSub').textContent = 'Read-only transcript.';
+  body.innerHTML = '<button class="sess-back" onclick="loadPastSessions()">\u2190 All sessions</button><div class="brain-empty">Loading...</div>';
+  var res = await window.supabaseClient.from('messages').select('role,content,created_at').eq('conversation_id', id).order('created_at', {ascending:true});
+  var html = '<button class="sess-back" onclick="loadPastSessions()">\u2190 All sessions</button>';
+  if(res.error || !res.data || !res.data.length){
+    body.innerHTML = html + '<div class="brain-empty">No messages saved for this session.</div>';
+    return;
+  }
+  res.data.forEach(function(m){
+    if(m.role === 'user'){
+      var t = m.content || '';
+      if(t.length > 600) t = t.slice(0, 600) + ' \u2026';
+      html += '<div class="sess-msg user">'+escapeHtml(t)+'</div>';
+    } else {
+      var rendered; try{ rendered = marked.parse(m.content || ''); }catch(e){ rendered = escapeHtml(m.content || ''); }
+      html += '<div class="sess-msg bot">'+rendered+'</div>';
+    }
+  });
+  body.innerHTML = html;
+  externalizeLinks(body);
+  body.scrollTop = 0;
 }
 
 function escapeHtml(s){
