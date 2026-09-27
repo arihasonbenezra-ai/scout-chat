@@ -308,65 +308,67 @@ button,input,textarea{font-family:inherit}
 /* My Career dashboard (signed-in home) */
 .dash{display:none;flex:1;overflow-y:auto;background:#F7F6F3}
 .dash.show{display:block}
-.dash-inner{max-width:1200px;margin:0 auto;padding:32px 40px 48px;display:flex;flex-direction:column;gap:22px}
+.dash-inner{max-width:1360px;margin:0 auto;padding:36px 40px 56px;display:flex;flex-direction:column;gap:26px}
 .dash-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
-.dash-h1{margin:0;font-size:28px;font-weight:700;letter-spacing:-.02em}
-.dash-sub{font-size:14px;color:#555;margin-top:4px;line-height:1.5}
+.dash-h1{margin:0;font-size:34px;font-weight:700;letter-spacing:-.02em}
+.dash-sub{font-size:16px;color:#555;margin-top:6px;line-height:1.5}
 .dash-actions{display:flex;gap:10px;flex-wrap:wrap}
-.dash-btn{padding:10px 16px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;border:1px solid #C9C6C0;background:#fff;color:#111;font-family:inherit}
+.dash-btn{padding:12px 20px;border-radius:999px;font-size:15px;font-weight:600;cursor:pointer;border:1px solid #C9C6C0;background:#fff;color:#111;font-family:inherit}
 .dash-btn.primary{background:#111;color:#fff;border-color:#111}
 .dash-btn:hover{border-color:#111}
-.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
-.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:16px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:24px 26px;display:flex;flex-direction:column;gap:14px;min-width:0}
 .dash-card.dark{background:#111;color:#fff;border-color:#111}
 .dash-card.span2{grid-column:span 2}
-.dash-label{font-size:11.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B6B6B}
+.dash-label{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B6B6B}
 .dash-card.dark .dash-label{color:#BDBDBD}
 .dash-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-.dash-link{font-size:12.5px;font-weight:600;color:#C2493C;background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
+.dash-link{font-size:14px;font-weight:600;color:#C2493C;background:none;border:none;cursor:pointer;padding:0;font-family:inherit}
 .dash-link:hover{text-decoration:underline}
-.dash-title{font-size:20px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
-.dash-text{font-size:13.5px;color:#333;line-height:1.5}
+.dash-title{font-size:24px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
+.dash-text{font-size:15px;color:#333;line-height:1.55}
 .dash-card.dark .dash-text{color:#DDDDDD}
 .dash-chips{display:flex;flex-wrap:wrap;gap:6px}
-.dash-chip{font-size:12px;padding:4px 10px;border-radius:999px;background:#F3F1EC;color:#333}
+.dash-chip{font-size:13.5px;padding:5px 12px;border-radius:999px;background:#F3F1EC;color:#333}
+.dash-chip.more{cursor:pointer;border:none;font-family:inherit}
+.dash-chip.more:hover{background:#E9E6DF}
 .dash-chip.coral{background:#FCEAE6;color:#8F3229}
-.dash-ok{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#1E7A3D;margin-top:auto}
-.dash-warn{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#966B0A;margin-top:auto}
-.dash-muted{font-size:12px;color:#6B6B6B;margin-top:auto;line-height:1.5}
+.dash-ok{display:flex;align-items:center;gap:6px;font-size:14px;color:#1E7A3D;margin-top:auto}
+.dash-warn{display:flex;align-items:center;gap:6px;font-size:14px;color:#966B0A;margin-top:auto}
+.dash-muted{font-size:13.5px;color:#6B6B6B;margin-top:auto;line-height:1.5}
 .dash-card.dark .dash-muted{color:#9A9A9A}
 .dash-big{display:flex;align-items:baseline;gap:8px}
-.dash-big-n{font-size:50px;font-weight:700;letter-spacing:-.03em;line-height:1}
-.dash-big-d{font-size:18px;color:#BDBDBD}
+.dash-big-n{font-size:60px;font-weight:700;letter-spacing:-.03em;line-height:1}
+.dash-big-d{font-size:20px;color:#BDBDBD}
 .dash-bars{display:flex;gap:6px;align-items:flex-end;height:44px;margin-top:auto}
 .dash-bar{width:18px;border-radius:3px;background:#4A4A4A}
 .dash-bar.now{background:#F26B5E}
-.dash-dims{display:flex;flex-direction:column;gap:9px}
-.dash-dim{display:grid;grid-template-columns:170px 110px minmax(0,1fr);gap:12px;align-items:center}
-.dash-dim-name{font-size:13.5px;font-weight:600}
+.dash-dims{display:flex;flex-direction:column;gap:12px}
+.dash-dim{display:grid;grid-template-columns:200px 120px minmax(0,1fr);gap:14px;align-items:center}
+.dash-dim-name{font-size:15px;font-weight:600}
 .dash-meter{display:flex;align-items:center;gap:8px}
-.dash-meter-track{width:70px;height:8px;border-radius:4px;background:#F3F1EC;overflow:hidden;flex:none}
-.dash-meter-fill{height:8px;background:#1E7A3D}
+.dash-meter-track{width:80px;height:9px;border-radius:4px;background:#F3F1EC;overflow:hidden;flex:none}
+.dash-meter-fill{height:9px;background:#1E7A3D}
 .dash-meter-fill.low{background:#F26B5E}
-.dash-meter-n{font-size:12.5px;color:#555}
-.dash-dim-note{font-size:12.5px;color:#555;line-height:1.45}
-.dash-next{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-radius:12px;background:#F3F1EC;color:#111;cursor:pointer;border:none;text-align:left;font-family:inherit;width:100%}
+.dash-meter-n{font-size:14px;color:#555}
+.dash-dim-note{font-size:14px;color:#555;line-height:1.45}
+.dash-next{display:flex;flex-direction:column;gap:4px;padding:14px 16px;border-radius:12px;background:#F3F1EC;color:#111;cursor:pointer;border:none;text-align:left;font-family:inherit;width:100%}
 .dash-next.hot{background:#FCEAE6}
 .dash-next:hover{outline:1px solid #C9C6C0}
-.dash-next-t{font-size:13.5px;font-weight:600}
-.dash-next-s{font-size:12.5px;color:#555}
-.dash-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid #ECEAE5;border-radius:12px;cursor:pointer;background:#fff;text-align:left;font-family:inherit;color:#111;width:100%}
+.dash-next-t{font-size:15px;font-weight:600}
+.dash-next-s{font-size:13.5px;color:#555}
+.dash-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 14px;border:1px solid #ECEAE5;border-radius:12px;cursor:pointer;background:#fff;text-align:left;font-family:inherit;color:#111;width:100%}
 .dash-row:hover{border-color:#F26B5E}
-.dash-row-t{font-size:13.5px;font-weight:600}
-.dash-row-s{font-size:12px;color:#6B6B6B;margin-top:2px}
-.dash-score{font-size:12px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px;flex:none}
-.dash-nr{font-size:12px;color:#9A9A9A;flex:none}
+.dash-row-t{font-size:15px;font-weight:600}
+.dash-row-s{font-size:13px;color:#6B6B6B;margin-top:2px}
+.dash-score{font-size:13px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px;flex:none}
+.dash-nr{font-size:13px;color:#9A9A9A;flex:none}
 .dash-empty{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding:14px;border:1px dashed #D5D2CB;border-radius:12px}
-.dash-empty-t{font-size:13.5px;font-weight:600;color:#333}
-.dash-empty-s{font-size:12.5px;color:#6B6B6B;line-height:1.5}
+.dash-empty-t{font-size:15px;font-weight:600;color:#333}
+.dash-empty-s{font-size:14px;color:#6B6B6B;line-height:1.5}
 .dash-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:#F3F1EC;color:#555}
 .dash-tag.coral{background:#FCEAE6;color:#8F3229}
-.dash-foot{font-size:12px;color:#8A8A8A}
+.dash-foot{font-size:13.5px;color:#8A8A8A}
 .dash-loading{padding:60px;text-align:center;color:#888;font-size:14px}
 .nav-home{display:none;margin-left:14px;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:600;color:#111;text-decoration:none;background:#FCEAE6;cursor:pointer}
 .nav-home.show{display:inline-block}
@@ -2816,6 +2818,33 @@ function dashResearch(){
   pickIntent('research');
 }
 
+var DASH_CLAIMS = [];
+var DASH_CLAIMS_OPEN = false;
+var DASH_CLAIM_LABELS = { skill:'Skills', achievement:'Achievements', experience:'Experience', goal:'Goals', preference:'Preferences', hypothesis:'Hypotheses' };
+function dashClaimChips(open){
+  var skills = DASH_CLAIMS.filter(function(c){ return c.claim_type==='skill'; });
+  if(!open){
+    var rest = DASH_CLAIMS.length - Math.min(4, skills.length);
+    return skills.slice(0,4).map(function(c){ return '<span class="dash-chip coral">' + escapeHtml(c.label) + '</span>'; }).join('')
+      + (rest > 0 ? '<button class="dash-chip more" onclick="toggleDashClaims()">+ ' + rest + ' more</button>' : '');
+  }
+  var groups = {};
+  DASH_CLAIMS.forEach(function(c){ (groups[c.claim_type] = groups[c.claim_type] || []).push(c); });
+  var html = '';
+  ['skill','experience','achievement','goal','preference','hypothesis'].forEach(function(t){
+    if(!groups[t]) return;
+    html += '<div style="width:100%;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A;margin-top:6px">' + DASH_CLAIM_LABELS[t] + '</div>';
+    html += groups[t].map(function(c){ return '<span class="dash-chip' + (t==='skill'?' coral':'') + '" title="' + escapeHtml(c.status) + '">' + escapeHtml(c.label) + '</span>'; }).join('');
+  });
+  html += '<button class="dash-chip more" onclick="toggleDashClaims()">Show less</button>';
+  return html;
+}
+function toggleDashClaims(){
+  DASH_CLAIMS_OPEN = !DASH_CLAIMS_OPEN;
+  var el = document.getElementById('dashClaims');
+  if(el) el.innerHTML = dashClaimChips(DASH_CLAIMS_OPEN);
+}
+
 function dashGreeting(name){
   var h = new Date().getHours();
   var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -2928,13 +2957,14 @@ function renderDashboard(body, d){
   var skills = d.claims.filter(function(c){ return c.claim_type==='skill'; });
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div><button class="dash-link" onclick="openCareerBrainPanel()">See all</button></div>';
   if(d.claims.length || p.current_role_title){
-    var now = [];
-    if(p.current_role_title) now.push(escapeHtml(p.current_role_title));
-    if(p.current_industry) now.push('in ' + escapeHtml(p.current_industry));
-    if(p.years_experience) now.push(Number(p.years_experience) + ' years');
-    if(now.length) html += '<div class="dash-text">' + now.join(' \u00b7 ') + '</div>';
-    html += '<div class="dash-chips">' + skills.slice(0,4).map(function(c){ return '<span class="dash-chip coral">' + escapeHtml(c.label) + '</span>'; }).join('')
-      + (d.claims.length > 4 ? '<span class="dash-chip">+ ' + (d.claims.length - Math.min(4, skills.length)) + ' more</span>' : '') + '</div>';
+    // Two separate facts, kept separate: the current role (and its industry),
+    // and total years of experience across the whole career.
+    var line1 = p.current_role_title ? escapeHtml(p.current_role_title) + (p.current_industry ? ', ' + escapeHtml(p.current_industry) : '') : '';
+    var line2 = p.years_experience ? Number(p.years_experience) + ' years of experience overall' : '';
+    if(line1) html += '<div class="dash-text"><strong>' + line1 + '</strong>' + (line2 ? '<br><span style="color:#6B6B6B">' + line2 + '</span>' : '') + '</div>';
+    else if(line2) html += '<div class="dash-text">' + line2 + '</div>';
+    DASH_CLAIMS = d.claims;
+    html += '<div class="dash-chips" id="dashClaims">' + dashClaimChips(false) + '</div>';
     html += '<div class="dash-muted">Every item carries the resume line it came from. Remove anything that\u2019s wrong.</div>';
   } else {
     html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
@@ -3024,9 +3054,9 @@ var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:
 
 function recordReadinessScore(reply){
   if(!window.supabaseClient || !window._currentConversationId || !reply) return;
-  var m = reply.match(/readiness[^\n]{0,60}?(\d{1,2})\s*(?:\/|out of)\s*10/i) || reply.match(/(\d{1,2})\s*\/\s*10\b/);
+  var m = reply.match(/\*\*Readiness:\s*([\d.]+)\s*\/\s*10\*\*/);
   if(!m) return;
-  var score = parseInt(m[1],10);
+  var score = Math.round(parseFloat(m[1]));
   if(isNaN(score) || score < 0 || score > 10) return;
   window.supabaseClient.from('conversations').update({ readiness_score: score }).eq('id', window._currentConversationId)
     .then(function(r){ if(r.error) console.error('readiness save', r.error); });
