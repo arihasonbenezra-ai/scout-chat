@@ -340,6 +340,13 @@ button,input,textarea{font-family:inherit}
 .dash-chips{display:flex;flex-wrap:wrap;gap:6px}
 .dash-chip{font-size:14.5px;padding:6px 13px;border-radius:999px;background:#F3F1EC;color:#333}
 .dash-chip.more{cursor:pointer;border:none;font-family:inherit}
+.dash-chip{display:inline-flex;align-items:center;gap:6px}
+.dash-chip-x{background:none;border:none;padding:0 0 0 2px;margin:0;font-size:16px;line-height:1;color:#B08A84;cursor:pointer;font-family:inherit}
+.dash-chip-x:hover{color:#8F3229}
+.dash-add{display:flex;gap:8px;width:100%;margin-bottom:4px}
+.dash-add input{flex:1;height:40px;border:1px solid #D5D2CB;border-radius:999px;padding:0 14px;font-size:14.5px;outline:none;font-family:inherit}
+.dash-add input:focus{border-color:#F26B5E}
+.dash-add .dash-btn{padding:8px 16px;font-size:14px}
 .dash-chip.more:hover{background:#E9E6DF}
 .dash-chip.coral{background:#FCEAE6;color:#8F3229}
 .dash-ok{display:flex;align-items:center;gap:6px;font-size:15px;color:#1E7A3D;margin-top:auto}
@@ -2860,13 +2867,20 @@ function dashClaimChips(open){
     return skills.slice(0,4).map(function(c){ return '<span class="dash-chip coral">' + escapeHtml(c.label) + '</span>'; }).join('')
       + (rest > 0 ? '<button class="dash-chip more" onclick="toggleDashClaims()">+ ' + rest + ' more</button>' : '');
   }
+  var canEdit = isCareerPlan();
   var groups = {};
   DASH_CLAIMS.forEach(function(c){ (groups[c.claim_type] = groups[c.claim_type] || []).push(c); });
   var html = '';
+  if(canEdit){
+    html += '<div class="dash-add"><input id="dashSkillInput" type="text" placeholder="Add a skill Ezzy missed..." onkeydown="if(event.key===\'Enter\')dashAddSkill()"/><button class="dash-btn" onclick="dashAddSkill()">Add</button></div>';
+  }
   ['skill','experience','achievement','goal','preference','hypothesis'].forEach(function(t){
     if(!groups[t]) return;
     html += '<div style="width:100%;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A;margin-top:6px">' + DASH_CLAIM_LABELS[t] + '</div>';
-    html += groups[t].map(function(c){ return '<span class="dash-chip' + (t==='skill'?' coral':'') + '" title="' + escapeHtml(c.status) + '">' + escapeHtml(c.label) + '</span>'; }).join('');
+    html += groups[t].map(function(c){
+      return '<span class="dash-chip' + (t==='skill'?' coral':'') + '" data-claim="' + c.id + '" title="' + escapeHtml(c.status) + '">' + escapeHtml(c.label)
+        + (canEdit ? '<button class="dash-chip-x" onclick="dashRemoveClaim(\'' + c.id + '\')" aria-label="Remove">&times;</button>' : '') + '</span>';
+    }).join('');
   });
   html += '<button class="dash-chip more" onclick="toggleDashClaims()">Show less</button>';
   return html;
@@ -2875,6 +2889,38 @@ function toggleDashClaims(){
   DASH_CLAIMS_OPEN = !DASH_CLAIMS_OPEN;
   var el = document.getElementById('dashClaims');
   if(el) el.innerHTML = dashClaimChips(DASH_CLAIMS_OPEN);
+}
+async function dashRemoveClaim(id){
+  if(!window.supabaseClient) return;
+  var chip = document.querySelector('.dash-chip[data-claim="' + id + '"]');
+  if(chip) chip.style.opacity = '0.4';
+  var r = await window.supabaseClient.from('career_claims').delete().eq('id', id);
+  if(r.error){ if(chip) chip.style.opacity = '1'; console.error('remove claim', r.error); return; }
+  DASH_CLAIMS = DASH_CLAIMS.filter(function(c){ return c.id !== id; });
+  var el = document.getElementById('dashClaims');
+  if(el) el.innerHTML = dashClaimChips(DASH_CLAIMS_OPEN);
+}
+async function dashAddSkill(){
+  var input = document.getElementById('dashSkillInput');
+  if(!input || !window.supabaseClient) return;
+  var label = (input.value||'').trim().slice(0,200);
+  if(!label) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session) return;
+  input.disabled = true;
+  var r = await window.supabaseClient.from('career_claims').upsert({
+    user_id: session.user.id, claim_type:'skill', label: label, status:'fact', detail:{},
+    evidence:[{source:'user', quote:'Added by you', date:new Date().toISOString().slice(0,10)}],
+    last_seen_at: new Date().toISOString()
+  }, {onConflict:'user_id,claim_type,label'}).select('id,claim_type,label,status,detail').single();
+  input.disabled = false;
+  if(r.error){ console.error('add skill', r.error); return; }
+  DASH_CLAIMS = DASH_CLAIMS.filter(function(c){ return c.id !== r.data.id; });
+  DASH_CLAIMS.unshift(r.data);
+  var el = document.getElementById('dashClaims');
+  if(el) el.innerHTML = dashClaimChips(true);
+  var again = document.getElementById('dashSkillInput'); if(again) again.focus();
 }
 
 function dashGreeting(name){
@@ -3003,7 +3049,7 @@ function renderDashboard(body, d){
     else if(line2) html += '<div class="dash-text">' + line2 + '</div>';
     DASH_CLAIMS = d.claims;
     html += '<div class="dash-chips" id="dashClaims">' + dashClaimChips(false) + '</div>';
-    html += '<div class="dash-muted">Every item carries the resume line it came from. Remove anything that\u2019s wrong.</div>';
+    html += '<div class="dash-muted">Every item carries the resume line it came from. ' + (isCareerPlan() ? 'Open the list to remove anything that\u2019s wrong or add a skill.' : '') + '</div>';
   } else {
     html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
   }
