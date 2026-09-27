@@ -1626,40 +1626,91 @@ async function startNewResumeReview(){
 function downloadFeedbackPDF(){
   var jsPDF=window.jspdf.jsPDF;
   var doc=new jsPDF({unit:'pt',format:'letter'});
-  var pageW=612;var pageH=792;var margin=54;
-  var y=margin;var lineH=14;
-  doc.setFillColor(242,107,94);
-  doc.rect(0,0,pageW,40,'F');
-  doc.setTextColor(255,255,255);
-  doc.setFont('helvetica','bold');doc.setFontSize(14);
-  doc.text('Ezzy. Resume Feedback',margin,26);
-  y=80;
-  doc.setTextColor(0,0,0);
-  function ensureSpace(needed){if(y+needed>pageH-margin){doc.addPage();y=margin;}}
-  function writeSectionTitle(title){
-    ensureSpace(28);
-    doc.setFont('helvetica','bold');doc.setFontSize(12);
-    doc.text(title,margin,y);y+=18;
+  var pageW=612, pageH=792, margin=60, maxW=pageW-margin*2;
+  var y=0;
+  var BODY=10.5, BODY_LH=15;
+
+  function header(){
+    doc.setFillColor(242,107,94); doc.rect(0,0,pageW,44,'F');
+    doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(13);
+    doc.text('Ezzy. Resume Review', margin, 28);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    var meta=[]; if(window.ROLE) meta.push(window.ROLE); if(window.TARGET_HINT) meta.push(window.TARGET_HINT);
+    meta.push(new Date().toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}));
+    doc.text(meta.join('  ·  '), pageW-margin, 28, {align:'right'});
+    doc.setTextColor(17,17,17); y=76;
   }
-  function writeBody(text){
-    doc.setFont('helvetica','normal');doc.setFontSize(10);
-    var lines=doc.splitTextToSize(text,pageW-margin*2);
-    for(var i=0;i<lines.length;i++){ensureSpace(lineH);doc.text(lines[i],margin,y);y+=lineH;}
+  function ensure(h){ if(y+h>pageH-margin){ doc.addPage(); header(); } }
+  function clean(t){
+    return String(t||'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(^|\s)\*(\S[^*]*)\*(?=\s|$|[.,;:])/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/→/g,'->').replace(/“|”/g,'"').replace(/‘|’/g,"'").replace(/–|—/g,'-');
   }
-  for(var i=0;i<convoHistory.length;i++){
-    var m=convoHistory[i];
-    if(m.role==='user'){
-      writeSectionTitle('You said:');
-      writeBody(m.content.replace(/\n+/g,' ').slice(0,500)+(m.content.length>500?'...':''));
-      y+=8;
-    } else {
-      writeSectionTitle('Ezzy:');
-      writeBody(m.content);
-      y+=12;
+  function para(text, indent, size, style, color){
+    size=size||BODY; style=style||'normal'; indent=indent||0;
+    doc.setFont('helvetica',style); doc.setFontSize(size); doc.setTextColor.apply(doc, color||[17,17,17]);
+    var lines=doc.splitTextToSize(clean(text), maxW-indent);
+    for(var i=0;i<lines.length;i++){ ensure(BODY_LH); doc.text(lines[i], margin+indent, y); y+=BODY_LH; }
+  }
+  function label(text){ ensure(26); y+=6; para(text.toUpperCase(), 0, 8.5, 'bold', [143,50,41]); y+=2; }
+  function title(text){ ensure(30); y+=10; para(text, 0, 13, 'bold'); y+=4; }
+  function rule(){ ensure(16); y+=4; doc.setDrawColor(230,220,216); doc.line(margin,y,pageW-margin,y); y+=12; }
+  function bullet(text, marker, indent){
+    doc.setFont('helvetica','normal'); doc.setFontSize(BODY); doc.setTextColor(17,17,17);
+    var lines=doc.splitTextToSize(clean(text), maxW-indent-16);
+    for(var i=0;i<lines.length;i++){ ensure(BODY_LH); if(i===0) doc.text(marker, margin+indent, y); doc.text(lines[i], margin+indent+16, y); y+=BODY_LH; }
+    y+=3;
+  }
+  function renderMarkdown(md){
+    var lines=String(md||'').split('\n'); var inTable=false;
+    for(var i=0;i<lines.length;i++){
+      var raw=lines[i], line=raw.trim(), m;
+      if(!line){ y+=5; inTable=false; continue; }
+      if(/^\|/.test(line)){ // table row -> "cell: cell" lines, skip separators
+        if(/^\|\s*-+/.test(line)) continue;
+        var cells=line.split('|').map(function(c){return c.trim();}).filter(Boolean);
+        if(!inTable){ inTable=true; }
+        para(cells.join('   |   '), 8, 9.5); continue;
+      }
+      inTable=false;
+      if(/^-{3,}$|^\*{3,}$|^_{3,}$/.test(line)){ rule(); continue; }
+      if((m=line.match(/^#{1,3}\s+(.*)$/))){ title(m[1]); continue; }
+      if((m=line.match(/^\*\*(.+?):?\*\*:?\s*$/))){ label(m[1]); continue; }
+      if((m=line.match(/^(?:[-*•])\s+(.*)$/))){ bullet(m[1], '•', 6); continue; }
+      if((m=line.match(/^(\d+)[.)]\s+(.*)$/))){ bullet(m[2], m[1]+'.', 6); continue; }
+      if((m=line.match(/^\*\*(.+?):\*\*\s*(.*)$/))){ label(m[1]); if(m[2]) para(m[2]); continue; }
+      if((m=line.match(/^_(.+)_$/))){ para(m[1], 0, 9.5, 'italic', [110,110,110]); continue; }
+      para(line);
     }
   }
+
+  header();
+  // Only Ezzy's review - the candidate already has their own resume.
+  var replies=convoHistory.filter(function(m){ return m.role==='assistant' && m.content; });
+  if(!replies.length){ para('No review to export yet.'); }
+  replies.forEach(function(m, idx){ if(idx>0) rule(); renderMarkdown(m.content); });
+
+  // Match box, if one is on screen
+  var rows=document.querySelectorAll('.gap-box .gap-row');
+  if(rows.length){
+    rule(); title('How you match this role');
+    Array.prototype.forEach.call(rows, function(r){
+      var st=r.classList.contains('gap-matched')?'Matched':r.classList.contains('gap-partial')?'Partial':'Missing';
+      var req=r.querySelector('.gap-req'); var note=r.querySelector('.gap-note');
+      ensure(BODY_LH*2);
+      para((req?req.textContent:'')+'  -  '+st, 0, BODY, 'bold');
+      if(note && note.textContent) para(note.textContent, 12, 9.5, 'normal', [90,90,90]);
+      y+=4;
+    });
+  }
+
+  // Footer on every page
+  var n=doc.getNumberOfPages();
+  for(var pg=1; pg<=n; pg++){
+    doc.setPage(pg); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(150,150,150);
+    doc.text('Ezzy · meetezzy.com', margin, pageH-30);
+    doc.text('Page '+pg+' of '+n, pageW-margin, pageH-30, {align:'right'});
+  }
   var d=new Date();var stamp=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  doc.save('ezzy-resume-feedback-'+stamp+'.pdf');
+  doc.save('ezzy-resume-review-'+stamp+'.pdf');
 }
 
 // Resume drop zone visibility
