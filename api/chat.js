@@ -267,7 +267,7 @@ function prepProgress(messages, mode) {
 function prepProgressInstruction(p) {
   if (!p) return '';
   if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and the summary and scorecard were already given. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the restart icon.';
-  if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then a 3-4 sentence overall summary of the set. Do NOT give a numeric score (a scorecard is computed separately and appended). Do NOT ask another question.';
+  if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then a 3-4 sentence overall summary of the set. Do NOT give a numeric score (a scorecard is computed separately and appended). Do NOT ask another question, and do NOT say "next" or offer to move on - there is nothing after this. If something is missing from this last answer, say what it is, but frame it as advice for their real interview.';
   if (p.asked === 0) return '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
   return '\n\nSession state: you have asked ' + p.asked + ' of ' + p.size + ' questions so far. When you move on, the next one is "Question ' + (p.asked + 1) + ' of ' + p.size + '". Never restart the numbering.';
 }
