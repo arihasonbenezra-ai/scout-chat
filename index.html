@@ -257,6 +257,8 @@ button,input,textarea{font-family:inherit}
 .header-user-dropdown-sep{margin:0;border:none;border-top:0.5px solid #F0F0F0}
 .header-user-dropdown-item{display:block;width:100%;background:none;border:none;text-align:left;padding:10px 14px;font-size:13px;color:#000;cursor:pointer;font-family:inherit}
 .header-user-dropdown-item:hover{background:#F5F5F5}
+#authPlanItem{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header-user-dropdown-hint{color:#C2493C;font-weight:600;font-size:12px}
 .onboarding-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.97);z-index:900;align-items:center;justify-content:center;padding:24px}
 .onboarding-overlay.active{display:flex}.goodbye-secondary-btn{background:transparent;border:none;color:#666;font:inherit;padding:8px 16px;margin-top:8px;cursor:pointer;text-decoration:underline}.goodbye-secondary-btn:hover{color:#000}
 .onboarding-card{max-width:440px;width:100%;text-align:center;animation:onboardingIn 0.5s ease forwards}
@@ -276,27 +278,17 @@ button,input,textarea{font-family:inherit}
 /* Career Brain panel */
 .brain-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.25);z-index:950}
 .brain-overlay.active{display:flex;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
-.brain-panel{position:fixed;top:0;right:0;bottom:0;width:400px;max-width:100%;background:#fff;box-shadow:-8px 0 24px rgba(0,0,0,0.08);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .2s ease}
-.brain-overlay.active .brain-panel{transform:translateX(0)}
 .brain-header{display:flex;align-items:center;justify-content:space-between;padding:20px 20px 14px;border-bottom:0.5px solid #EDEDED}
 .brain-header h3{margin:0;font-size:17px;font-weight:600;letter-spacing:-0.01em}
 .brain-header p{margin:2px 0 0;font-size:12.5px;color:#777}
 .brain-close{background:none;border:none;font-size:20px;color:#999;cursor:pointer;line-height:1;padding:4px}
 .brain-close:hover{color:#000}
-.brain-body{flex:1;overflow-y:auto;padding:14px 20px 24px}
-.brain-empty{color:#888;font-size:13.5px;line-height:1.6;padding:24px 0;text-align:center}
 .brain-group-title{font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:#999;margin:20px 0 8px}
 .brain-group-title:first-child{margin-top:4px}
-.brain-claim{border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px}
-.brain-claim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.brain-claim-label{font-size:13.5px;font-weight:600;color:#111;line-height:1.4}
 .brain-status{flex:none;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:5px;margin-top:1px;white-space:nowrap}
 .brain-status.fact{background:#E6F4EA;color:#1E7A3D}
 .brain-status.inference{background:#FFF3DA;color:#966B0A}
 .brain-status.hypothesis{background:#F1EAFB;color:#6A3FBF}
-.brain-evidence{font-size:12px;color:#888;margin-top:6px;font-style:italic;line-height:1.5}
-.brain-remove{background:none;border:none;color:#B8B4AE;font-size:11.5px;cursor:pointer;padding:6px 0 0;text-decoration:underline}
-.brain-remove:hover{color:#D9554A}
 .brain-target{border:0.5px solid #ECECEC;border-radius:12px;padding:14px;margin:4px 0 8px;background:#FAFAF9}
 .brain-target-row{display:flex;gap:8px;margin-bottom:8px}
 .brain-target-row:last-child{margin-bottom:0}
@@ -308,11 +300,6 @@ button,input,textarea{font-family:inherit}
 .brain-target-hint{font-size:11.5px;color:#999;line-height:1.4}
 .brain-save{border:none;background:#111;color:#fff;font-size:12.5px;font-weight:600;border-radius:999px;padding:7px 14px;cursor:pointer}
 .brain-save:disabled{opacity:.5;cursor:default}
-.brain-add-row{display:flex;gap:6px;margin:0 0 10px}
-.brain-add-row input{flex:1;height:34px;border:0.5px solid #DDD;border-radius:999px;padding:0 12px;font-size:13px;outline:none}
-.brain-add-row input:focus{border-color:#F26B5E}
-.brain-add-row button{border:0.5px solid #2A2020;background:#fff;border-radius:999px;padding:0 12px;font-size:12.5px;cursor:pointer}
-.brain-add-row button:hover{border-color:#F26B5E;background:#FCEAE6}
 .brain-prof{font-size:10.5px;color:#999;margin-left:6px;font-weight:500;text-transform:none;letter-spacing:0}
 /* My Career dashboard (signed-in home) */
 .dash{display:none;flex:1;overflow-y:auto;background:#F7F6F3}
@@ -390,21 +377,29 @@ button,input,textarea{font-family:inherit}
 .dash-lock-t{font-size:17px;font-weight:700}
 .dash-lock-s{font-size:14.5px;color:#CFCFCF;margin-top:4px;line-height:1.5;max-width:760px}
 .dash-lock .dash-btn.primary{background:#F26B5E;border-color:#F26B5E;color:#fff;flex:none}
+.dash-single{max-width:920px;width:100%}
+.dash-transcript{display:flex;flex-direction:column}
+.dash-claims-list{display:flex;flex-direction:column;gap:8px;width:100%}
+.dash-claims-group{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A;margin-top:6px}
+.dash-claim{border:1px solid #ECEAE5;border-radius:12px;padding:12px 14px}
+.dash-claim-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.dash-claim-label{font-size:16px;font-weight:600;line-height:1.4}
+.dash-claim-right{display:flex;align-items:center;gap:8px;flex:none}
+.dash-claim .brain-status{font-size:12px;padding:3px 8px}
+.dash-claim .brain-prof{font-size:12.5px}
+.dash-claim-ev{font-size:14px;color:#6B6B6B;font-style:italic;margin-top:5px;line-height:1.5}
+.dash-card .brain-target{margin:0;padding:16px}
+.dash-card .brain-field input,.dash-card .brain-field select{height:40px;font-size:15px}
+.dash-card .brain-field label{font-size:11.5px}
+.dash-card .brain-target-hint{font-size:13.5px}
+.dash-card .brain-save{font-size:14px;padding:9px 18px}
 .nav-home{display:none;margin-left:14px;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#111;text-decoration:none;background:#FCEAE6;cursor:pointer}
 .nav-home.show{display:inline-block}
 .nav-home.off{background:none;color:#555}
 .nav-home.off:hover{background:#F5F5F5}
 @media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
-.sess-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border:0.5px solid #ECECEC;border-radius:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer;background:#fff}
-.sess-row:hover{border-color:#F26B5E;background:#FFF8F6}
-.sess-main{min-width:0}
-.sess-title{font-size:13.5px;font-weight:600;color:#111}
-.sess-meta{font-size:12px;color:#888;margin-top:2px}
-.sess-score{flex:none;font-size:12px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px}
-.sess-back{background:none;border:none;color:#888;font-size:12.5px;cursor:pointer;padding:0 0 10px;text-decoration:underline}
-.sess-back:hover{color:#111}
-.sess-msg{font-size:13px;line-height:1.55;border-radius:10px;padding:10px 12px;margin-bottom:8px;overflow-wrap:anywhere}
+.sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
 .sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
 .sess-msg.bot{background:var(--coral-pale);color:#111;margin-right:24px}
 .sess-msg.bot p{margin:0 0 8px}.sess-msg.bot p:last-child{margin:0}
@@ -530,9 +525,7 @@ button,input,textarea{font-family:inherit}
           <div id="authUserDropdown" class="header-user-dropdown">
             <div class="header-user-dropdown-email" id="authUserEmail"></div>
             <hr class="header-user-dropdown-sep">
-            <button class="header-user-dropdown-item" onclick="openCareerBrainPanel()">What Ezzy knows about you</button>
-            <button class="header-user-dropdown-item" onclick="openPastSessions()">Past sessions</button>
-            <button class="header-user-dropdown-item" onclick="openPricingModal()">Upgrade</button>
+            <button class="header-user-dropdown-item" id="authPlanItem" onclick="openPricingModal()">Plans</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
         </div>
@@ -2197,6 +2190,7 @@ async function updateAuthUI(user){
     // Job Search / free accounts keep the pill landing and can open the
     // dashboard as a locked preview from the My Career link.
     await loadPlan(user.id);
+    renderPlanMenuItem();
     var navHome = document.getElementById('navHome');
     if(navHome) navHome.classList.add('show');
     if(isCareerPlan() && !MODE && emptyState && emptyState.style.display !== 'none') showDashboard();
@@ -2278,35 +2272,6 @@ function onAuthSuccess(user){
 <div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
 
 <div id="newPasswordOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>Set a new password</h3><p>Pick something you'll remember this time.</p><form class="onboarding-form" onsubmit="submitNewPassword(event)"><input type="password" id="newPasswordInput" class="onboarding-input" placeholder="New password (8+ characters)" autocomplete="new-password" required minlength="8"><button type="submit" class="onboarding-submit-btn" id="newPasswordSubmitBtn">Save new password</button></form><p class="onboarding-error" id="newPasswordError"></p></div></div>
-<div id="brainOverlay" class="brain-overlay" onclick="if(event.target===this)closeCareerBrainPanel()">
-  <div class="brain-panel">
-    <div class="brain-header">
-      <div>
-        <h3>What Ezzy knows about you</h3>
-        <p>Your target, and what Ezzy has learned from your resume and sessions. Edit or remove anything.</p>
-      </div>
-      <button class="brain-close" onclick="closeCareerBrainPanel()" aria-label="Close">&times;</button>
-    </div>
-    <div class="brain-body" id="brainBody">
-      <div class="brain-empty">Loading...</div>
-    </div>
-  </div>
-</div>
-
-<div id="sessionsOverlay" class="brain-overlay" onclick="if(event.target===this)closePastSessions()">
-  <div class="brain-panel">
-    <div class="brain-header">
-      <div>
-        <h3 id="sessionsTitle">Past sessions</h3>
-        <p id="sessionsSub">Sessions you started over. Read-only; start a fresh set to keep prepping.</p>
-      </div>
-      <button class="brain-close" onclick="closePastSessions()" aria-label="Close">&times;</button>
-    </div>
-    <div class="brain-body" id="sessionsBody">
-      <div class="brain-empty">Loading...</div>
-    </div>
-  </div>
-</div>
 <div id="pricingOverlay" class="brain-overlay" onclick="if(event.target===this)closePricingModal()">
   <div class="pricing-panel">
     <div class="brain-header">
@@ -2790,7 +2755,7 @@ async function extractCareerClaims(resumeText, jdText){
 function showLearnedToast(count){
   var el = document.createElement('div');
   el.className = 'learned-toast';
-  el.innerHTML = 'Ezzy learned ' + count + (count===1?' thing':' things') + ' about you · <a onclick="openCareerBrainPanel();">View</a>';
+  el.innerHTML = 'Ezzy learned ' + count + (count===1?' thing':' things') + ' about you · <a onclick="goToDashboard();">See it on My Career</a>';
   document.body.appendChild(el);
   setTimeout(function(){
     el.classList.add('out');
@@ -2798,47 +2763,7 @@ function showLearnedToast(count){
   }, 5000);
 }
 
-var CLAIM_TYPE_LABELS = {
-  skill:'Skills', achievement:'Achievements', experience:'Experience',
-  goal:'Goals', preference:'Preferences', hypothesis:'Hypotheses'
-};
-var CLAIM_TYPE_ORDER = ['skill','achievement','experience','goal','preference','hypothesis'];
-
-async function openCareerBrainPanel(){
-  var dropdown = document.getElementById('authUserDropdown');
-  if(dropdown) dropdown.classList.remove('active');
-  document.getElementById('brainOverlay').classList.add('active');
-  await loadCareerClaims();
-}
-
-function closeCareerBrainPanel(){
-  document.getElementById('brainOverlay').classList.remove('active');
-}
-
 var BRAIN_PROFILE = null;
-
-async function loadCareerClaims(){
-  var body = document.getElementById('brainBody');
-  body.innerHTML = '<div class="brain-empty">Loading...</div>';
-  if(!window.supabaseClient) return;
-  var sessionRes = await window.supabaseClient.auth.getSession();
-  var session = sessionRes.data && sessionRes.data.session;
-  if(!session){
-    body.innerHTML = '<div class="brain-empty">Sign in to see what Ezzy has learned about you.</div>';
-    return;
-  }
-  var uid = session.user.id;
-  var results = await Promise.all([
-    window.supabaseClient.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
-    window.supabaseClient.from('career_claims').select('*').eq('user_id', uid).order('last_seen_at', {ascending:false})
-  ]);
-  if(results[1].error){
-    body.innerHTML = '<div class="brain-empty">Could not load your profile. Try again shortly.</div>';
-    return;
-  }
-  BRAIN_PROFILE = results[0].data || null;
-  renderClaims(results[1].data || []);
-}
 
 // --- Plan (which version of Ezzy this account gets) ---------------------
 window._plan = null;
@@ -2855,6 +2780,19 @@ function planActive(){
   return true;
 }
 function isCareerPlan(){ return planActive() && window._plan.plan === 'career'; }
+function planLabel(){
+  if(!planActive()) return 'Free plan';
+  var p = window._plan.plan;
+  return p === 'career' ? 'Career plan' : p === 'job_search' ? 'Job Search plan' : 'Free plan';
+}
+// Account menu is just the plan and sign out. Everything about the person
+// lives on My Career.
+function renderPlanMenuItem(){
+  var el = document.getElementById('authPlanItem');
+  if(!el) return;
+  var label = planLabel();
+  el.innerHTML = '<span>' + label + '</span>' + (label === 'Career plan' ? '' : '<span class="header-user-dropdown-hint">Upgrade</span>');
+}
 
 // --- My Career dashboard (signed-in home) ------------------------------
 // Everything shown here is read from tables the app already writes:
@@ -2862,8 +2800,9 @@ function isCareerPlan(){ return planActive() && window._plan.plan === 'career'; 
 // career_stories, career_opportunities. Nothing is computed by a model.
 var DASH_ON = false;
 var DASH_ROLE = null;
+var DASH_PROFILE = null;
 
-function showDashboard(){
+function showDashboard(skipLoad){
   var el = document.getElementById('dashboard');
   if(!el) return;
   if(emptyState) emptyState.style.display = 'none';
@@ -2876,7 +2815,7 @@ function showDashboard(){
   var mi = document.getElementById('mainInner'); if(mi) mi.style.display = 'none';
   DASH_ON = true;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.remove('off');
-  loadDashboard();
+  if(!skipLoad) loadDashboard();
 }
 
 function hideDashboard(){
@@ -2933,15 +2872,22 @@ function dashClaimChips(open){
   if(canEdit){
     html += '<div class="dash-add"><input id="dashSkillInput" type="text" placeholder="Add a skill Ezzy missed..." onkeydown="if(event.key===\'Enter\')dashAddSkill()"/><button class="dash-btn" onclick="dashAddSkill()">Add</button></div>';
   }
+  // Open list: every claim with where it came from and the line it rests on.
+  html += '<div class="dash-claims-list">';
   ['skill','experience','achievement','goal','preference','hypothesis'].forEach(function(t){
     if(!groups[t]) return;
-    html += '<div style="width:100%;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A;margin-top:6px">' + DASH_CLAIM_LABELS[t] + '</div>';
+    html += '<div class="dash-claims-group">' + DASH_CLAIM_LABELS[t] + '</div>';
     html += groups[t].map(function(c){
-      return '<span class="dash-chip' + (t==='skill'?' coral':'') + '" data-claim="' + c.id + '" title="' + escapeHtml(c.status) + '">' + escapeHtml(c.label)
-        + (canEdit ? '<button class="dash-chip-x" onclick="dashRemoveClaim(\'' + c.id + '\')" aria-label="Remove">&times;</button>' : '') + '</span>';
+      var ev = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
+      if(c.evidence && c.evidence[0] && c.evidence[0].source === 'user') ev = '';
+      var prof = t==='skill' && c.detail && c.detail.proficiency ? '<span class="brain-prof">' + escapeHtml(c.detail.proficiency) + '</span>' : '';
+      return '<div class="dash-claim" data-claim="' + c.id + '"><div class="dash-claim-top"><span class="dash-claim-label">' + escapeHtml(c.label) + prof + '</span>'
+        + '<span class="dash-claim-right"><span class="brain-status ' + escapeHtml(c.status) + '">' + claimStatusLabel(c) + '</span>'
+        + (canEdit ? '<button class="dash-chip-x" onclick="dashRemoveClaim(\'' + c.id + '\')" aria-label="Remove">&times;</button>' : '') + '</span></div>'
+        + (ev ? '<div class="dash-claim-ev">\u201c' + escapeHtml(ev) + '\u201d</div>' : '') + '</div>';
     }).join('');
   });
-  html += '<button class="dash-chip more" onclick="toggleDashClaims()">Show less</button>';
+  html += '</div><button class="dash-chip more" onclick="toggleDashClaims()">Show less</button>';
   return html;
 }
 function toggleDashClaims(){
@@ -2953,7 +2899,7 @@ function toggleDashClaims(){
 }
 async function dashRemoveClaim(id){
   if(!window.supabaseClient) return;
-  var chip = document.querySelector('.dash-chip[data-claim="' + id + '"]');
+  var chip = document.querySelector('[data-claim="' + id + '"]');
   if(chip) chip.style.opacity = '0.4';
   var r = await window.supabaseClient.from('career_claims').delete().eq('id', id);
   if(r.error){ if(chip) chip.style.opacity = '1'; console.error('remove claim', r.error); return; }
@@ -2974,7 +2920,7 @@ async function dashAddSkill(){
     user_id: session.user.id, claim_type:'skill', label: label, status:'fact', detail:{},
     evidence:[{source:'user', quote:'Added by you', date:new Date().toISOString().slice(0,10)}],
     last_seen_at: new Date().toISOString()
-  }, {onConflict:'user_id,claim_type,label'}).select('id,claim_type,label,status,detail').single();
+  }, {onConflict:'user_id,claim_type,label'}).select('id,claim_type,label,status,detail,evidence').single();
   input.disabled = false;
   if(r.error){ console.error('add skill', r.error); return; }
   DASH_CLAIMS = DASH_CLAIMS.filter(function(c){ return c.id !== r.data.id; });
@@ -3016,7 +2962,7 @@ async function loadDashboard(){
   var sb = window.supabaseClient;
   var q = await Promise.all([
     sb.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
-    sb.from('career_claims').select('id,claim_type,label,status,detail').eq('user_id', uid).order('last_seen_at',{ascending:false}),
+    sb.from('career_claims').select('id,claim_type,label,status,detail,evidence').eq('user_id', uid).order('last_seen_at',{ascending:false}),
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
     sb.from('conversations').select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company').eq('user_id', uid).not('archived_at','is',null).order('archived_at',{ascending:false}).limit(3),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
@@ -3033,6 +2979,7 @@ async function loadDashboard(){
   var latest = scores[0] || null;
   var lastRole = latest && latest.role ? latest.role : (past[0] && past[0].role) || null;
   DASH_ROLE = profile.target_role_title || lastRole || null;
+  DASH_PROFILE = profile; BRAIN_PROFILE = profile;
   renderDashboard(body, { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest });
 }
 
@@ -3041,7 +2988,7 @@ function renderDashboard(body, d){
   var html = '';
   var locked = !isCareerPlan();
   // In the locked preview, anything that edits or writes goes to the plans.
-  var EDIT = locked ? 'openPricingModal()' : 'openCareerBrainPanel()';
+  var EDIT = locked ? 'openPricingModal()' : 'dashEditTarget()';
   if(locked){
     html += '<div class="dash-lock"><div><div class="dash-lock-t">This is your Career view</div><div class="dash-lock-s">Everything here is already yours: your target, what Ezzy knows, your scores. The Career plan makes it your home, keeps your stories and opportunities, and adds role matching.</div></div><button class="dash-btn primary" onclick="openPricingModal()">See the Career plan</button></div>';
   }
@@ -3057,7 +3004,7 @@ function renderDashboard(body, d){
   html += '<div class="dash-grid">';
 
   // Target
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="' + EDIT + '">Edit</button></div>';
+  html += '<div class="dash-card" id="dashTargetCard"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="' + EDIT + '">Edit</button></div>';
   if(p.target_role_title){
     var fam = dashRoleFamily(p.target_role_title);
     var chips = [];
@@ -3110,7 +3057,7 @@ function renderDashboard(body, d){
     else if(line2) html += '<div class="dash-text">' + line2 + '</div>';
     DASH_CLAIMS = d.claims;
     html += '<div class="dash-chips" id="dashClaims">' + dashClaimChips(false) + '</div>';
-    html += '<div class="dash-muted">Every item carries the resume line it came from. ' + (isCareerPlan() ? 'Open the list to remove anything that\u2019s wrong or add a skill.' : '') + '</div>';
+    html += '<div class="dash-muted">See all shows where each item came from. ' + (isCareerPlan() ? 'Remove anything that\u2019s wrong or add a skill Ezzy missed.' : '') + '</div>';
   } else {
     html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
   }
@@ -3119,7 +3066,7 @@ function renderDashboard(body, d){
   // Latest scorecard (span 2)
   html += '<div class="dash-card span2"><div class="dash-card-head"><div><div class="dash-label">Latest scorecard</div>';
   if(latest) html += '<div class="dash-row-s">' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + (latest.role ? ' \u00b7 ' + escapeHtml(latest.role) : '') + ' \u00b7 ' + escapeHtml(latest.family) + ' rubric \u00b7 ' + dashDate(latest.created_at) + '</div>';
-  html += '</div>' + (latest && latest.conversation_id ? '<button class="dash-link" onclick="openPastSessions().then(function(){openPastSession(\'' + latest.conversation_id + '\',\'' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + '\')})">Open session</button>' : '') + '</div>';
+  html += '</div>' + (latest && latest.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + latest.conversation_id + '\',\'' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + '\')">Open session</button>' : '') + '</div>';
   var lowNames = [];
   if(latest && Array.isArray(latest.dimensions) && latest.dimensions.length){
     var scored = latest.dimensions.filter(function(x){ return x.score != null; }).slice().sort(function(a,b){ return a.score - b.score; });
@@ -3151,17 +3098,9 @@ function renderDashboard(body, d){
   }).join('') + '<div class="dash-muted">Each of these comes from something on this page, not a generic checklist.</div></div>';
 
   // Past sessions
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Past sessions</div><button class="dash-link" onclick="openPastSessions()">All</button></div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Past sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
   if(d.past.length){
-    html += d.past.map(function(r){
-      var label = SESSION_MODE_LABELS[r.mode] || r.mode;
-      var bits = [];
-      if(r.role) bits.push(escapeHtml(r.role)); if(r.research_company) bits.push(escapeHtml(r.research_company));
-      bits.push(dashDate(r.archived_at || r.created_at));
-      if((r.mode==='practice'||r.mode==='star'||r.mode==='mock') && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
-      var right = r.readiness_score != null ? '<span class="dash-score">' + r.readiness_score + '/10</span>' : '<span class="dash-nr">' + ((r.mode==='practice'||r.mode==='star'||r.mode==='mock') ? 'not rated' : '') + '</span>';
-      return '<button class="dash-row" onclick="openPastSessions().then(function(){openPastSession(\'' + r.id + '\',\'' + escapeHtml(label) + '\')})"><div><div class="dash-row-t">' + escapeHtml(label) + '</div><div class="dash-row-s">' + bits.join(' \u00b7 ') + '</div></div>' + right + '</button>';
-    }).join('');
+    html += d.past.map(dashSessionRow).join('');
   } else {
     html += '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
   }
@@ -3207,75 +3146,81 @@ function recordReadinessScore(reply){
     .then(function(r){ if(r.error) console.error('readiness save', r.error); });
 }
 
-async function openPastSessions(){
-  var dropdown = document.getElementById('authUserDropdown');
-  if(dropdown) dropdown.classList.remove('active');
-  document.getElementById('sessionsOverlay').classList.add('active');
-  await loadPastSessions();
+function dashSessionRow(r){
+  var label = SESSION_MODE_LABELS[r.mode] || r.mode;
+  var bits = [];
+  if(r.role) bits.push(escapeHtml(r.role)); if(r.research_company) bits.push(escapeHtml(r.research_company));
+  bits.push(dashDate(r.archived_at || r.created_at));
+  var prep = (r.mode==='practice'||r.mode==='star'||r.mode==='mock');
+  if(prep && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
+  var right = r.readiness_score != null ? '<span class="dash-score">' + r.readiness_score + '/10</span>' : '<span class="dash-nr">' + (prep ? 'not rated' : '') + '</span>';
+  return '<button class="dash-row" onclick="dashShowSession(\'' + r.id + '\',\'' + escapeHtml(label) + '\')"><div><div class="dash-row-t">' + escapeHtml(label) + '</div><div class="dash-row-s">' + bits.join(' \u00b7 ') + '</div></div>' + right + '</button>';
 }
 
-function closePastSessions(){
-  document.getElementById('sessionsOverlay').classList.remove('active');
+// A dashboard sub-view: same section, a title row with a way back, one card.
+function dashView(title, sub, backLabel, backFn, inner){
+  return '<div class="dash-top"><div><h1 class="dash-h1">' + title + '</h1><div class="dash-sub">' + sub + '</div></div>'
+    + '<div class="dash-actions"><button class="dash-btn" onclick="' + backFn + '">\u2190 ' + backLabel + '</button></div></div>'
+    + '<div class="dash-card dash-single">' + inner + '</div>';
 }
 
-function fmtSessionDate(iso){
-  try{ return new Date(iso).toLocaleDateString(undefined, {month:'short', day:'numeric'}); }catch(e){ return ''; }
-}
-
-async function loadPastSessions(){
-  var body = document.getElementById('sessionsBody');
-  document.getElementById('sessionsTitle').textContent = 'Past sessions';
-  document.getElementById('sessionsSub').textContent = 'Sessions you started over. Read-only; start a fresh set to keep prepping.';
-  body.innerHTML = '<div class="brain-empty">Loading...</div>';
-  if(!window.supabaseClient) return;
+// Past sessions, in full, on the dashboard. Archived conversations are
+// read-only; a fresh set is how you keep prepping.
+async function dashShowSessions(){
+  var body = document.getElementById('dashBody');
+  if(!body || !window.supabaseClient) return;
+  if(!DASH_ON) showDashboard(true);
+  var sub = 'Sessions you finished or started over. Read-only.';
+  body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
   var sessionRes = await window.supabaseClient.auth.getSession();
   var session = sessionRes.data && sessionRes.data.session;
-  if(!session){ body.innerHTML = '<div class="brain-empty">Sign in to see your past sessions.</div>'; return; }
+  if(!session){ body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Sign in to see your past sessions.</div>'); return; }
   var res = await window.supabaseClient.from('conversations')
     .select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company')
     .eq('user_id', session.user.id).not('archived_at','is',null)
     .order('archived_at', {ascending:false}).limit(50);
-  if(res.error){ body.innerHTML = '<div class="brain-empty">Could not load sessions. Try again shortly.</div>'; return; }
-  var rows = res.data || [];
-  if(!rows.length){ body.innerHTML = '<div class="brain-empty">Nothing here yet. When you start over, the old session lands here.</div>'; return; }
-  body.innerHTML = rows.map(function(r){
-    var label = SESSION_MODE_LABELS[r.mode] || r.mode;
-    var bits = [];
-    if(r.role) bits.push(escapeHtml(r.role));
-    if(r.research_company) bits.push(escapeHtml(r.research_company));
-    bits.push(fmtSessionDate(r.archived_at || r.created_at));
-    if((r.mode==='practice'||r.mode==='star'||r.mode==='mock') && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
-    var score = (r.readiness_score!=null) ? '<span class="sess-score">'+r.readiness_score+'/10</span>' : '';
-    return '<div class="sess-row" onclick="openPastSession(\''+r.id+'\', \''+escapeHtml(label)+'\')">'
-      + '<div class="sess-main"><div class="sess-title">'+label+'</div><div class="sess-meta">'+bits.join(' \u00b7 ')+'</div></div>'
-      + score + '</div>';
-  }).join('');
+  var inner;
+  if(res.error) inner = '<div class="dash-loading">Could not load sessions. Try again shortly.</div>';
+  else if(!res.data || !res.data.length) inner = '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
+  else inner = res.data.map(dashSessionRow).join('');
+  body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
 }
 
-async function openPastSession(id, label){
-  var body = document.getElementById('sessionsBody');
-  document.getElementById('sessionsTitle').textContent = label;
-  document.getElementById('sessionsSub').textContent = 'Read-only transcript.';
-  body.innerHTML = '<button class="sess-back" onclick="loadPastSessions()">\u2190 All sessions</button><div class="brain-empty">Loading...</div>';
+async function dashShowSession(id, label){
+  var body = document.getElementById('dashBody');
+  if(!body || !window.supabaseClient) return;
+  if(!DASH_ON) showDashboard(true);
+  var sub = 'Read-only transcript.';
+  body.innerHTML = dashView(escapeHtml(label), sub, 'Past sessions', 'dashShowSessions()', '<div class="dash-loading">Loading...</div>');
   var res = await window.supabaseClient.from('messages').select('role,content,created_at').eq('conversation_id', id).order('created_at', {ascending:true});
-  var html = '<button class="sess-back" onclick="loadPastSessions()">\u2190 All sessions</button>';
+  var inner = '';
   if(res.error || !res.data || !res.data.length){
-    body.innerHTML = html + '<div class="brain-empty">No messages saved for this session.</div>';
-    return;
+    inner = '<div class="dash-loading">No messages saved for this session.</div>';
+  } else {
+    res.data.forEach(function(m){
+      if(m.role === 'user'){
+        var t = m.content || '';
+        if(t.length > 600) t = t.slice(0, 600) + ' \u2026';
+        inner += '<div class="sess-msg user">' + escapeHtml(t) + '</div>';
+      } else {
+        var rendered; try{ rendered = marked.parse(m.content || ''); }catch(e){ rendered = escapeHtml(m.content || ''); }
+        inner += '<div class="sess-msg bot">' + rendered + '</div>';
+      }
+    });
   }
-  res.data.forEach(function(m){
-    if(m.role === 'user'){
-      var t = m.content || '';
-      if(t.length > 600) t = t.slice(0, 600) + ' \u2026';
-      html += '<div class="sess-msg user">'+escapeHtml(t)+'</div>';
-    } else {
-      var rendered; try{ rendered = marked.parse(m.content || ''); }catch(e){ rendered = escapeHtml(m.content || ''); }
-      html += '<div class="sess-msg bot">'+rendered+'</div>';
-    }
-  });
-  body.innerHTML = html;
+  body.innerHTML = dashView(escapeHtml(label), sub, 'Past sessions', 'dashShowSessions()', '<div class="dash-transcript">' + inner + '</div>');
   externalizeLinks(body);
-  body.scrollTop = 0;
+  body.parentNode.scrollTop = 0;
+}
+
+// Target editing happens in the target card itself.
+function dashEditTarget(){
+  var card = document.getElementById('dashTargetCard');
+  if(!card){ showDashboard(); return; }
+  card.innerHTML = '<div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="loadDashboard()">Cancel</button></div>'
+    + renderTargetBlock(DASH_PROFILE, true);
+  var role = document.getElementById('tgtRole'); if(role) role.focus();
 }
 
 function escapeHtml(s){
@@ -3294,7 +3239,7 @@ function selectHtml(id, options, value){
   }).join('') + '</select>';
 }
 
-function renderTargetBlock(p){
+function renderTargetBlock(p, noTitle){
   p = p || {};
   var comp = function(v){ if(!v) return ''; if(v > 10000000) v = v/1000; return Math.round(v/1000); };
   var hint;
@@ -3302,7 +3247,7 @@ function renderTargetBlock(p){
   else if(p.target_source==='stated' || p.target_source==='discovered') hint = 'Confirmed by you.';
   else if(p.target_source==='resume') hint = 'Taken from your resume. Confirm or change it.';
   else hint = 'Taken from the role you picked. Confirm or change it.';
-  return '<div class="brain-group-title">Your target</div>'
+  return (noTitle ? '' : '<div class="brain-group-title">Your target</div>')
     + '<div class="brain-target">'
     + '<div class="brain-target-row"><div class="brain-field"><label>Role</label><input id="tgtRole" type="text" placeholder="e.g. Senior Product Manager" value="'+escapeHtml(p.target_role_title||'')+'"/></div></div>'
     + '<div class="brain-target-row"><div class="brain-field"><label>Level</label>'+selectHtml('tgtLevel', TARGET_LEVELS, p.target_level)+'</div>'
@@ -3346,6 +3291,7 @@ async function saveTarget(){
   if(res.error){ hint.textContent = 'Could not save. Try again.'; return; }
   BRAIN_PROFILE = Object.assign({}, BRAIN_PROFILE||{}, row);
   hint.textContent = 'Saved. Confirmed by you.';
+  if(DASH_ON) loadDashboard();
 }
 
 // Landing role picker -> a working target, but only when the profile has
@@ -3371,30 +3317,6 @@ async function defaultTargetFromRole(role){
   }catch(e){ console.error('defaultTargetFromRole', e); }
 }
 
-function renderClaims(claims){
-  var body = document.getElementById('brainBody');
-  var html = renderTargetBlock(BRAIN_PROFILE);
-  var byType = {};
-  claims.forEach(function(c){
-    if(!byType[c.claim_type]) byType[c.claim_type] = [];
-    byType[c.claim_type].push(c);
-  });
-  CLAIM_TYPE_ORDER.forEach(function(type){
-    var group = byType[type] || [];
-    if(!group.length && type!=='skill') return;
-    html += '<div class="brain-group-title">'+CLAIM_TYPE_LABELS[type]+'</div>';
-    if(type==='skill'){
-      html += '<div class="brain-add-row"><input id="skillAddInput" type="text" placeholder="Add a skill Ezzy missed..." onkeydown="if(event.key===\'Enter\')addSkill()"/><button onclick="addSkill()">Add</button></div>';
-      if(!group.length) html += '<div class="brain-empty" style="padding:6px 0 10px;text-align:left">Nothing yet. Do a Resume Review and Ezzy will pull your skills from it, or add them here.</div>';
-    }
-    group.forEach(function(c){ html += claimHtml(c); });
-  });
-  if(!claims.length && !(BRAIN_PROFILE && BRAIN_PROFILE.target_role_title)){
-    html += '<div class="brain-empty">Do a Resume Review and Ezzy will start building your profile here.</div>';
-  }
-  body.innerHTML = html;
-}
-
 // Plain-language labels for the evidence status. The status values stay
 // as-is in the data (fact / inference / hypothesis); only the badge changes.
 function claimStatusLabel(c){
@@ -3404,60 +3326,6 @@ function claimStatusLabel(c){
   if(c.status === 'inference') return 'Ezzy\u2019s read';
   if(c.status === 'hypothesis') return 'Ezzy\u2019s guess';
   return 'Unknown';
-}
-
-function claimHtml(c){
-  var evidence = (c.evidence && c.evidence[0] && c.evidence[0].quote) || '';
-  if(c.evidence && c.evidence[0] && c.evidence[0].source === 'user') evidence = '';
-  var prof = c.claim_type==='skill' && c.detail && c.detail.proficiency ? '<span class="brain-prof">'+escapeHtml(c.detail.proficiency)+'</span>' : '';
-  return '<div class="brain-claim" data-id="'+c.id+'">'
-    + '<div class="brain-claim-top"><span class="brain-claim-label">'+escapeHtml(c.label)+prof+'</span>'
-    + '<span class="brain-status '+c.status+'">'+claimStatusLabel(c)+'</span></div>'
-    + (evidence ? '<div class="brain-evidence">“'+escapeHtml(evidence)+'”</div>' : '')
-    + '<button class="brain-remove" onclick="deleteClaim(\''+c.id+'\')">Remove</button>'
-    + '</div>';
-}
-
-async function addSkill(){
-  if(!window.supabaseClient) return;
-  var input = document.getElementById('skillAddInput');
-  var label = (input.value||'').trim().slice(0,200);
-  if(!label) return;
-  var sessionRes = await window.supabaseClient.auth.getSession();
-  var session = sessionRes.data && sessionRes.data.session;
-  if(!session) return;
-  var row = {
-    user_id: session.user.id,
-    claim_type: 'skill',
-    label: label,
-    status: 'fact',
-    detail: {},
-    evidence: [{source:'user', quote:'Added by you', date: new Date().toISOString().slice(0,10)}],
-    last_seen_at: new Date().toISOString()
-  };
-  input.disabled = true;
-  var res = await window.supabaseClient.from('career_claims').upsert(row, {onConflict:'user_id,claim_type,label'}).select('*').single();
-  input.disabled = false;
-  if(res.error){ console.error('addSkill', res.error); return; }
-  input.value = '';
-  var existing = document.querySelector('.brain-claim[data-id="'+res.data.id+'"]');
-  if(existing) existing.remove();
-  var addRow = input.parentNode;
-  addRow.insertAdjacentHTML('afterend', claimHtml(res.data));
-  var empty = addRow.nextElementSibling && addRow.nextElementSibling.nextElementSibling;
-  if(empty && empty.classList.contains('brain-empty')) empty.remove();
-}
-
-async function deleteClaim(id){
-  if(!window.supabaseClient) return;
-  var node = document.querySelector('.brain-claim[data-id="'+id+'"]');
-  if(node) node.style.opacity = '0.4';
-  var res = await window.supabaseClient.from('career_claims').delete().eq('id', id);
-  if(res.error){
-    if(node) node.style.opacity = '1';
-    return;
-  }
-  if(node) node.remove();
 }
 
 // Gap analysis: how a resume matches a target job, using Career Brain evidence.
