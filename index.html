@@ -388,6 +388,22 @@ button,input,textarea{font-family:inherit}
 .dash-claim .brain-status{font-size:12px;padding:3px 8px}
 .dash-claim .brain-prof{font-size:12.5px}
 .dash-claim-ev{font-size:14px;color:#6B6B6B;font-style:italic;margin-top:5px;line-height:1.5}
+.onb-steps{display:flex;gap:18px;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#BDBDBD}
+.onb-step.on{color:#111}.onb-step.done{color:#1E7A3D}
+.onb-drop{border:2px dashed #F26B5E;border-radius:16px;padding:32px 24px;text-align:center;background:#FCEAE6;transition:all .2s}
+.onb-drop.dragging{background:#FBE3DD;border-color:#D9554A}
+.onb-textarea{width:100%;min-height:200px;border:1px solid #D5D2CB;border-radius:12px;padding:12px 14px;font-size:14.5px;font-family:inherit;line-height:1.5;resize:vertical;box-sizing:border-box}
+.onb-textarea:focus{outline:none;border-color:#F26B5E}
+.onb-status{font-size:15px;color:#555;min-height:20px;line-height:1.5}
+.onb-status.err{color:#C2493C}
+.onb-status:empty{display:none}
+.onb-learned{background:#F3F1EC;border-radius:12px;padding:14px 16px;font-size:15.5px;line-height:1.55;color:#333}
+.onb-foot{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.onb-foot .dash-muted{margin-top:0}
+.dash-single .brain-field input,.dash-single .brain-field select{height:40px;font-size:14.5px}
+.dash-single .brain-field label{font-size:11.5px}
+.dash-single .brain-target-hint{font-size:13.5px}
+.dash-single .brain-save{font-size:14px;padding:9px 18px}
 .dash-card .brain-target{margin:0;padding:16px}
 .dash-card .brain-field input,.dash-card .brain-field select{height:40px;font-size:15px}
 .dash-card .brain-field label{font-size:11.5px}
@@ -1740,6 +1756,60 @@ document.addEventListener('click', function(e){
 // Initial check
 setTimeout(updateDropZoneVisibility, 200);
 
+// Reads a dropped or chosen resume (PDF or TXT) to plain text. Resolves
+// with the text; rejects with an Error whose message can be shown as-is.
+// err.dismiss is true when the file itself is the problem (wrong type,
+// too big, scanned, locked) rather than a transient one.
+function readResumeFile(file){
+  return new Promise(function(resolve, reject){
+    var fail = function(msg, dismiss){ var e = new Error(msg); e.dismiss = !!dismiss; reject(e); };
+    var name = (file.name || '').toLowerCase();
+    var isText = name.endsWith('.txt') || file.type === 'text/plain';
+    var isPdf = name.endsWith('.pdf') || file.type === 'application/pdf';
+    if(isText){
+      var tr = new FileReader();
+      tr.onload = function(ev){ resolve(ev.target.result || ''); };
+      tr.onerror = function(){ fail('I had trouble reading that file. Try pasting the text instead.'); };
+      tr.readAsText(file);
+      return;
+    }
+    if(!isPdf) return fail('That file type is not supported. Drop a PDF or TXT file, or paste your resume as text.', true);
+    if(!window.pdfjsLib) return fail('PDF reader is still loading \u2014 give it a moment and try again.');
+    if(file.size > 5 * 1024 * 1024) return fail('That PDF is over 5MB. Try a smaller file or paste the text below.', true);
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var typedArray = new Uint8Array(ev.target.result);
+      window.pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
+        var pagePromises = [];
+        for(var p = 1; p <= pdf.numPages; p++){
+          pagePromises.push(pdf.getPage(p).then(function(page){
+            return page.getTextContent().then(function(content){
+              return content.items.map(function(item){return item.str;}).join(' ');
+            });
+          }));
+        }
+        return Promise.all(pagePromises).then(function(pages){
+          var fullText = pages.join('\n\n').trim();
+          if(!fullText || fullText.length < 30){
+            return fail('This looks like a scanned PDF. We can only read PDFs with selectable text (like ones exported from Word or Google Docs). Try pasting your resume as text instead.', true);
+          }
+          resolve(fullText);
+        }, function(err){
+          console.error('PDF page error:', err);
+          fail('I had trouble reading that PDF. Try pasting the text instead.', true);
+        });
+      }).catch(function(err){
+        console.error('PDF load error:', err);
+        fail(err && err.name === 'PasswordException'
+          ? 'That PDF is password-protected. Please remove the password or paste the resume as text.'
+          : 'I could not open that PDF. Try a different file or paste the text below.', true);
+      });
+    };
+    reader.onerror = function(){ fail('I had trouble reading that file. Try pasting the text instead.'); };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
 // Drop zone file handling
 (function(){
   var dz = document.getElementById('dropZone');
@@ -1792,99 +1862,20 @@ setTimeout(updateDropZoneVisibility, 200);
     dzBox.classList.remove('dragging');
   });
 
+  // Chat drop zone: read the file, then send the text through the
+  // resume flow. Errors flagged .dismiss close the drop zone for good.
   function handleDroppedFile(file){
-    var name = (file.name || '').toLowerCase();
-    var isText = name.endsWith('.txt') || file.type === 'text/plain';
-    var isPdf = name.endsWith('.pdf') || file.type === 'application/pdf';
-
-    if(isText){
-      var reader = new FileReader();
-      reader.onload = function(ev){
-        var text = ev.target.result || '';
-        injectResumeText(text, file.name);
-      };
-      reader.onerror = function(){
-        addMsg('bot','I had trouble reading that file. Try pasting the text instead.');
-      };
-      reader.readAsText(file);
-    } else if(isPdf){
-      parsePdf(file);
-    } else {
-      resumeDropDismissed = true;
-      var dzEl2 = document.getElementById('dropZone');
-      if(dzEl2) dzEl2.classList.remove('active');
-      inputEl.disabled = false;
-      inputEl.placeholder = 'Type your answer...';
-      addMsg('bot','That file type is not supported. Drop a PDF or TXT file, or paste your resume as text.');
-    }
-  }
-
-  function parsePdf(file){
-    if(!window.pdfjsLib){
-      addMsg('bot','PDF reader is still loading — give it a moment and try again.');
-      return;
-    }
-    if(file.size > 5 * 1024 * 1024){
-      resumeDropDismissed = true;
-      var dzL = document.getElementById('dropZone');
-      if(dzL) dzL.classList.remove('active');
-      inputEl.disabled = false;
-      inputEl.placeholder = 'Type your answer...';
-      addMsg('bot','That PDF is over 5MB. Try a smaller file or paste the text below.');
-      return;
-    }
-    var reader = new FileReader();
-    reader.onload = function(ev){
-      var typedArray = new Uint8Array(ev.target.result);
-      window.pdfjsLib.getDocument({data: typedArray}).promise.then(function(pdf){
-        var allText = [];
-        var pagePromises = [];
-        for(var p = 1; p <= pdf.numPages; p++){
-          pagePromises.push(pdf.getPage(p).then(function(page){
-            return page.getTextContent().then(function(content){
-              return content.items.map(function(item){return item.str;}).join(' ');
-            });
-          }));
-        }
-        Promise.all(pagePromises).then(function(pages){
-          var fullText = pages.join('\n\n').trim();
-          if(!fullText || fullText.length < 30){
-            resumeDropDismissed = true;
-            var dzS = document.getElementById('dropZone');
-            if(dzS) dzS.classList.remove('active');
-            inputEl.disabled = false;
-            inputEl.placeholder = 'Type your answer...';
-            addMsg('bot','This looks like a scanned PDF. We can only read PDFs with selectable text (like ones exported from Word or Google Docs). Try pasting your resume as text instead.');
-            return;
-          }
-          injectResumeText(fullText, file.name);
-        }).catch(function(err){
-          console.error('PDF page error:', err);
-          resumeDropDismissed = true;
-          var dzE = document.getElementById('dropZone');
-          if(dzE) dzE.classList.remove('active');
-          inputEl.disabled = false;
-          inputEl.placeholder = 'Type your answer...';
-          addMsg('bot','I had trouble reading that PDF. Try pasting the text instead.');
-        });
-      }).catch(function(err){
-        console.error('PDF load error:', err);
+    readResumeFile(file).then(function(text){
+      injectResumeText(text, file.name);
+    }, function(err){
+      if(err && err.dismiss){
         resumeDropDismissed = true;
-        var dzP = document.getElementById('dropZone');
-        if(dzP) dzP.classList.remove('active');
+        dz.classList.remove('active');
         inputEl.disabled = false;
         inputEl.placeholder = 'Type your answer...';
-        if(err && err.name === 'PasswordException'){
-          addMsg('bot','That PDF is password-protected. Please remove the password or paste the resume as text.');
-        } else {
-          addMsg('bot','I could not open that PDF. Try a different file or paste the text below.');
-        }
-      });
-    };
-    reader.onerror = function(){
-      addMsg('bot','I had trouble reading that file. Try pasting the text instead.');
-    };
-    reader.readAsArrayBuffer(file);
+      }
+      addMsg('bot', (err && err.message) || 'I had trouble reading that file. Try pasting the text instead.');
+    });
   }
 
   function injectResumeText(text, fileName){
@@ -2734,22 +2725,26 @@ async function migrateAnonymousToAccount(user){
 <script>
 // Career Brain v0 — extraction + "what Ezzy knows about you" panel
 
-async function extractCareerClaims(resumeText, jdText){
-  if(!window.supabaseClient) return;
+// Resolves with the API result ({savedCount, claims}) or null. The toast
+// is for extraction that happens in the background of a chat; onboarding
+// passes quiet=true and shows the result itself.
+async function extractCareerClaims(resumeText, jdText, quiet){
+  if(!window.supabaseClient) return null;
   try{
     var sessionRes = await window.supabaseClient.auth.getSession();
     var session = sessionRes.data && sessionRes.data.session;
-    if(!session) return; // anonymous - extraction is a signed-in feature for now
+    if(!session) return null; // anonymous - extraction is a signed-in feature for now
 
     var res = await fetch(EXTRACT_URL, {
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
       body: JSON.stringify({resumeText: resumeText||'', jdText: jdText||''})
     });
-    if(!res.ok) return;
+    if(!res.ok) return null;
     var data = await res.json();
-    if(data.savedCount > 0) showLearnedToast(data.savedCount);
-  }catch(e){ console.error('Career Brain extraction error:', e); }
+    if(!quiet && data.savedCount > 0) showLearnedToast(data.savedCount);
+    return data;
+  }catch(e){ console.error('Career Brain extraction error:', e); return null; }
 }
 
 function showLearnedToast(count){
@@ -2980,7 +2975,10 @@ async function loadDashboard(){
   var lastRole = latest && latest.role ? latest.role : (past[0] && past[0].role) || null;
   DASH_ROLE = profile.target_role_title || lastRole || null;
   DASH_PROFILE = profile; BRAIN_PROFILE = profile;
-  renderDashboard(body, { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest });
+  var d = { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest };
+  if(dashNeedsOnboarding(d)){ renderOnboarding(body, d); return; }
+  ONB = null;
+  renderDashboard(body, d);
 }
 
 function renderDashboard(body, d){
@@ -3087,9 +3085,10 @@ function renderDashboard(body, d){
 
   // Do next (rule-based, from the data on this page)
   var next = [];
-  if(lowNames.length === 2) next.push({hot:true, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
-  else if(!latest) next.push({hot:true, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
-  if(!p.target_role_title) next.push({t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
+  // No target yet: that comes first, since prep and matching point at it.
+  if(!p.target_role_title) next.push({hot:true, t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
+  if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
+  else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
   if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashResume()'});
   if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
@@ -3223,6 +3222,188 @@ function dashEditTarget(){
   var role = document.getElementById('tgtRole'); if(role) role.focus();
 }
 
+
+// --- First visit on the Career plan ----------------------------------------
+// Replaces the dashboard until the profile has something in it or the
+// person finishes or skips (career_profile.onboarded_at). Two steps:
+// resume (extraction fills the profile, every claim quoted from it), then
+// the target. Nothing is rated here; the dashboard's "not yet" states
+// take over after.
+var ONB = null; // { step:'resume'|'target', name, profile, learned, target:'yes'|'no'|null, busy }
+var ONB_DRAG_BOUND = false;
+var ONB_DONE = false; // finished or skipped this visit, even if the write failed
+
+function dashNeedsOnboarding(d){
+  return isCareerPlan() && !ONB_DONE && !d.profile.onboarded_at && !d.profile.target_role_title && !d.claims.length;
+}
+
+function renderOnboarding(body, d){
+  if(!ONB) ONB = { step:'resume', learned:null, target:null, busy:false };
+  ONB.name = d.name; ONB.profile = d.profile || {};
+  onbRender();
+}
+
+function onbRender(){
+  var body = document.getElementById('dashBody');
+  if(!body || !ONB) return;
+  var onResume = ONB.step === 'resume';
+  var html = '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(ONB.name) + '</h1><div class="dash-sub">Two quick things and My Career is set up. Both can be changed later.</div></div></div>';
+  html += '<div class="dash-card dash-single"><div class="onb-steps"><span class="onb-step' + (onResume ? ' on' : ' done') + '">1 · Your resume</span><span class="onb-step' + (onResume ? '' : ' on') + '">2 · Your target</span></div>';
+  html += onResume ? onbResumeStep() : onbTargetStep();
+  html += '</div>';
+  body.innerHTML = html;
+  body.parentNode.scrollTop = 0;
+  if(onResume) onbBindDrop();
+  else if(ONB.target === 'yes'){ var r = document.getElementById('tgtRole'); if(r) r.focus(); }
+}
+
+function onbResumeStep(){
+  return '<div class="dash-label">Your resume</div>'
+    + '<div class="dash-text">Ezzy reads it once and pulls out your skills and experience, each tied to the line it came from. That is what prep and matching run on.</div>'
+    + '<div class="onb-drop" id="onbDrop"><div class="drop-zone-icon">↑</div><div class="drop-zone-title">Drop your resume here</div><div class="drop-zone-sub">PDF or TXT</div>'
+    + '<input type="file" id="onbFile" accept=".pdf,.txt,application/pdf,text/plain" style="display:none" onchange="onbFilePicked(this)">'
+    + '<button type="button" class="drop-zone-browse-btn" onclick="document.getElementById(\'onbFile\').click()">Choose file</button>'
+    + '<div class="drop-zone-paste">or <a onclick="onbShowPaste()">paste it as text</a></div></div>'
+    + '<div id="onbPaste" style="display:none"><textarea id="onbPasteText" class="onb-textarea" placeholder="Paste your resume text here"></textarea><div class="dash-actions" style="margin-top:10px"><button class="dash-btn primary" onclick="onbUseText()">Use this</button></div></div>'
+    + '<div class="onb-status" id="onbStatus"></div>'
+    + '<div class="onb-foot"><button class="dash-link" onclick="onbSkipResume()">Skip for now</button><span class="dash-muted">You can do a Resume Review from My Career any time.</span></div>';
+}
+
+function onbTargetStep(){
+  var p = ONB.profile || {};
+  var html = '<div class="dash-label">Your target</div>';
+  var L = ONB.learned;
+  if(L && L.count > 0){
+    var bits = [];
+    if(p.current_role_title) bits.push('<strong>' + escapeHtml(p.current_role_title) + (p.current_industry ? ', ' + escapeHtml(p.current_industry) : '') + '</strong>');
+    if(p.years_experience) bits.push(Number(p.years_experience) + ' years of experience');
+    var skills = (L.claims || []).filter(function(c){ return c.claim_type === 'skill'; }).slice(0, 6);
+    html += '<div class="onb-learned"><div>From your resume: ' + (bits.length ? bits.join(', ') + ', and ' : '') + L.count + ' item' + (L.count === 1 ? '' : 's') + ' Ezzy can point to a line for.</div>'
+      + (skills.length ? '<div class="dash-chips" style="margin-top:10px">' + skills.map(function(c){ return '<span class="dash-chip coral">' + escapeHtml(c.label) + '</span>'; }).join('') + '</div>' : '')
+      + '<div class="dash-muted" style="margin-top:8px">All of it, with the line each came from, is under What Ezzy knows on My Career. Remove anything that is wrong.</div></div>';
+  } else if(L && L.failed){
+    html += '<div class="onb-learned">Ezzy could not read that just now. Resume Review on My Career does the same job later.</div>';
+  } else if(L){
+    html += '<div class="onb-learned">Ezzy did not find anything it could quote from that text. Resume Review on My Career does the same job later.</div>';
+  }
+  html += '<div class="dash-text" style="font-weight:600">Do you know the role you’re going for?</div>';
+  if(!ONB.target){
+    html += '<div class="dash-actions"><button class="dash-btn primary" onclick="onbTarget(\'yes\')">Yes, I know it</button><button class="dash-btn" onclick="onbTarget(\'no\')">Not yet</button></div>';
+  } else if(ONB.target === 'yes'){
+    html += renderTargetBlock(p, true) + '<button class="dash-link" onclick="onbTarget(null)">Back</button>';
+  } else {
+    html += '<div class="dash-text">No problem. Set your target sits first on My Career whenever you are ready, and prep works without it. One thing that helps now:</div>'
+      + '<div class="brain-target"><div class="brain-target-row"><div class="brain-field"><label>When do you want to be in a new role?</label>' + selectHtml('onbTimeline', TARGET_TIMELINE, p.target_timeline) + '</div></div></div>'
+      + '<div class="onb-foot"><button class="dash-btn primary" id="onbGo" onclick="onbFinishNoTarget()">Go to My Career</button><button class="dash-link" onclick="onbTarget(null)">Back</button></div>';
+  }
+  return html;
+}
+
+function onbBindDrop(){
+  var box = document.getElementById('onbDrop');
+  if(!box) return;
+  ['dragenter','dragover'].forEach(function(evt){
+    box.addEventListener(evt, function(e){ e.preventDefault(); e.stopPropagation(); box.classList.add('dragging'); });
+  });
+  box.addEventListener('dragleave', function(e){ if(e.target === box) box.classList.remove('dragging'); });
+  box.addEventListener('drop', function(e){
+    e.preventDefault(); e.stopPropagation(); box.classList.remove('dragging');
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) onbFile(f);
+  });
+  // A file dropped next to the box must not navigate the tab to the PDF.
+  if(!ONB_DRAG_BOUND){
+    ONB_DRAG_BOUND = true;
+    ['dragover','drop'].forEach(function(evt){
+      window.addEventListener(evt, function(e){ if(ONB && DASH_ON && ONB.step === 'resume') e.preventDefault(); }, false);
+    });
+  }
+}
+
+function onbStatus(msg, isErr){
+  var el = document.getElementById('onbStatus');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.className = 'onb-status' + (isErr ? ' err' : '');
+}
+function onbShowPaste(){
+  var el = document.getElementById('onbPaste');
+  if(!el) return;
+  el.style.display = '';
+  var ta = document.getElementById('onbPasteText'); if(ta) ta.focus();
+}
+function onbFilePicked(input){
+  var f = input.files && input.files[0];
+  input.value = '';
+  if(f) onbFile(f);
+}
+function onbFile(file){
+  if(!ONB || ONB.busy) return;
+  onbStatus('Reading ' + (file.name || 'your file') + '...');
+  readResumeFile(file).then(function(text){ onbProcess(text); }, function(err){
+    onbStatus((err && err.message) || 'I had trouble reading that file. Try pasting the text instead.', true);
+  });
+}
+function onbUseText(){
+  var ta = document.getElementById('onbPasteText');
+  onbProcess(ta ? ta.value : '');
+}
+async function onbProcess(text){
+  if(!ONB || ONB.busy) return;
+  text = String(text || '').trim();
+  if(text.length < 20){ onbStatus('That looked empty. Try a different file or paste your resume as text.', true); return; }
+  ONB.busy = true;
+  onbStatus('Ezzy is reading your resume. This takes a few seconds...');
+  var data = await extractCareerClaims(text, '', true);
+  // Extraction wrote to career_profile; read it back so step 2 shows it.
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+    if(uid){
+      var r = await window.supabaseClient.from('career_profile').select('*').eq('user_id', uid).maybeSingle();
+      if(r.data){ ONB.profile = r.data; DASH_PROFILE = r.data; BRAIN_PROFILE = r.data; }
+    }
+  }catch(e){ console.error('onboarding profile reload', e); }
+  ONB.learned = data ? { count: data.savedCount || 0, claims: data.claims || [] } : { count: 0, failed: true };
+  ONB.busy = false;
+  ONB.step = 'target';
+  onbRender();
+}
+function onbSkipResume(){
+  if(!ONB || ONB.busy) return;
+  ONB.learned = null;
+  ONB.step = 'target';
+  onbRender();
+}
+function onbTarget(choice){
+  if(!ONB) return;
+  ONB.target = choice;
+  onbRender();
+}
+async function onbFinishNoTarget(){
+  var sel = document.getElementById('onbTimeline');
+  var btn = document.getElementById('onbGo'); if(btn) btn.disabled = true;
+  await onbFinish({ target_timeline: (sel && sel.value) || null });
+}
+// Marks the profile onboarded (plus whatever the step collected) and
+// hands over to the dashboard. If the write fails the card still goes
+// away for this visit; it just comes back next time.
+async function onbFinish(extra){
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var session = sessionRes.data && sessionRes.data.session;
+    if(session){
+      var row = Object.assign({ user_id: session.user.id, onboarded_at: new Date().toISOString(), updated_at: new Date().toISOString() }, extra || {});
+      var r = await window.supabaseClient.from('career_profile').upsert(row, {onConflict:'user_id'});
+      if(r.error) console.error('onboarding finish', r.error);
+    }
+  }catch(e){ console.error('onboarding finish', e); }
+  ONB = null; ONB_DONE = true;
+  var body = document.getElementById('dashBody');
+  if(body) body.innerHTML = '<div class="dash-loading">Setting up My Career...</div>';
+  await loadDashboard();
+}
+
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, function(ch){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
@@ -3291,6 +3472,7 @@ async function saveTarget(){
   if(res.error){ hint.textContent = 'Could not save. Try again.'; return; }
   BRAIN_PROFILE = Object.assign({}, BRAIN_PROFILE||{}, row);
   hint.textContent = 'Saved. Confirmed by you.';
+  if(ONB && DASH_ON){ onbFinish({}); return; }
   if(DASH_ON) loadDashboard();
 }
 
