@@ -404,6 +404,22 @@ button,input,textarea{font-family:inherit}
 .dash-single .brain-field label{font-size:11.5px}
 .dash-single .brain-target-hint{font-size:13.5px}
 .dash-single .brain-save{font-size:14px;padding:9px 18px}
+.dash-score.mid{color:#966B0A;background:#FFF3DA}
+.dash-score.low{color:#8F3229;background:#FCEAE6}
+.dash-input{width:100%;height:42px;border:1px solid #D5D2CB;border-radius:12px;padding:0 14px;font-size:14.5px;font-family:inherit;box-sizing:border-box;outline:none}
+.dash-input:focus{border-color:#F26B5E}
+.dash-select{height:40px;border:1px solid #D5D2CB;border-radius:999px;padding:0 14px;font-size:14.5px;font-family:inherit;background:#fff;color:#111;outline:none}
+.dash-select:focus{border-color:#F26B5E}
+.opp-fit{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:14px;background:#F3F1EC}
+.opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.dash-gaps{display:flex;flex-direction:column}
+.dash-gaps .gap-row{padding:12px 0;border-top:1px solid #EEECE7}
+.dash-gaps .gap-row:first-child{border-top:none;padding-top:0}
+.dash-gaps .gap-req{font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dash-gaps .gap-note{font-size:14.5px;color:#6B6B6B;margin-top:3px}
+.dash-gaps .gap-icon{width:24px;height:24px;font-size:13px;margin-top:2px}
+.gap-unscored .gap-icon{background:#F3F1EC;color:#9A9A9A}
+a.dash-chip{text-decoration:none;color:#C2493C}
 .dash-card .brain-target{margin:0;padding:16px}
 .dash-card .brain-field input,.dash-card .brain-field select{height:40px;font-size:15px}
 .dash-card .brain-field label{font-size:11.5px}
@@ -661,6 +677,7 @@ var GAP_ANALYSIS_URL='/api/gap-analysis';
 var ROLE=null;
 var RESEARCH_STAGE='idle';
 var RESEARCH_COMPANY='';
+var PENDING_JD=null; // posting text handed over by an opportunity's "Review my resume against it"
 var MODE=null;
 var TRAINER_MODE=null;
 var RESUME_STAGE=null;
@@ -1131,6 +1148,12 @@ function handleSendText(text){
     if(RESUME_STAGE==='awaiting_resume'){
       RESUME_TEXT=text;
       RESUME_STAGE='awaiting_jd';
+      // Came here from an opportunity: the posting is already in hand.
+      if(PENDING_JD){
+        var pj = PENDING_JD; PENDING_JD = null;
+        setTimeout(function(){ handleSendText(pj); }, 200);
+        return;
+      }
       setTimeout(function(){
         addMsg('bot','Got it. Now paste the job description you\'re targeting.');
         appendSkipJDButton();
@@ -2212,7 +2235,7 @@ async function signOut(){
 function clearChatState(){
   convoHistory = [];
   MODE = null; ROLE = null; TRAINER_MODE = null;
-  RESUME_STAGE = null; RESUME_TEXT = ''; JD_TEXT = '';
+  RESUME_STAGE = null; RESUME_TEXT = ''; JD_TEXT = ''; PENDING_JD = null;
   pendingModeSwitch = null;
   resumeDropDismissed = false;
   if(typeof hideTyping === 'function') hideTyping();
@@ -2961,7 +2984,7 @@ async function loadDashboard(){
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
     sb.from('conversations').select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company').eq('user_id', uid).not('archived_at','is',null).order('archived_at',{ascending:false}).limit(3),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
-    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3)
+    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3)
   ].map(function(pr){ return pr.then(function(r){ return r; }, function(e){ return {error:e}; }); }));
   var profile = (q[0] && q[0].data) || {};
   var claims = (q[1] && q[1].data) || [];
@@ -2997,7 +3020,7 @@ function renderDashboard(body, d){
     : (p.target_role_title ? 'Run a Practice set to get your first scorecard.' : 'Start by telling Ezzy what you\u2019re going for, or paste your resume.');
   html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div>'
     + '<div class="dash-actions"><button class="dash-btn primary" onclick="dashPractice()">Practice' + (latest ? ' again' : '') + '</button>'
-    + '<button class="dash-btn" onclick="dashResume()">Paste a job posting</button></div></div>';
+    + '<button class="dash-btn" onclick="dashPostingEntry()">' + (locked ? 'Paste a job posting' : 'Add an opportunity') + '</button></div></div>';
 
   html += '<div class="dash-grid">';
 
@@ -3089,7 +3112,7 @@ function renderDashboard(body, d){
   if(!p.target_role_title) next.push({hot:true, t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
-  if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashResume()'});
+  if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
   if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
   html += '<div class="dash-card"><div class="dash-label">Do next</div>' + next.slice(0,3).map(function(n){
@@ -3117,13 +3140,12 @@ function renderDashboard(body, d){
   html += '</div>';
 
   // Opportunities
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div>' + (d.opps.length ? '' : '<span class="dash-tag">Coming</span>') + '</div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div>' + (d.opps.length ? '<button class="dash-link" onclick="dashShowOpportunities()">All</button>' : '') + '</div>';
   if(d.opps.length){
-    html += d.opps.map(function(o){
-      return '<div class="dash-row" style="cursor:default"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + '</div><div class="dash-row-s">' + escapeHtml(o.stage) + (o.fit_score != null ? ' \u00b7 fit ' + o.fit_score : '') + '</div></div></div>';
-    }).join('');
+    html += d.opps.map(dashOppRow).join('');
+    if(!locked) html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashResume()') + '">' + (locked ? 'Career plan' : 'Paste a posting') + '</button></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashAddOpportunity()') + '">' + (locked ? 'Career plan' : 'Paste a posting') + '</button></div>';
   }
   html += '</div>';
 
@@ -3222,6 +3244,223 @@ function dashEditTarget(){
   var role = document.getElementById('tgtRole'); if(role) role.focus();
 }
 
+
+// --- Opportunities -----------------------------------------------------------
+// A pasted posting -> api/opportunity -> a career_opportunities row with the
+// posting's stated facts, a per-requirement match, and a fit score computed
+// server-side. Stage changes are logged to career_outcomes (the trigger in
+// 0020 keeps the row's stage in step); that log is the hire-outcome data.
+var OPP_URL = '/api/opportunity';
+var OPP_STAGES = [['considering','Considering'],['applied','Applied'],['screening','Recruiter screen'],['interviewing','Interviewing'],['offer','Offer'],['accepted','Accepted'],['hired','Hired'],['rejected','Rejected'],['withdrawn','Withdrawn']];
+var OPP_STAGE_LABEL = {}; OPP_STAGES.forEach(function(s){ OPP_STAGE_LABEL[s[0]] = s[1]; });
+var OPP_OUTCOME_KIND = { applied:'applied', screening:'recruiter_screen', interviewing:'interview', offer:'offer', accepted:'accepted', hired:'hired', rejected:'rejected', withdrawn:'withdrew' };
+var OPP_CURRENT = null;
+
+// Where "paste a posting" goes: Career accounts track it as an opportunity;
+// everyone else gets the Resume Review stopgap, as before.
+function dashPostingEntry(){ if(isCareerPlan()) dashAddOpportunity(); else dashResume(); }
+
+function oppFacts(o){
+  var m = (o && o.posting) || {};
+  var chips = [];
+  if(m.level) chips.push(m.level.charAt(0).toUpperCase() + m.level.slice(1));
+  if(m.work_type) chips.push(m.work_type === 'onsite' ? 'On-site' : m.work_type.charAt(0).toUpperCase() + m.work_type.slice(1));
+  if(m.location) chips.push(m.location);
+  var comp = dashComp({ target_comp_min: m.comp_min, target_comp_max: m.comp_max });
+  if(comp) chips.push(comp);
+  return chips;
+}
+function oppFitLabel(o){
+  if(o.fit_score == null) return '<span class="dash-nr">not scored</span>';
+  var cls = o.fit_score >= 70 ? 'dash-score' : o.fit_score >= 40 ? 'dash-score mid' : 'dash-score low';
+  return '<span class="' + cls + '">' + o.fit_score + '% fit</span>';
+}
+function dashOppRow(o){
+  var bits = [OPP_STAGE_LABEL[o.stage] || o.stage].concat(oppFacts(o).slice(0,2));
+  bits.push(dashDate(o.updated_at));
+  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' · ' + escapeHtml(o.company) : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div></div>' + oppFitLabel(o) + '</button>';
+}
+
+function dashAddOpportunity(){
+  if(!isCareerPlan()){ openPricingModal(); return; }
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body) return;
+  var inner = '<div class="dash-label">The posting</div>'
+    + '<div class="dash-text">Paste the whole posting. Ezzy pulls out what it states (company, level, location, pay if printed) and the requirements that matter, then checks each one against your resume and profile. Nothing is scored that it can’t point to.</div>'
+    + '<textarea id="oppJd" class="onb-textarea" placeholder="Paste the job posting here" style="min-height:260px"></textarea>'
+    + '<input id="oppUrl" type="url" class="dash-input" placeholder="Link to the posting (optional)"/>'
+    + '<div class="onb-status" id="oppStatus"></div>'
+    + '<div class="onb-foot"><button class="dash-btn primary" id="oppGo" onclick="dashSubmitOpportunity()">Score it</button><span class="dash-muted">Takes about ten seconds.</span></div>';
+  body.innerHTML = dashView('Add an opportunity', 'A role you’re considering, applying to, or interviewing for.', 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
+  var ta = document.getElementById('oppJd'); if(ta) ta.focus();
+}
+
+async function dashSubmitOpportunity(){
+  var ta = document.getElementById('oppJd'), urlEl = document.getElementById('oppUrl'), btn = document.getElementById('oppGo'), st = document.getElementById('oppStatus');
+  if(!ta || !btn) return;
+  var jd = (ta.value || '').trim();
+  var lines = jd.split(/\n/).filter(function(l){ return l.trim(); }).length;
+  var say = function(msg, err){ if(st){ st.textContent = msg || ''; st.className = 'onb-status' + (err ? ' err' : ''); } };
+  if(!jd){ say('Paste the posting first.', true); return; }
+  if(jd.length < 400 && lines < 4){ say('That’s too short to be a posting. Ezzy needs the real requirements, not a title, or it would be grading you against a guess.', true); return; }
+  var token = await getAuthTokenIfSignedIn();
+  if(!token){ say('Sign in first.', true); return; }
+  btn.disabled = true; ta.disabled = true;
+  say('Reading the posting, then checking it against your profile...');
+  try{
+    var res = await fetch(OPP_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ jdText: jd, url: urlEl ? urlEl.value : '' }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok){
+      btn.disabled = false; ta.disabled = false;
+      if(data.error === 'upgrade_required'){ openPricingModal(); say('Opportunities are part of the Career plan.', true); return; }
+      if(data.error === 'posting_too_short'){ say('That’s too short to be a posting. Paste the full description.', true); return; }
+      say('Could not score that posting. Try again in a moment.', true);
+      console.error('opportunity', data);
+      return;
+    }
+    dashShowOpportunity(data.opportunity.id, data.opportunity);
+  }catch(e){
+    btn.disabled = false; ta.disabled = false;
+    say('Could not reach Ezzy. Check your connection and try again.', true);
+    console.error('opportunity', e);
+  }
+}
+
+async function dashShowOpportunities(){
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body || !window.supabaseClient) return;
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session) return;
+  var r = await window.supabaseClient.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', session.user.id).order('updated_at',{ascending:false});
+  var rows = r.data || [];
+  var inner = rows.length ? rows.map(dashOppRow).join('') : '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason.</div></div>';
+  if(isCareerPlan()) inner += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
+  body.innerHTML = dashView('Opportunities', rows.length + (rows.length === 1 ? ' role' : ' roles') + ' you’re tracking. Open one to log where it stands or prep for it.', 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
+}
+
+async function dashShowOpportunity(id, row){
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body || !window.supabaseClient) return;
+  if(!row){
+    body.innerHTML = '<div class="dash-loading">Loading...</div>';
+    var r = await window.supabaseClient.from('career_opportunities').select('*').eq('id', id).maybeSingle();
+    row = r.data;
+    if(!row){ dashShowOpportunities(); return; }
+  }
+  OPP_CURRENT = row;
+  var canEdit = isCareerPlan();
+  var m = row.posting || {};
+  var reqs = Array.isArray(m.requirements) ? m.requirements : [];
+  var gaps = Array.isArray(row.fit_reasons) ? row.fit_reasons : [];
+  var byReq = {}; gaps.forEach(function(g){ byReq[g.requirement] = g; });
+  var matched = gaps.filter(function(g){ return g.status === 'matched'; }).length;
+  var partial = gaps.filter(function(g){ return g.status === 'partial'; }).length;
+
+  var html = '<div class="dash-chips">' + oppFacts(row).map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
+    + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>';
+
+  // Fit
+  html += '<div class="opp-fit">';
+  if(row.fit_score != null){
+    html += '<div class="dash-big"><div class="dash-big-n">' + row.fit_score + '</div><div class="dash-big-d">% fit</div></div>'
+      + '<div class="dash-text">' + matched + ' of ' + reqs.length + ' requirements matched outright' + (partial ? ', ' + partial + ' partial' : '') + '. Required items count double. Every judgment below points at your resume or profile; a note with a number Ezzy couldn’t find there is marked and treated as partial.</div>';
+  } else {
+    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">Not scored</div></div><div class="dash-text">Ezzy has nothing on file to check this posting against yet. Do a Resume Review and it learns your skills and experience; then add the posting again.</div>';
+  }
+  html += '</div>';
+
+  // Requirements
+  if(reqs.length){
+    var icon = { matched:'✓', partial:'~', missing:'✕' };
+    html += '<div class="dash-label">How you match</div><div class="dash-gaps">' + reqs.map(function(rq){
+      var g = byReq[rq.requirement];
+      var stt = g ? g.status : 'unscored';
+      return '<div class="gap-row gap-' + stt + '"><span class="gap-icon">' + (icon[stt] || '·') + '</span><div><div class="gap-req">' + escapeHtml(rq.requirement) + (rq.importance === 'required' ? ' <span class="dash-tag">Required</span>' : '') + '</div>'
+        + (g && g.note ? '<div class="gap-note">' + escapeHtml(g.note) + '</div>' : '') + '</div></div>';
+    }).join('') + '</div>';
+  }
+
+  // Stage
+  html += '<div class="dash-label">Where it stands</div><div class="opp-stage">' + (canEdit
+      ? selectHtml('oppStage', OPP_STAGES, row.stage).replace('<select ', '<select class="dash-select" onchange="dashSetStage(\'' + row.id + '\', this.value)" ')
+      : '<span class="dash-chip">' + escapeHtml(OPP_STAGE_LABEL[row.stage] || row.stage) + '</span>')
+    + '<span class="dash-muted" id="oppStageNote">' + (canEdit ? 'Change it as things move. Each change is logged with the date.' : '') + '</span></div>';
+
+  // Prep for this one
+  html += '<div class="dash-label">Prep for this one</div><div class="dash-actions">'
+    + '<button class="dash-btn primary" onclick="dashOppPractice()">Practice for this role</button>'
+    + (row.company ? '<button class="dash-btn" onclick="dashOppResearch()">Research ' + escapeHtml(row.company) + '</button>' : '')
+    + '<button class="dash-btn" onclick="dashOppResume()">Review my resume against it</button></div>';
+  if(canEdit) html += '<div class="onb-foot" style="margin-top:8px"><button class="dash-link" style="color:#8A8A8A" onclick="dashRemoveOpportunity(\'' + row.id + '\')">Remove this opportunity</button></div>';
+
+  body.innerHTML = dashView(escapeHtml(row.role_title) + (row.company ? ' <span style="color:#8A8A8A;font-weight:500">at ' + escapeHtml(row.company) + '</span>' : ''), 'Added ' + dashDate(row.created_at) + '.', 'Opportunities', 'dashShowOpportunities()', html);
+  body.parentNode.scrollTop = 0;
+}
+
+async function dashSetStage(id, stage){
+  if(!window.supabaseClient || !OPP_STAGE_LABEL[stage]) return;
+  var note = document.getElementById('oppStageNote');
+  var sessionRes = await window.supabaseClient.auth.getSession();
+  var session = sessionRes.data && sessionRes.data.session;
+  if(!session) return;
+  if(note) note.textContent = 'Saving...';
+  var r;
+  var kind = OPP_OUTCOME_KIND[stage];
+  if(kind){
+    // The outcome log is the record; the trigger moves the stage.
+    r = await window.supabaseClient.from('career_outcomes').insert({ user_id: session.user.id, opportunity_id: id, kind: kind, source: 'ezzy_flow' });
+  } else {
+    r = await window.supabaseClient.from('career_opportunities').update({ stage: stage, updated_at: new Date().toISOString() }).eq('id', id);
+  }
+  if(r.error){ console.error('stage', r.error); if(note) note.textContent = 'Could not save. Try again.'; return; }
+  if(OPP_CURRENT && OPP_CURRENT.id === id) OPP_CURRENT.stage = stage;
+  if(note) note.textContent = 'Logged: ' + OPP_STAGE_LABEL[stage] + ', ' + dashDate(new Date().toISOString()) + '.';
+}
+
+async function dashRemoveOpportunity(id){
+  if(!window.supabaseClient) return;
+  if(!confirm('Remove this opportunity and its history?')) return;
+  var r = await window.supabaseClient.from('career_opportunities').delete().eq('id', id);
+  if(r.error){ console.error('remove opportunity', r.error); return; }
+  dashShowOpportunities();
+}
+
+// Prep shortcuts carry the role (and company) in, so nothing is re-typed.
+function dashOppPractice(){ if(OPP_CURRENT) dashStartMode(OPP_CURRENT.role_title, 'practice', 'Practice Q&A'); }
+async function dashOppResearch(){
+  if(!OPP_CURRENT || !OPP_CURRENT.company) return;
+  var o = OPP_CURRENT;
+  hideDashboard();
+  ROLE = o.role_title; window.ROLE = o.role_title;
+  enterAppShell(o.role_title);
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type a company name...';
+  await startMode('research', 'Company Research');
+  // Fresh research: the company is already known, so put it in the box and
+  // let them hit send. A restored brief is left as it is.
+  if(RESEARCH_STAGE === 'awaiting_company'){ inputEl.value = o.company; updateSendBtnState(); inputEl.focus(); }
+}
+async function dashOppResume(){
+  if(!OPP_CURRENT) return;
+  var o = OPP_CURRENT;
+  hideDashboard();
+  ROLE = null; window.ROLE = null;
+  enterAppShell(null);
+  resumeDropDismissed = false;
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your answer...';
+  await startMode('resume', 'Resume Feedback');
+  // An old review on file would swallow the posting; start clean instead.
+  if(RESUME_STAGE !== 'awaiting_resume') await startNewResumeReview();
+  PENDING_JD = o.jd_text || null;
+  if(PENDING_JD) addMsg('bot', 'I have the ' + o.role_title + (o.company ? ' posting from ' + o.company : ' posting') + '. Drop or paste your resume and I’ll review it against that.');
+}
 
 // --- First visit on the Career plan ----------------------------------------
 // Replaces the dashboard until the profile has something in it or the
