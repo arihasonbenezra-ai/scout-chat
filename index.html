@@ -3255,6 +3255,7 @@ var OPP_STAGES = [['considering','Considering'],['applied','Applied'],['screenin
 var OPP_STAGE_LABEL = {}; OPP_STAGES.forEach(function(s){ OPP_STAGE_LABEL[s[0]] = s[1]; });
 var OPP_OUTCOME_KIND = { applied:'applied', screening:'recruiter_screen', interviewing:'interview', offer:'offer', accepted:'accepted', hired:'hired', rejected:'rejected', withdrawn:'withdrew' };
 var OPP_CURRENT = null;
+var OPP_BRIEF = null; // {id, archived_at} of an existing research brief for the open opportunity
 
 // Where "paste a posting" goes: Career accounts track it as an opportunity;
 // everyone else gets the Resume Review stopgap, as before.
@@ -3354,6 +3355,15 @@ async function dashShowOpportunity(id, row){
     if(!row){ dashShowOpportunities(); return; }
   }
   OPP_CURRENT = row;
+  // A brief already written for this company and role is the thing to
+  // offer, not another research run.
+  OPP_BRIEF = null;
+  if(row.company){
+    try{
+      var br = await window.supabaseClient.from('conversations').select('id,archived_at').eq('mode','research').eq('role', row.role_title).eq('research_company', row.company).order('created_at',{ascending:false});
+      OPP_BRIEF = (br.data && br.data[0]) || null;
+    }catch(e){ console.error('brief lookup', e); }
+  }
   var canEdit = isCareerPlan();
   var m = row.posting || {};
   var reqs = Array.isArray(m.requirements) ? m.requirements : [];
@@ -3395,7 +3405,7 @@ async function dashShowOpportunity(id, row){
   // Prep for this one
   html += '<div class="dash-label">Prep for this one</div><div class="dash-actions">'
     + '<button class="dash-btn primary" onclick="dashOppPractice()">Practice for this role</button>'
-    + (row.company ? '<button class="dash-btn" onclick="dashOppResearch()">Research ' + escapeHtml(row.company) + '</button>' : '')
+    + (row.company ? '<button class="dash-btn" onclick="' + (OPP_BRIEF ? 'dashOppOpenBrief()' : 'dashOppResearch()') + '">' + (OPP_BRIEF ? 'Open your ' + escapeHtml(row.company) + ' brief' : 'Research ' + escapeHtml(row.company)) + '</button>' : '')
     + '<button class="dash-btn" onclick="dashOppResume()">Review my resume against it</button></div>';
   if(canEdit) html += '<div class="onb-foot" style="margin-top:8px"><button class="dash-link" style="color:#8A8A8A" onclick="dashRemoveOpportunity(\'' + row.id + '\')">Remove this opportunity</button></div>';
 
@@ -3432,6 +3442,13 @@ async function dashRemoveOpportunity(id){
 }
 
 // Prep shortcuts carry the role (and company) in, so nothing is re-typed.
+// A live brief reopens in research mode (follow-ups still work); an
+// archived one opens read-only like any past session.
+function dashOppOpenBrief(){
+  if(!OPP_BRIEF){ dashOppResearch(); return; }
+  if(OPP_BRIEF.archived_at) dashShowSession(OPP_BRIEF.id, 'Company Research');
+  else dashOppResearch();
+}
 function dashOppPractice(){ if(OPP_CURRENT) dashStartMode(OPP_CURRENT.role_title, 'practice', 'Practice Q&A'); }
 async function dashOppResearch(){
   if(!OPP_CURRENT || !OPP_CURRENT.company) return;
