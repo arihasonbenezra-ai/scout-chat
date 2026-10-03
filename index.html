@@ -60,7 +60,7 @@ button,input,textarea{font-family:inherit}
 .mode-option-sub{font-size:11px;color:var(--muted)}
 
 /* Main chat area */
-.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;position:relative}
 .main-inner{flex:1;display:flex;flex-direction:column;width:100%;max-width:900px;margin:0 auto;padding:28px 24px;gap:14px}
 #messages{display:flex;flex-direction:column;gap:22px}
 
@@ -204,6 +204,12 @@ button,input,textarea{font-family:inherit}
 .drop-zone-paste{font-size:13px;color:#666;margin-top:14px}
 .drop-zone-paste a{color:#F26B5E;cursor:pointer;text-decoration:underline}
 .drop-zone-helper{font-size:12px;color:#888;margin-top:18px;line-height:1.5}
+.drop-zone-box{position:relative}
+.drop-zone-close{position:absolute;top:10px;right:14px;background:none;border:none;font-size:22px;line-height:1;color:#B08A84;cursor:pointer;padding:4px;font-family:inherit}
+.drop-zone-close:hover{color:#8F3229}
+.drop-zone-back{font-size:13px;margin-top:14px}
+.drop-zone-back a{color:#666;cursor:pointer;text-decoration:underline}
+.drop-zone-back a:hover{color:#111}
 .choice-bubbles{display:flex;gap:8px;flex-wrap:wrap;align-self:flex-start;margin-left:32px;margin-top:-8px}
 .beta-tag{display:inline-block;font-size:9px;font-weight:600;letter-spacing:0.08em;color:#666666;background:#F0F0F0;padding:2px 6px;border-radius:4px;margin-left:6px;vertical-align:middle;text-transform:uppercase}
 .choice-pill{padding:9px 16px;border:0.5px solid #2A2020;border-radius:999px;font-size:13px;color:#000;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}
@@ -576,6 +582,8 @@ a.dash-chip{text-decoration:none;color:#C2493C}
         <button type="button" class="drop-zone-browse-btn" id="resumeBrowseBtn">Choose file from computer</button>
         <div class="drop-zone-paste">or <a id="pasteResumeLink">paste it as text instead</a></div>
         <div class="drop-zone-helper">Got a Word doc? Open it in Word, choose File → Save As → PDF.</div>
+        <button type="button" class="drop-zone-close" id="dropZoneClose" aria-label="Close">&times;</button>
+        <div class="drop-zone-back"><a id="dropZoneBack">Not now, take me back</a></div>
       </div>
     </div>
     <section class="dash" id="dashboard" aria-label="My Career">
@@ -1829,6 +1837,22 @@ document.addEventListener('click', function(e){
     var inputEl=document.getElementById('input');
     if(inputEl) inputEl.focus();
   }
+  if(e.target && (e.target.id==='dropZoneBack' || e.target.id==='dropZoneClose')) leaveResumeDrop();
+});
+// Changed your mind at the drop box: signed-in users go back to My Career,
+// anyone else gets the landing. Esc does the same.
+function leaveResumeDrop(){
+  resumeDropDismissed = true;
+  var dz=document.getElementById('dropZone');
+  if(dz) dz.classList.remove('active');
+  var signedIn = document.getElementById('authUserMenu') && document.getElementById('authUserMenu').style.display !== 'none';
+  if(signedIn && typeof goToDashboard === 'function') goToDashboard();
+  else clearChatState();
+}
+document.addEventListener('keydown', function(e){
+  if(e.key !== 'Escape') return;
+  var dz=document.getElementById('dropZone');
+  if(dz && dz.classList.contains('active')) leaveResumeDrop();
 });
 // Initial check
 setTimeout(updateDropZoneVisibility, 200);
