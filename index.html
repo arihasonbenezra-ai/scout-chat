@@ -1683,7 +1683,7 @@ function downloadFeedbackPDF(){
   }
   function ensure(h){ if(y+h>pageH-margin){ doc.addPage(); header(); } }
   function clean(t){
-    return String(t||'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(^|\s)\*(\S[^*]*)\*(?=\s|$|[.,;:])/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/→/g,'->').replace(/“|”/g,'"').replace(/‘|’/g,"'").replace(/–|—/g,'-');
+    return String(t||'').replace(/\*\*(.+?)\*\*/g,'$1').replace(/(^|\s)\*(\S[^*]*)\*(?=\s|$|[.,;:])/g,'$1$2').replace(/(^|\s)_(\S[^_]*)_(?=\s|$|[.,;:])/g,'$1$2').replace(/`([^`]+)`/g,'$1').replace(/→/g,'->').replace(/“|”/g,'"').replace(/‘|’/g,"'").replace(/–|—/g,'-');
   }
   function para(text, indent, size, style, color){
     size=size||BODY; style=style||'normal'; indent=indent||0;
@@ -1700,20 +1700,68 @@ function downloadFeedbackPDF(){
     for(var i=0;i<lines.length;i++){ ensure(BODY_LH); if(i===0) doc.text(marker, margin+indent, y); doc.text(lines[i], margin+indent+16, y); y+=BODY_LH; }
     y+=3;
   }
+  // A real table: header row on a tint, wrapped cells, light rules between
+  // rows, page-break aware. Short columns (score, status) stay narrow.
+  function table(headers, rows){
+    var n=headers.length; if(!n) return;
+    var weights=headers.map(function(h,i){ var hl=h.toLowerCase(); if(/score|status|weight|fit/.test(hl)) return 0.55; if(i===0) return 1.1; return 2; });
+    var sum=weights.reduce(function(a,b){return a+b;},0);
+    var widths=weights.map(function(w){ return w/sum*maxW; });
+    var pad=6, cellLH=12, cellSize=9;
+    function wrap(cells, bold){
+      doc.setFont('helvetica', bold?'bold':'normal'); doc.setFontSize(cellSize);
+      var out=[], h=0;
+      for(var i=0;i<n;i++){ var ls=doc.splitTextToSize(clean(cells[i]||''), widths[i]-pad*2); out.push(ls); h=Math.max(h, ls.length*cellLH); }
+      return {lines:out, h:h+pad*2};
+    }
+    function drawRow(cells, isHead){
+      var w=wrap(cells, isHead);
+      if(y+w.h>pageH-margin){ doc.addPage(); header(); y=76-BODY_LH+4; if(!isHead){ drawRow(headers, true); } }
+      var top=y;
+      if(isHead){ doc.setFillColor(243,241,236); doc.rect(margin, top, maxW, w.h, 'F'); }
+      doc.setFont('helvetica', isHead?'bold':'normal'); doc.setFontSize(cellSize); doc.setTextColor.apply(doc, isHead?[107,107,107]:[17,17,17]);
+      var x=margin;
+      for(var i=0;i<n;i++){
+        var ls=w.lines[i];
+        for(var k=0;k<ls.length;k++){ doc.text(isHead?ls[k].toUpperCase():ls[k], x+pad, top+pad+cellSize-1+k*cellLH); }
+        x+=widths[i];
+      }
+      y=top+w.h;
+      doc.setDrawColor(238,236,231); doc.line(margin, y, pageW-margin, y);
+    }
+    y=y-BODY_LH+6; // para() treats y as a baseline; rows treat it as a top edge
+    drawRow(headers, true);
+    rows.forEach(function(r){ drawRow(r, false); });
+    y+=BODY_LH+6;
+  }
+  // The computed score, set apart the way the chat shows it.
+  function callout(big, rest){
+    var h=40; ensure(h+BODY_LH);
+    var top=y-BODY_LH+4;
+    doc.setFillColor(252,234,230); doc.roundedRect(margin, top, maxW, h, 6, 6, 'F');
+    doc.setFont('helvetica','bold'); doc.setFontSize(15); doc.setTextColor(143,50,41);
+    doc.text(clean(big), margin+14, top+26);
+    y=top+h+BODY_LH+2;
+    if(rest) para(rest, 0, 9.5, 'normal', [90,90,90]);
+  }
   function renderMarkdown(md){
-    var lines=String(md||'').split('\n'); var inTable=false;
+    var lines=String(md||'').split('\n');
     for(var i=0;i<lines.length;i++){
       var raw=lines[i], line=raw.trim(), m;
-      if(!line){ y+=5; inTable=false; continue; }
-      if(/^\|/.test(line)){ // table row -> "cell: cell" lines, skip separators
-        if(/^\|\s*-+/.test(line)) continue;
-        var cells=line.split('|').map(function(c){return c.trim();}).filter(Boolean);
-        if(!inTable){ inTable=true; }
-        para(cells.join('   |   '), 8, 9.5); continue;
+      if(!line){ y+=5; continue; }
+      if(/^\|/.test(line)){
+        // Gather the whole table, then draw it.
+        var tl=[]; while(i<lines.length && /^\|/.test(lines[i].trim())){ tl.push(lines[i].trim()); i++; } i--;
+        var split=function(l){ return l.replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();}); };
+        var headers=split(tl[0]);
+        var body=tl.slice(1).filter(function(l){ return !/^\|\s*:?-+/.test(l); }).map(split);
+        table(headers, body); continue;
       }
-      inTable=false;
       if(/^-{3,}$|^\*{3,}$|^_{3,}$/.test(line)){ rule(); continue; }
-      if((m=line.match(/^#{1,3}\s+(.*)$/))){ title(m[1]); continue; }
+      if((m=line.match(/^#{1,3}\s+(.*)$/))){ title(clean(m[1])); continue; }
+      if(/^\*{0,2}change\s+\d+/i.test(line)){ title(clean(line).replace(/:\s*$/,'')); continue; }
+      if((m=line.match(/^\*\*(resume scorecard|scorecard)\*\*\s*(.*)$/i))){ title(m[1].charAt(0).toUpperCase()+m[1].slice(1)); if(m[2]) para(clean(m[2]), 0, 9.5, 'normal', [110,110,110]); continue; }
+      if((m=line.match(/^\*\*((?:resume score|readiness):\s*[^*]+)\*\*\s*(?:-\s*)?(.*)$/i))){ callout(m[1], m[2]); continue; }
       if((m=line.match(/^\*\*(.+?):?\*\*:?\s*$/))){ label(m[1]); continue; }
       if((m=line.match(/^(?:[-*•])\s+(.*)$/))){ bullet(m[1], '•', 6); continue; }
       if((m=line.match(/^(\d+)[.)]\s+(.*)$/))){ bullet(m[2], m[1]+'.', 6); continue; }
