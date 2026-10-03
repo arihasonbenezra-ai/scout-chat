@@ -306,13 +306,50 @@ function extractRewrites(reply) {
   while ((m = re.exec(reply)) !== null) if (m[1] && m[1].trim()) out.push(m[1].trim());
   return out;
 }
+// Words a rewrite is allowed to introduce on its own: ordinary verbs and
+// connectors a good rewrite needs. Anything else that appears in the posting
+// but nowhere in the resume is treated as imported experience.
+var REWRITE_STOP = {};
+('drive drove driving driven lead led leading own owned owning build built building manage managed managing deliver delivered delivering partner partnered '
+ + 'support supported improve improved increase increased reduce reduced develop developed create created design designed implement implemented launch launched '
+ + 'scale scaled grow grew ensure ensured strong experience ability team teams role roles work working across within including year years plus with from into '
+ + 'through while using that this these those their your they them have having been being more most over under than then also both each every about after before '
+ + 'company companies organization business businesses function functions program programs project projects process processes result results impact goal goals '
+ + 'responsible responsibility responsibilities require required requirements preferred candidate candidates position opportunity looking ideal must should will '
+ + 'strategy strategic initiative initiatives stakeholder stakeholders cross functional collaborate collaborated collaboration communicate communication skills skill '
+ + 'high highly fast paced environment environments global multiple various several key new first full time').split(' ').forEach(function (w) { REWRITE_STOP[w] = true; });
+var LEVEL_WORDS = { senior: 1, staff: 1, principal: 1, lead: 1, director: 1, head: 1, vp: 1, executive: 1, chief: 1, manager: 1 };
+function stemTok(t) {
+  t = String(t || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (t.length < 4) return '';
+  return t.replace(/(ings?|ed|es|s)$/, '');
+}
+function stemSet(text) {
+  var out = {};
+  normText(text).split(' ').forEach(function (t) { var st = stemTok(t); if (st) out[st] = true; });
+  return out;
+}
 // Quotes may come from the resume OR the posting (a review legitimately
-// cites both). Numbers in a rewrite must come from the resume only.
+// cites both). Numbers in a rewrite must come from the resume only, and so
+// must any posting word that names a skill, tool, domain, or level.
 function checkResumeGrounding(reply, resumeText, jdText) {
   var src = normText(resumeText);
   var srcTokens = src.split(' ');
   var quoteSrc = normText(resumeText + '\n' + (jdText || ''));
   var badQuotes = extractResumeQuotes(reply).filter(function (q) { return !quoteSupported(q, quoteSrc); });
+  var resumeStems = stemSet(resumeText);
+  var jdStems = jdText ? stemSet(jdText) : {};
+  var badTerms = [];
+  extractRewrites(reply).forEach(function (rw) {
+    normText(rw).split(' ').forEach(function (t) {
+      var raw = t.replace(/[^a-z]/g, '');
+      var st = stemTok(t);
+      if (!raw || REWRITE_STOP[raw] || REWRITE_STOP[st]) return;
+      var level = LEVEL_WORDS[raw] && !resumeStems[st] && !resumeStems[raw];
+      var imported = st && jdStems[st] && !resumeStems[st];
+      if ((level || imported) && badTerms.indexOf(raw) === -1) badTerms.push(raw);
+    });
+  });
   // Whole-number comparison: "3" must not pass because "30s" exists.
   var cores = {};
   srcTokens.forEach(function (t) { var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, ''); if (c) cores[c] = true; });
@@ -326,15 +363,17 @@ function checkResumeGrounding(reply, resumeText, jdText) {
       if (badNumbers.indexOf(t) === -1) badNumbers.push(t);
     });
   });
-  return { ok: !badQuotes.length && !badNumbers.length, badQuotes: badQuotes, badNumbers: badNumbers };
+  return { ok: !badQuotes.length && !badNumbers.length && !badTerms.length, badQuotes: badQuotes, badNumbers: badNumbers, badTerms: badTerms };
 }
 // Remove every "Change N" block that contains a violation; keep the rest.
 function stripBadChanges(reply, check) {
   var parts = reply.split(/(?=\n\s*\*{0,2}change\s+\d)/i);
   var removed = 0;
   var kept = parts.filter(function (part) {
+    var partTokens = normText(part).split(' ');
     var hit = check.badQuotes.some(function (q) { return part.indexOf(q) !== -1; })
-      || check.badNumbers.some(function (n) { return normText(part).split(' ').indexOf(n) !== -1; });
+      || check.badNumbers.some(function (n) { return partTokens.indexOf(n) !== -1; })
+      || (check.badTerms || []).some(function (w) { return partTokens.some(function (t) { return t.replace(/[^a-z]/g, '') === w; }); });
     if (hit && /change\s+\d/i.test(part)) { removed++; return false; }
     return true;
   });
@@ -359,13 +398,14 @@ async function groundedResumeReply(anthropicBody, messages) {
   var correction = 'Your previous draft failed a check against the resume.'
     + (check.badQuotes.length ? ' These quoted phrases are not in the resume: ' + check.badQuotes.map(function (q) { return '"' + q + '"'; }).join(', ') + '.' : '')
     + (check.badNumbers.length ? ' These numbers appear in a suggested rewrite but not in the resume: ' + check.badNumbers.join(', ') + '.' : '')
-    + ' Rewrite the whole review. Quote only text that is in the resume, and use only facts and numbers the resume states.';
+    + (check.badTerms.length ? ' These words appear in a suggested rewrite and in the posting, but nowhere in the resume, so they read as imported experience: ' + check.badTerms.join(', ') + '.' : '')
+    + ' Rewrite the whole review. Quote only text that is in the resume, and use only facts, numbers, skills, tools, and level words the resume itself states.';
   var second = await callOnce(Object.assign({}, anthropicBody, { system: anthropicBody.system + '\n\n' + correction }));
   if (!second.ok) return second;
   var check2 = checkResumeGrounding(second.text, resume, jd);
   if (check2.ok) return { ok: true, text: second.text, data: second.data, guard: { retried: true, stripped: 0 } };
   console.log('[resume-guard] strip', JSON.stringify(check2));
-  return { ok: true, text: stripBadChanges(second.text, check2), data: second.data, guard: { retried: true, stripped: check2.badQuotes.length + check2.badNumbers.length, strippedQuotes: check2.badQuotes, strippedNumbers: check2.badNumbers } };
+  return { ok: true, text: stripBadChanges(second.text, check2), data: second.data, guard: { retried: true, stripped: check2.badQuotes.length + check2.badNumbers.length + check2.badTerms.length, strippedQuotes: check2.badQuotes, strippedNumbers: check2.badNumbers, strippedTerms: check2.badTerms } };
 }
 
 // --- Grounded scorecard ------------------------------------------------
@@ -517,6 +557,40 @@ async function saveScorecard(userId, conversationId, mode, role, card) {
         { method: 'PATCH', headers: H, body: JSON.stringify({ readiness_score: Math.round(card.overall) }) });
     }
   } catch (e) { console.error('[scorecard] save failed', e && e.message); }
+}
+
+// --- Posting match for the review ----------------------------------------
+// If this posting was already graded (an Opportunity, or an earlier gap
+// analysis), the review should aim at what is missing instead of general
+// polish. Matched by posting text in code; the text is too long for a URL.
+async function fetchPostingMatch(token, userId, jdText) {
+  if (!jdText || jdText.trim().length < 200) return null;
+  var want = normText(jdText).slice(0, 400);
+  var H = { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } };
+  var same = function (t) { return t && normText(t).slice(0, 400) === want; };
+  try {
+    var r = await Promise.all([
+      fetch(SUPABASE_URL + '/rest/v1/career_opportunities?user_id=eq.' + userId + '&select=company,role_title,jd_text,fit_reasons,fit_score,posting&order=updated_at.desc&limit=10', H).then(function (x) { return x.ok ? x.json() : []; }, function () { return []; }),
+      fetch(SUPABASE_URL + '/rest/v1/resume_gap_analyses?user_id=eq.' + userId + '&select=jd_text,requirements,gaps&order=created_at.desc&limit=5', H).then(function (x) { return x.ok ? x.json() : []; }, function () { return []; })
+    ]);
+    var opp = (r[0] || []).find(function (o) { return same(o.jd_text) && Array.isArray(o.fit_reasons) && o.fit_reasons.length; });
+    if (opp) return { source: 'opportunity', company: opp.company, role_title: opp.role_title, fit_score: opp.fit_score, gaps: opp.fit_reasons, requirements: (opp.posting && opp.posting.requirements) || [] };
+    var ga = (r[1] || []).find(function (g) { return same(g.jd_text) && Array.isArray(g.gaps) && g.gaps.length; });
+    if (ga) return { source: 'gap_analysis', gaps: ga.gaps, requirements: ga.requirements || [] };
+  } catch (e) { console.error('[resume-match]', e && e.message); }
+  return null;
+}
+function matchToText(m) {
+  if (!m || !m.gaps || !m.gaps.length) return null;
+  var imp = {};
+  (m.requirements || []).forEach(function (r) { if (r && r.requirement) imp[r.requirement] = r.importance; });
+  var lines = ['Requirement match Ezzy already computed for this exact posting' + (m.role_title ? ' (' + m.role_title + (m.company ? ' at ' + m.company : '') + ')' : '') + ', each judged against the resume and profile:'];
+  m.gaps.forEach(function (g) {
+    lines.push('- [' + g.status + (imp[g.requirement] === 'required' ? ', required' : '') + '] ' + g.requirement + (g.note ? ' - ' + g.note : ''));
+  });
+  lines.push('');
+  lines.push('Use it: aim Change 1 and Change 2 at "missing" or "partial" requirements that the resume has real material for somewhere (surface it, reorder it, tighten it). Where the resume genuinely lacks a requirement, do not write a rewrite that pretends otherwise; name it under "Biggest gap to close before applying". Do not repeat this list back to the candidate.');
+  return lines.join('\n');
 }
 
 // --- Resume scorecard ---------------------------------------------------
@@ -1294,9 +1368,14 @@ export default async function handler(req, res) {
     }
 
     if (mode === 'resume') {
+      var rsrc = resumeSourceText(messages);
+      // A graded posting steers the review at what is missing.
+      if (resumeUnlocked && messages.length === 1 && rsrc.jd) {
+        var matchText = matchToText(await fetchPostingMatch(token, user.id, rsrc.jd));
+        if (matchText) anthropicBody.system += '\n\n' + matchText;
+      }
       // The scorecard runs alongside the review on the first turn of an
       // unlocked review, so it adds no wall-clock time.
-      var rsrc = resumeSourceText(messages);
       var resumeCardPromise = (resumeUnlocked && messages.length === 1)
         ? buildResumeScorecard(rsrc.resume, rsrc.jd).catch(function (e) { console.error('[resume-scorecard]', e && e.message); return null; })
         : Promise.resolve(null);
