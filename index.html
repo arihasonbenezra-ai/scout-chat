@@ -414,6 +414,7 @@ button,input,textarea{font-family:inherit}
 .opp-fit{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:14px;background:#F3F1EC}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .dash-gaps{display:flex;flex-direction:column}
+.gap-box.sess-gap{margin:16px 0 0;max-width:none}
 .dash-gaps .gap-row{padding:12px 0;border-top:1px solid #EEECE7}
 .dash-gaps .gap-row:first-child{border-top:none;padding-top:0}
 .dash-gaps .gap-req{font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -2644,6 +2645,8 @@ async function loadConversationForMode(modeId){
   // buttons that normally follow a reply never got a chance to appear -
   // same root cause as the "no button" report, just a different path in.
   if(modeId === 'resume' && convo.resume_stage === 'feedback_given'){
+    var gaps = await fetchGapsForJd(userId, convo.jd_text);
+    if(gaps.length) appendGapAnalysis(gaps);
     appendDownloadButton();
   }
   refreshStartOverRow();
@@ -3350,6 +3353,14 @@ async function dashShowSession(id, label){
       }
     });
   }
+  // A resume review's match box lives in its own table; show it under the transcript.
+  try{
+    var cv = await window.supabaseClient.from('conversations').select('mode,jd_text,user_id').eq('id', id).maybeSingle();
+    if(cv.data && cv.data.mode === 'resume' && cv.data.jd_text){
+      var gaps = await fetchGapsForJd(cv.data.user_id, cv.data.jd_text);
+      if(gaps.length) inner += '<div class="gap-box sess-gap">' + gapBoxHtml(gaps) + '</div>';
+    }
+  }catch(e){ console.error('session gap box', e); }
   body.innerHTML = dashView(escapeHtml(label), sub, 'Sessions', 'dashShowSessions()', '<div class="dash-transcript">' + inner + '</div>');
   externalizeLinks(body);
   body.parentNode.scrollTop = 0;
@@ -3913,21 +3924,34 @@ async function runGapAnalysis(resumeText, jdText){
   }catch(e){ console.error('Gap analysis error:', e); }
 }
 
-function appendGapAnalysis(gaps){
-  var icon = {matched:'✓', partial:'~', missing:'✕'};
-  var box = document.createElement('div');
-  box.className = 'gap-box';
+function gapBoxHtml(gaps){
+  var icon = {matched:'\u2713', partial:'~', missing:'\u2715'};
   var html = '<div class="gap-title">How you match this role</div>';
   gaps.forEach(function(g){
     html += '<div class="gap-row gap-'+(g.status||'missing')+'">'
       + '<span class="gap-icon">'+(icon[g.status]||'?')+'</span>'
       + '<div><div class="gap-req">'+escapeHtml(g.requirement)+'</div>'
-      + '<div class="gap-note">'+escapeHtml(g.note)+'</div></div>'
+      + '<div class="gap-note">'+escapeHtml(g.note||'')+'</div></div>'
       + '</div>';
   });
-  box.innerHTML = html;
+  return html;
+}
+function appendGapAnalysis(gaps){
+  var box = document.createElement('div');
+  box.className = 'gap-box';
+  box.innerHTML = gapBoxHtml(gaps);
   msgEl.appendChild(box);
   scrollMain();
+}
+// The match box is not a chat message, so a restored review would lose it.
+// It was saved to resume_gap_analyses at the time, keyed by the posting.
+async function fetchGapsForJd(uid, jdText){
+  if(!uid || !jdText || !window.supabaseClient) return [];
+  try{
+    var r = await window.supabaseClient.from('resume_gap_analyses').select('gaps').eq('user_id', uid).eq('jd_text', jdText).order('created_at', {ascending:false}).limit(1);
+    var g = r.data && r.data[0] && r.data[0].gaps;
+    return Array.isArray(g) ? g : [];
+  }catch(e){ console.error('gap restore', e); return []; }
 }
 
 // Pricing / checkout
