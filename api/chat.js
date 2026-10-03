@@ -519,6 +519,92 @@ async function saveScorecard(userId, conversationId, mode, role, card) {
   } catch (e) { console.error('[scorecard] save failed', e && e.message); }
 }
 
+// --- Resume scorecard ---------------------------------------------------
+// The prep engine pointed at a resume: a fixed rubric (scoring_rubrics,
+// family 'Resume'), one verbatim quote per dimension checked against the
+// resume text, overall computed here. Runs once per review, on the first
+// turn, for unlocked reviews only. Saved to resume_scores, never to
+// prep_scores: a resume score is not interview readiness.
+var RESUME_RUBRIC_DEFAULTS = [
+  { family: 'Resume', dimension: 'Quantified impact', weight: 3, anchor_5: 'Most bullets carry a number or concrete outcome tied to what the candidate did.', anchor_3: 'Some numbers, or outcomes stated without numbers.', anchor_1: 'Responsibilities only. No outcomes anywhere.' },
+  { family: 'Resume', dimension: 'Ownership and scope', weight: 2, anchor_5: 'Clear what the candidate personally owned, at what scale.', anchor_3: 'Ownership is guessable but scope is vague.', anchor_1: 'Cannot tell what they owned versus the team, or how big any of it was.' },
+  { family: 'Resume', dimension: 'Relevance to the target', weight: 3, anchor_5: 'The top third of the resume speaks directly to the target role or posting.', anchor_3: 'Relevant experience exists but is buried, or the headline points elsewhere.', anchor_1: 'A screener for the target would not see the fit without hunting.' },
+  { family: 'Resume', dimension: 'Specificity', weight: 2, anchor_5: 'Names companies, tools, methods, timeframes. Any line could be checked.', anchor_3: 'Some specifics, some generic filler.', anchor_1: 'Generic throughout.' },
+  { family: 'Resume', dimension: 'Scannability', weight: 1, anchor_5: 'Tight bullets, consistent structure, strongest line first. Readable in a skim.', anchor_3: 'Some long paragraphs or inconsistent formatting.', anchor_1: 'Dense blocks, no hierarchy.' }
+];
+
+async function fetchResumeRubric() {
+  var rows = null;
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/scoring_rubrics?active=eq.true&family=eq.Resume&select=family,dimension,weight,anchor_5,anchor_3,anchor_1&order=sort.asc',
+      { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY } });
+    if (res.ok) rows = await res.json();
+  } catch (e) { rows = null; }
+  return rows && rows.length ? rows : RESUME_RUBRIC_DEFAULTS;
+}
+
+function renderResumeScorecard(dims, overallInfo, hasPosting) {
+  var lines = ['', '---', '', '**Resume scorecard**', '',
+    '| Dimension | Score | From your resume | Change one thing |', '|---|---|---|---|'];
+  dims.forEach(function (d) {
+    var ev = d.score == null ? '_no line in the resume could be verified for this_' : '"' + d.evidence_quote.replace(/\|/g, '/') + '"';
+    var sc = d.score == null ? '-' : d.score + '/5';
+    var imp = d.score == null ? '' : String(d.improvement || '').replace(/\|/g, '/');
+    lines.push('| ' + d.dimension + ' | ' + sc + ' | ' + ev + ' | ' + imp + ' |');
+  });
+  lines.push('');
+  if (overallInfo.overall == null) {
+    lines.push('**Resume score: not rated.** Only ' + overallInfo.scored + ' of ' + dims.length + ' dimensions could be tied to a line in your resume.');
+  } else {
+    lines.push('**Resume score: ' + overallInfo.overall + '/10** - computed from ' + overallInfo.scored + ' of ' + dims.length + ' dimensions, weighted' + (hasPosting ? ', relevance judged against the posting you pasted' : ', relevance judged against the target your resume itself states') + '. Every score points at a line of your resume. Make the changes above and run the review again to see it move.');
+  }
+  return lines.join('\n');
+}
+
+async function buildResumeScorecard(resumeText, jdText) {
+  if (!resumeText || resumeText.length < 200) return null;
+  var rubric = await fetchResumeRubric();
+  var hasPosting = !!(jdText && jdText.trim().length >= 200);
+  var sys = 'You are scoring a resume against a fixed rubric, the way a recruiter screening for the target role would. For EACH rubric dimension, pick the score (1-5) whose anchor best matches the resume, copy one exact line or phrase from the resume that justifies it (verbatim - it will be checked mechanically and discarded if it does not appear in the resume), and give one concrete change. Score only what the resume shows. '
+    + (hasPosting ? 'For relevance, judge against the posting provided.' : 'No posting was provided: for relevance, judge against the target the resume itself communicates in its headline or summary; if it communicates none, that is a low relevance score.')
+    + '\n\nRubric:\n' + rubricToText(rubric);
+  var content = 'Resume:\n\n' + resumeText + (hasPosting ? '\n\n---\n\nTarget posting:\n\n' + jdText : '');
+  var r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5', max_tokens: 2000, system: sys,
+      messages: [{ role: 'user', content: content }],
+      tools: [SCORE_TOOL], tool_choice: { type: 'tool', name: 'record_scores' }
+    })
+  });
+  var data = await r.json();
+  if (!r.ok) { console.error('[resume-scorecard] api error', JSON.stringify(data).slice(0, 300)); return null; }
+  var tu = (data.content || []).find(function (b) { return b.type === 'tool_use'; });
+  var out = tu && tu.input && Array.isArray(tu.input.dimensions) ? tu.input.dimensions : [];
+  var src = normText(resumeText);
+  var dims = rubric.map(function (d) {
+    var got = out.find(function (o) { return o && String(o.dimension).toLowerCase().trim() === d.dimension.toLowerCase(); });
+    var quote = got ? String(got.evidence_quote || '').trim() : '';
+    var n = normText(quote);
+    var verified = n.length >= 6 && src.indexOf(n) !== -1;
+    var score = got && verified && typeof got.score === 'number' ? Math.max(1, Math.min(5, Math.round(got.score))) : null;
+    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: got ? String(got.improvement || '') : '' };
+  });
+  var overallInfo = computeOverall(dims);
+  return { dims: dims, overall: overallInfo.overall, scored: overallInfo.scored, hasPosting: hasPosting, markdown: renderResumeScorecard(dims, overallInfo, hasPosting) };
+}
+
+async function saveResumeScorecard(userId, conversationId, role, card) {
+  var H = { 'Content-Type': 'application/json', apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY };
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/resume_scores', { method: 'POST', headers: H, body: JSON.stringify([{
+      conversation_id: conversationId || null, user_id: userId, role: role || null, has_posting: card.hasPosting,
+      dimensions: card.dims, overall: card.overall, scored_dims: card.scored, total_dims: card.dims.length
+    }]) });
+  } catch (e) { console.error('[resume-scorecard] save failed', e && e.message); }
+}
+
 function isPrepAnswerTurn(mode, messages) {
   if (!PREP_MODES[mode] || !messages || messages.length < 2) return false;
   var last = messages[messages.length - 1];
@@ -1208,9 +1294,20 @@ export default async function handler(req, res) {
     }
 
     if (mode === 'resume') {
+      // The scorecard runs alongside the review on the first turn of an
+      // unlocked review, so it adds no wall-clock time.
+      var rsrc = resumeSourceText(messages);
+      var resumeCardPromise = (resumeUnlocked && messages.length === 1)
+        ? buildResumeScorecard(rsrc.resume, rsrc.jd).catch(function (e) { console.error('[resume-scorecard]', e && e.message); return null; })
+        : Promise.resolve(null);
       var gr = await groundedResumeReply(anthropicBody, messages);
       if (gr) {
         if (!gr.ok) return res.status(gr.status || 502).json(gr.data || { error: 'Review failed' });
+        var rcard = await resumeCardPromise;
+        if (rcard) {
+          gr.text = gr.text.trim() + '\n' + rcard.markdown;
+          await saveResumeScorecard(user.id, body.conversationId || null, role, rcard);
+        }
         if (isStreaming) return writeAsStream(res, gr.text, gr.guard);
         return res.status(200).json({ content: [{ type: 'text', text: gr.text }], guard: gr.guard, usage: (gr.data && gr.data.usage) || {} });
       }

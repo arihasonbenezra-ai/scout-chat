@@ -405,6 +405,7 @@ button,input,textarea{font-family:inherit}
 .dash-single .brain-target-hint{font-size:13.5px}
 .dash-single .brain-save{font-size:14px;padding:9px 18px}
 .dash-score.mid{color:#966B0A;background:#FFF3DA}
+.dash-rs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding-top:12px;border-top:1px solid #EEECE7}
 .dash-score.low{color:#8F3229;background:#FCEAE6}
 .dash-input{width:100%;height:42px;border:1px solid #D5D2CB;border-radius:12px;padding:0 14px;font-size:14.5px;font-family:inherit;box-sizing:border-box;outline:none}
 .dash-input:focus{border-color:#F26B5E}
@@ -2948,6 +2949,12 @@ async function dashAddSkill(){
   var again = document.getElementById('dashSkillInput'); if(again) again.focus();
 }
 
+// The weakest verified dimension of a resume score, for the card and Do next.
+function dashResumeLow(rs){
+  if(!rs || !Array.isArray(rs.dimensions)) return null;
+  var scored = rs.dimensions.filter(function(x){ return x.score != null; }).slice().sort(function(a,b){ return a.score - b.score || b.weight - a.weight; });
+  return scored[0] || null;
+}
 function dashGreeting(name){
   var h = new Date().getHours();
   var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
@@ -2984,7 +2991,8 @@ async function loadDashboard(){
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
     sb.from('conversations').select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company').eq('user_id', uid).not('archived_at','is',null).order('archived_at',{ascending:false}).limit(3),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
-    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3)
+    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
+    sb.from('resume_scores').select('id,conversation_id,overall,dimensions,scored_dims,total_dims,created_at,has_posting').eq('user_id', uid).order('created_at',{ascending:false}).limit(1)
   ].map(function(pr){ return pr.then(function(r){ return r; }, function(e){ return {error:e}; }); }));
   var profile = (q[0] && q[0].data) || {};
   var claims = (q[1] && q[1].data) || [];
@@ -2992,13 +3000,14 @@ async function loadDashboard(){
   var past = (q[3] && q[3].data) || [];
   var stories = (q[4] && q[4].data) || [];
   var opps = (q[5] && q[5].data) || [];
+  var resumeScore = (q[6] && q[6].data && q[6].data[0]) || null;
   var nameEl = document.getElementById('authUserName');
   var name = nameEl ? nameEl.textContent.trim() : '';
   var latest = scores[0] || null;
   var lastRole = latest && latest.role ? latest.role : (past[0] && past[0].role) || null;
   DASH_ROLE = profile.target_role_title || lastRole || null;
   DASH_PROFILE = profile; BRAIN_PROFILE = profile;
-  var d = { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest };
+  var d = { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest, resumeScore:resumeScore };
   if(dashNeedsOnboarding(d)){ renderOnboarding(body, d); return; }
   ONB = null;
   renderDashboard(body, d);
@@ -3079,7 +3088,17 @@ function renderDashboard(body, d){
     DASH_CLAIMS = d.claims;
     html += '<div class="dash-chips" id="dashClaims">' + dashClaimChips(false) + '</div>';
     html += '<div class="dash-muted">See all shows where each item came from. ' + (isCareerPlan() ? 'Remove anything that\u2019s wrong or add a skill Ezzy missed.' : '') + '</div>';
-  } else {
+  }
+  // Latest resume score, from the review's rubric pass. Not readiness.
+  var rsLow = dashResumeLow(d.resumeScore);
+  if(d.resumeScore){
+    var rs = d.resumeScore;
+    var rsCls = rs.overall == null ? 'dash-nr' : rs.overall >= 7 ? 'dash-score' : rs.overall >= 4 ? 'dash-score mid' : 'dash-score low';
+    html += '<div class="dash-rs"><span class="' + rsCls + '">' + (rs.overall == null ? 'Resume not rated' : 'Resume ' + rs.overall + '/10') + '</span>'
+      + '<span class="dash-row-s">' + (rsLow ? 'Lowest: ' + escapeHtml(rsLow.dimension.toLowerCase()) + ' \u00b7 ' : '') + dashDate(rs.created_at) + '</span>'
+      + (rs.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + rs.conversation_id + '\',\'Resume Review\')">Open review</button>' : '') + '</div>';
+  }
+  if(!(d.claims.length || p.current_role_title)){
     html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
   }
   html += '</div>';
@@ -3112,6 +3131,7 @@ function renderDashboard(body, d){
   if(!p.target_role_title) next.push({hot:true, t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
+  if(rsLow && d.resumeScore.overall != null && d.resumeScore.overall < 8) next.push({t:'Resume: ' + rsLow.dimension.toLowerCase() + ' scored ' + rsLow.score + '/5', s:(rsLow.improvement || 'Fix it, then run the review again to see the score move.').slice(0,120), fn:'dashResume()'});
   if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
   if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
