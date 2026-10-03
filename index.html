@@ -3187,7 +3187,7 @@ function renderDashboard(body, d){
     var rs = d.resumeScore;
     var rsCls = rs.overall == null ? 'dash-nr' : rs.overall >= 7 ? 'dash-score' : rs.overall >= 4 ? 'dash-score mid' : 'dash-score low';
     html += '<div class="dash-rs"><span class="' + rsCls + '">' + (rs.overall == null ? 'Resume not rated' : 'Resume ' + rs.overall + '/10') + '</span>'
-      + '<span class="dash-row-s">' + (rsLow ? 'Lowest: ' + escapeHtml(rsLow.dimension.toLowerCase()) + ' \u00b7 ' : '') + dashDate(rs.created_at) + '</span>'
+      + '<span class="dash-row-s">' + (rs.overall == null ? 'Your last review on ' + dashDate(rs.created_at) + ' had too few verifiable lines to score.' : 'From your review on ' + dashDate(rs.created_at) + '.' + (rsLow ? ' Weakest area: ' + escapeHtml(rsLow.dimension.toLowerCase()) + '.' : '')) + '</span>'
       + (rs.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + rs.conversation_id + '\',\'Resume Review\')">Open review</button>' : '') + '</div>';
   }
   if(!(d.claims.length || p.current_role_title)){
