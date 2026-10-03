@@ -1730,6 +1730,10 @@ function downloadFeedbackPDF(){
       doc.setDrawColor(238,236,231); doc.line(margin, y, pageW-margin, y);
     }
     y=y-BODY_LH+6; // para() treats y as a baseline; rows treat it as a top edge
+    // Header and first row travel together: an orphaned header row at the
+    // foot of a page reads as a broken table.
+    var need=wrap(headers,true).h + (rows.length ? wrap(rows[0],false).h : 0);
+    if(y+need>pageH-margin){ doc.addPage(); header(); y=76-BODY_LH+4; }
     drawRow(headers, true);
     rows.forEach(function(r){ drawRow(r, false); });
     y+=BODY_LH+6;
@@ -1760,7 +1764,7 @@ function downloadFeedbackPDF(){
       if(/^-{3,}$|^\*{3,}$|^_{3,}$/.test(line)){ rule(); continue; }
       if((m=line.match(/^#{1,3}\s+(.*)$/))){ title(clean(m[1])); continue; }
       if(/^\*{0,2}change\s+\d+/i.test(line)){ title(clean(line).replace(/:\s*$/,'')); continue; }
-      if((m=line.match(/^\*\*(resume scorecard|scorecard)\*\*\s*(.*)$/i))){ title(m[1].charAt(0).toUpperCase()+m[1].slice(1)); if(m[2]) para(clean(m[2]), 0, 9.5, 'normal', [110,110,110]); continue; }
+      if((m=line.match(/^\*\*(resume scorecard|scorecard)\*\*\s*(.*)$/i))){ ensure(150); title(m[1].charAt(0).toUpperCase()+m[1].slice(1)); if(m[2]) para(clean(m[2]), 0, 9.5, 'normal', [110,110,110]); continue; }
       if((m=line.match(/^\*\*((?:resume score|readiness):\s*[^*]+)\*\*\s*(?:-\s*)?(.*)$/i))){ callout(m[1], m[2]); continue; }
       if((m=line.match(/^\*\*(.+?):?\*\*:?\s*$/))){ label(m[1]); continue; }
       if((m=line.match(/^(?:[-*•])\s+(.*)$/))){ bullet(m[1], '•', 6); continue; }
@@ -3037,7 +3041,7 @@ async function loadDashboard(){
     sb.from('career_profile').select('*').eq('user_id', uid).maybeSingle(),
     sb.from('career_claims').select('id,claim_type,label,status,detail,evidence').eq('user_id', uid).order('last_seen_at',{ascending:false}),
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
-    sb.from('conversations').select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company').eq('user_id', uid).not('archived_at','is',null).order('archived_at',{ascending:false}).limit(3),
+    sb.from('conversations').select('id,mode,role,archived_at,created_at,updated_at,answer_count,readiness_score,research_company,resume_stage,research_stage').eq('user_id', uid).order('updated_at',{ascending:false}).limit(12),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
     sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
     sb.from('resume_scores').select('id,conversation_id,overall,dimensions,scored_dims,total_dims,created_at,has_posting').eq('user_id', uid).order('created_at',{ascending:false}).limit(1)
@@ -3045,7 +3049,7 @@ async function loadDashboard(){
   var profile = (q[0] && q[0].data) || {};
   var claims = (q[1] && q[1].data) || [];
   var scores = (q[2] && q[2].data) || [];
-  var past = (q[3] && q[3].data) || [];
+  var past = ((q[3] && q[3].data) || []).filter(dashSessionHasContent).slice(0,3);
   var stories = (q[4] && q[4].data) || [];
   var opps = (q[5] && q[5].data) || [];
   var resumeScore = (q[6] && q[6].data && q[6].data[0]) || null;
@@ -3077,6 +3081,7 @@ function renderDashboard(body, d){
     : (p.target_role_title ? 'Run a Practice set to get your first scorecard.' : 'Start by telling Ezzy what you\u2019re going for, or paste your resume.');
   html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div>'
     + '<div class="dash-actions"><button class="dash-btn primary" onclick="dashPractice()">Practice' + (latest ? ' again' : '') + '</button>'
+    + (locked ? '' : '<button class="dash-btn" onclick="dashResume()">Resume review</button>')
     + '<button class="dash-btn" onclick="dashPostingEntry()">' + (locked ? 'Paste a job posting' : 'Add an opportunity') + '</button></div></div>';
 
   html += '<div class="dash-grid">';
@@ -3188,11 +3193,11 @@ function renderDashboard(body, d){
   }).join('') + '<div class="dash-muted">Each of these comes from something on this page, not a generic checklist.</div></div>';
 
   // Past sessions
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Past sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
   if(d.past.length){
     html += d.past.map(dashSessionRow).join('');
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Reviews, practice sets, and research briefs land here. Live ones pick up where you left off.</div></div>';
   }
   html += '</div>';
 
@@ -3235,15 +3240,49 @@ function recordReadinessScore(reply){
     .then(function(r){ if(r.error) console.error('readiness save', r.error); });
 }
 
+// A conversation row counts as a session once something happened in it:
+// an answer given, a review delivered, a brief written. Empty rows from
+// opening a mode and leaving are not sessions.
+function dashSessionHasContent(r){
+  if(!r) return false;
+  if(r.archived_at) return true;
+  if(r.mode==='practice'||r.mode==='star'||r.mode==='mock') return (r.answer_count||0) > 0;
+  if(r.mode==='resume') return r.resume_stage === 'feedback_given';
+  if(r.mode==='research') return !!r.research_stage && r.research_stage !== 'awaiting_company';
+  return false;
+}
 function dashSessionRow(r){
   var label = SESSION_MODE_LABELS[r.mode] || r.mode;
+  var live = !r.archived_at;
   var bits = [];
   if(r.role) bits.push(escapeHtml(r.role)); if(r.research_company) bits.push(escapeHtml(r.research_company));
-  bits.push(dashDate(r.archived_at || r.created_at));
+  bits.push(dashDate(r.archived_at || r.updated_at || r.created_at));
   var prep = (r.mode==='practice'||r.mode==='star'||r.mode==='mock');
   if(prep && r.answer_count) bits.push(r.answer_count + (r.answer_count===1?' answer':' answers'));
   var right = r.readiness_score != null ? '<span class="dash-score">' + r.readiness_score + '/10</span>' : '<span class="dash-nr">' + (prep ? 'not rated' : '') + '</span>';
-  return '<button class="dash-row" onclick="dashShowSession(\'' + r.id + '\',\'' + escapeHtml(label) + '\')"><div><div class="dash-row-t">' + escapeHtml(label) + '</div><div class="dash-row-s">' + bits.join(' \u00b7 ') + '</div></div>' + right + '</button>';
+  var click = live ? 'dashOpenLiveSession(' + JSON.stringify(r.id) + ',' + JSON.stringify(r.mode) + ',' + JSON.stringify(r.role||null) + ')' : 'dashShowSession(\'' + r.id + '\',\'' + escapeHtml(label) + '\')';
+  return '<button class="dash-row" onclick=\'' + click.replace(/'/g,'&#39;') + '\'><div><div class="dash-row-t">' + escapeHtml(label) + (live ? ' <span class="dash-tag coral">Live</span>' : '') + '</div><div class="dash-row-s">' + bits.join(' \u00b7 ') + '</div></div>' + right + '</button>';
+}
+// A live session reopens in its mode (the mode restores its own
+// conversation); archived ones are read-only transcripts.
+function dashOpenLiveSession(id, mode, role){
+  if(mode==='resume'){
+    hideDashboard();
+    ROLE = role || null; window.ROLE = ROLE;
+    enterAppShell(ROLE);
+    resumeDropDismissed = true;
+    inputEl.disabled = false; inputEl.placeholder = 'Type your answer...';
+    startMode('resume', 'Resume Feedback');
+    return;
+  }
+  if(mode==='research'){
+    hideDashboard();
+    ROLE = role || null; window.ROLE = ROLE;
+    enterAppShell(ROLE);
+    pickIntent('research');
+    return;
+  }
+  dashStartMode(role, mode, SESSION_MODE_LABELS[mode] || mode);
 }
 
 // A dashboard sub-view: same section, a title row with a way back, one card.
@@ -3259,20 +3298,21 @@ async function dashShowSessions(){
   var body = document.getElementById('dashBody');
   if(!body || !window.supabaseClient) return;
   if(!DASH_ON) showDashboard(true);
-  var sub = 'Sessions you finished or started over. Read-only.';
-  body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
+  var sub = 'Live sessions pick up where you left off. Finished ones are read-only.';
+  body.innerHTML = dashView('Sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
   var sessionRes = await window.supabaseClient.auth.getSession();
   var session = sessionRes.data && sessionRes.data.session;
-  if(!session){ body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Sign in to see your past sessions.</div>'); return; }
+  if(!session){ body.innerHTML = dashView('Sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Sign in to see your sessions.</div>'); return; }
   var res = await window.supabaseClient.from('conversations')
-    .select('id,mode,role,archived_at,created_at,answer_count,readiness_score,research_company')
-    .eq('user_id', session.user.id).not('archived_at','is',null)
-    .order('archived_at', {ascending:false}).limit(50);
+    .select('id,mode,role,archived_at,created_at,updated_at,answer_count,readiness_score,research_company,resume_stage,research_stage')
+    .eq('user_id', session.user.id)
+    .order('updated_at', {ascending:false}).limit(80);
+  if(res.data) res.data = res.data.filter(dashSessionHasContent).slice(0, 50);
   var inner;
   if(res.error) inner = '<div class="dash-loading">Could not load sessions. Try again shortly.</div>';
   else if(!res.data || !res.data.length) inner = '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
   else inner = res.data.map(dashSessionRow).join('');
-  body.innerHTML = dashView('Past sessions', sub, 'My Career', 'loadDashboard()', inner);
+  body.innerHTML = dashView('Sessions', sub, 'My Career', 'loadDashboard()', inner);
   body.parentNode.scrollTop = 0;
 }
 
@@ -3281,7 +3321,7 @@ async function dashShowSession(id, label){
   if(!body || !window.supabaseClient) return;
   if(!DASH_ON) showDashboard(true);
   var sub = 'Read-only transcript.';
-  body.innerHTML = dashView(escapeHtml(label), sub, 'Past sessions', 'dashShowSessions()', '<div class="dash-loading">Loading...</div>');
+  body.innerHTML = dashView(escapeHtml(label), sub, 'Sessions', 'dashShowSessions()', '<div class="dash-loading">Loading...</div>');
   var res = await window.supabaseClient.from('messages').select('role,content,created_at').eq('conversation_id', id).order('created_at', {ascending:true});
   var inner = '';
   if(res.error || !res.data || !res.data.length){
@@ -3298,7 +3338,7 @@ async function dashShowSession(id, label){
       }
     });
   }
-  body.innerHTML = dashView(escapeHtml(label), sub, 'Past sessions', 'dashShowSessions()', '<div class="dash-transcript">' + inner + '</div>');
+  body.innerHTML = dashView(escapeHtml(label), sub, 'Sessions', 'dashShowSessions()', '<div class="dash-transcript">' + inner + '</div>');
   externalizeLinks(body);
   body.parentNode.scrollTop = 0;
 }
