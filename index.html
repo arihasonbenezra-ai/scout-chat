@@ -2917,7 +2917,19 @@ function dashStartMode(role, modeId, title){
 }
 function dashPractice(){ dashStartMode(DASH_ROLE, 'practice', 'Practice Q&A'); }
 function dashStar(){ dashStartMode(DASH_ROLE, 'star', 'STAR Coaching'); }
-function dashResume(){ hideDashboard(); startResumeReviewDirect(); }
+// From the dashboard, Resume review means a new review. A review still in
+// progress is archived first (it stays in Sessions, read-only); the Live
+// row in Sessions is how you go back to one on purpose.
+async function dashResume(){
+  hideDashboard();
+  ROLE = null; window.ROLE = null;
+  enterAppShell(null);
+  resumeDropDismissed = false;
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your answer...';
+  await startMode('resume', 'Resume Feedback');
+  if(RESUME_STAGE !== 'awaiting_resume') await startNewResumeReview();
+}
 function dashResearch(){
   hideDashboard();
   if(!DASH_ROLE){ clearChatState(); pickTopIntent('prep'); return; }
