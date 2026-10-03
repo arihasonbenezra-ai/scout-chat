@@ -3441,10 +3441,20 @@ async function dashOppResearch(){
   enterAppShell(o.role_title);
   inputEl.disabled = false;
   inputEl.placeholder = 'Type a company name...';
+  // A brief on file for this role but a different company would be restored
+  // in place of this one; archive it so this company's research starts
+  // clean. A brief for the same company comes back as it was.
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+    if(uid){
+      await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() })
+        .eq('user_id', uid).eq('mode', 'research').eq('role', o.role_title).is('archived_at', null).neq('research_company', o.company);
+    }
+  }catch(e){ console.error('archive other research', e); }
   await startMode('research', 'Company Research');
-  // Fresh research: the company is already known, so put it in the box and
-  // let them hit send. A restored brief is left as it is.
-  if(RESEARCH_STAGE === 'awaiting_company'){ inputEl.value = o.company; updateSendBtnState(); inputEl.focus(); }
+  // The company is known, so the research runs; nothing to type.
+  if(RESEARCH_STAGE === 'awaiting_company') handleSendText(o.company);
 }
 async function dashOppResume(){
   if(!OPP_CURRENT) return;
