@@ -332,6 +332,8 @@ button,input,textarea{font-family:inherit}
 .role-chip:hover{border-color:#111}
 .role-chip.on{background:#111;border-color:#111;color:#fff}
 .role-chip.on span{color:#CFCFCF}
+.role-source{font-size:13px;color:#8A8A8A;line-height:1.5;margin-top:10px}
+.role-source a{color:#6B6B6B}
 .role-sel{width:auto;min-width:170px;height:38px;border-radius:999px;font-size:14.5px}
 .role-co{font-weight:500;color:#6B6B6B}
 .role-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
@@ -3348,11 +3350,9 @@ function renderDashboard(body, d){
   // Roles for you: open roles at companies Ezzy follows, matched on the
   // target title. Filled in after the page renders (dashLoadRoles).
   html += '<div class="dash-card span3"><div class="dash-card-head"><div class="dash-label">Roles for you</div><button class="dash-link" id="dashRolesAll" style="display:none" onclick="dashShowRoles()">See all</button></div>'
-    + '<div id="dashRoles">' + (locked
-        ? '<div class="dash-empty"><div class="dash-empty-t">Open roles that match your target</div><div class="dash-empty-s">Live roles from the companies Ezzy follows, matched to the role you\u2019re going for. One click checks your fit and gives a verdict.</div><button class="dash-btn" onclick="openPricingModal()">Career plan</button></div>'
-        : (p.target_role_title
-            ? '<div class="dash-muted">Looking for open ' + escapeHtml(p.target_role_title) + ' roles...</div>'
-            : '<div class="dash-empty"><div class="dash-empty-t">Set your target first</div><div class="dash-empty-s">Roles are matched on the title you\u2019re going for. Set it and open roles show up here.</div><button class="dash-btn" onclick="' + EDIT + '">Set your target</button></div>'))
+    + '<div id="dashRoles">' + (roleProfile(p).target_role_title
+        ? '<div class="dash-muted">Looking for open ' + escapeHtml(roleProfile(p).target_role_title) + ' roles...</div>'
+        : roleAskTitle())
     + '</div></div>';
 
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
@@ -3387,7 +3387,7 @@ function renderDashboard(body, d){
   html += '</div>'; // grid
   html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
-  if(!locked && p.target_role_title) dashLoadRoles(d);
+  if(roleProfile(p).target_role_title) dashLoadRoles(d);
 }
 
 // --- Past sessions (archived conversations, read-only) ------------------
@@ -3535,6 +3535,32 @@ function dashEditTarget(){
 // real match, which lands as an Opportunity with a verdict.
 var ROLE_SKIP = /^(senior|sr|staff|principal|lead|junior|jr|associate|intern|head|director|vp|chief|manager of|ii|iii|iv|of|and|the|for|to|in|at|a|an)$/;
 var DASH_ROLES = null; // { key, ranked }
+// Seeing the roles is free for every signed-in user; they are the
+// companies' own public listings. What the Career plan adds is Ezzy's work
+// on top: the fit check, the verdict, the fixes.
+var ROLE_QUERY = '';   // a title typed into the section when no target is saved
+var ROLE_CONTACT = 'hello@meetezzy.com';
+var ROLE_SOURCE_NOTE = '<div class="role-source">Listings come from each company\u2019s own public job board and link to that company\u2019s site to apply. Ezzy is not affiliated with these companies. Employers: to have your listings removed, email <a href="mailto:' + ROLE_CONTACT + '">' + ROLE_CONTACT + '</a>.</div>';
+// The saved target when there is one; otherwise the title typed here, or
+// the role from the person's latest session.
+function roleProfile(p){
+  p = p || {};
+  if(p.target_role_title) return p;
+  return Object.assign({}, p, { target_role_title: ROLE_QUERY || DASH_ROLE || '' });
+}
+function roleAskTitle(){
+  return '<div class="dash-empty"><div class="dash-empty-t">What role are you looking for?</div><div class="dash-empty-s">Open roles at the companies Ezzy follows are matched on the title.</div>'
+    + '<div class="dash-add" style="max-width:520px"><input id="roleQuery" type="text" maxlength="80" placeholder="e.g. Product Manager" onkeydown="if(event.key===\'Enter\')dashSetRoleQuery()"/><button class="dash-btn" onclick="dashSetRoleQuery()">Show roles</button></div></div>';
+}
+function dashSetRoleQuery(){
+  var el = document.getElementById('roleQuery');
+  var v = el ? el.value.trim().slice(0, 80) : '';
+  if(!v) return;
+  ROLE_QUERY = v; DASH_ROLES = null;
+  var box = document.getElementById('dashRoles');
+  if(box) box.innerHTML = '<div class="dash-muted">Looking for open ' + escapeHtml(v) + ' roles...</div>';
+  dashLoadRoles({ profile: DASH_PROFILE || {}, opps: [] });
+}
 function roleTokens(title){
   return String(title || '').toLowerCase().replace(/[^a-z0-9+#\s]/g, ' ').split(/\s+/).filter(function(t){ return t.length >= 2 && !ROLE_SKIP.test(t); });
 }
@@ -3677,7 +3703,8 @@ function renderRolesCard(){
   var shown = applyRoleFilter(ranked);
   box.innerHTML = roleFilterBar(false)
     + (shown.length ? shown.slice(0, 5).map(dashRoleRow).join('') : roleFilterEmpty())
-    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>';
+    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>'
+    + ROLE_SOURCE_NOTE;
   var all = document.getElementById('dashRolesAll'); if(all) all.style.display = ranked.length > 5 ? '' : 'none';
 }
 function renderRolesList(){
@@ -3685,20 +3712,21 @@ function renderRolesList(){
   if(!body || !ROLE_VIEW) return;
   var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
   var shown = applyRoleFilter(ranked);
-  var inner = roleFilterBar(true) + (shown.length ? shown.slice(0, 80).map(dashRoleRow).join('') : roleFilterEmpty());
+  var inner = roleFilterBar(true) + (shown.length ? shown.slice(0, 80).map(dashRoleRow).join('') : roleFilterEmpty()) + ROLE_SOURCE_NOTE;
   body.innerHTML = dashView('Roles for you', shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + (shown.length > 80 ? ', best 80 shown' : '') + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
 }
 async function dashLoadRoles(d){
   var box = document.getElementById('dashRoles');
   if(!box) return;
-  var p = d.profile || {};
+  var p = roleProfile(d.profile);
   var ranked = [];
   try{ ranked = await dashFetchRoles(p, (d.opps || []).map(function(o){ return o.url; })); }
   catch(e){ console.error('roles', e); }
   box = document.getElementById('dashRoles'); // the page may have re-rendered while we waited
   if(!box) return;
   if(!ranked.length){
-    box.innerHTML = '<div class="dash-empty"><div class="dash-empty-t">No open ' + escapeHtml(p.target_role_title) + ' roles right now</div><div class="dash-empty-s">Nothing with that title is open at the companies Ezzy follows today. The list refreshes every night; a broader target title will also widen it.</div></div>';
+    box.innerHTML = '<div class="dash-empty"><div class="dash-empty-t">No open ' + escapeHtml(p.target_role_title) + ' roles right now</div><div class="dash-empty-s">Nothing with that title is open at the companies Ezzy follows today. The list refreshes every night; a broader title will also widen it.</div></div>'
+      + (ROLE_QUERY ? roleAskTitle() : '');
     return;
   }
   ROLE_VIEW = { ranked: ranked, p: p, where: 'card' };
@@ -3710,7 +3738,7 @@ async function dashShowRoles(){
   var body = document.getElementById('dashBody');
   if(!body) return;
   setDashHash('roles');
-  var p = DASH_PROFILE || {};
+  var p = roleProfile(DASH_PROFILE || {});
   body.innerHTML = dashView('Roles for you', 'Open roles matched to your target.', 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
   if(!p.target_role_title){ loadDashboard(); return; }
   var ranked = [];
@@ -3723,6 +3751,7 @@ async function dashShowRoles(){
 // Reads the full posting from the company's feed, runs the real match, and
 // opens the result as an Opportunity.
 async function dashCheckFit(listingId, btn){
+  if(!isCareerPlan()){ openPricingModal(); return; }
   var token = await getAuthTokenIfSignedIn();
   if(!token) return;
   var label = btn ? btn.textContent : '';
