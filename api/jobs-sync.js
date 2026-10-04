@@ -59,13 +59,23 @@ async function syncSource(src) {
 }
 
 export default async function handler(req, res) {
-  const secret = process.env.CRON_SECRET;
+  // Pasted secrets often carry a stray line break, space, or quotes. Compare
+  // on the cleaned value on both sides so that cannot be the reason.
+  const clean = function (v) { return String(v == null ? '' : v).trim().replace(/^["']+|["']+$/g, '').trim(); };
+  const secret = clean(process.env.CRON_SECRET);
   const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
-  const key = (req.query && req.query.key) || '';
-  // Say which side is wrong; neither message reveals the secret.
+  const bearer = clean(String(auth || '').replace(/^Bearer\s+/i, ''));
+  const key = clean((req.query && req.query.key) || '');
+  // Say which side is wrong; lengths help spot a stale or truncated value
+  // without revealing it.
   if (!secret) return res.status(401).json({ error: 'Unauthorized', reason: 'CRON_SECRET is not set on the server. Add it in Vercel (Production) and redeploy.' });
-  if (auth !== 'Bearer ' + secret && String(key).trim() !== secret) {
-    return res.status(401).json({ error: 'Unauthorized', reason: key ? 'The key in the link does not match CRON_SECRET.' : 'No key in the link. Add ?key=YOUR_SECRET to the end.' });
+  if (bearer !== secret && key !== secret) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      reason: key ? 'The key in the link does not match CRON_SECRET.' : 'No key in the link. Add ?key=YOUR_SECRET to the end.',
+      key_length_you_sent: key.length, key_length_on_server: secret.length,
+      hint: key && key.length === secret.length ? 'Same length but different value: the server is probably still running the old secret. Redeploy, then try again.' : 'Different lengths: the value in the link is not the one saved in Vercel.'
+    });
   }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Service key missing' });
 
