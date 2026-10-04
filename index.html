@@ -437,6 +437,9 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .nav-home.show{display:inline-block}
 .nav-home.off{background:none;color:#555}
 .nav-home.off:hover{background:#F5F5F5}
+.nav-back{display:none;margin-left:8px;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#8F3229;background:#FCEAE6;text-decoration:none;cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+.nav-back.show{display:inline-block}
+.nav-back:hover{background:#FBE3DD}
 @media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
@@ -522,6 +525,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
         <span class="brand-name">Ezzy.</span>
       </div>
       <a class="nav-home" id="navHome" onclick="goToDashboard();return false;" href="#">My Career</a>
+      <a class="nav-back" id="navBackOpp" onclick="backToOpportunity();return false;" href="#"></a>
       <span class="dot-sep" id="dotSep" style="display:none">&middot;</span>
       <span class="mode-pill" id="modePill" onclick="toggleModePopover()">
         <span id="modePillLabel">Practice Q&amp;A</span>
@@ -2913,6 +2917,7 @@ function showDashboard(skipLoad){
   var mi = document.getElementById('mainInner'); if(mi) mi.style.display = 'none';
   DASH_ON = true;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.remove('off');
+  syncBackToOpp();
   if(!skipLoad) loadDashboard();
 }
 
@@ -2922,6 +2927,7 @@ function hideDashboard(){
   var mi = document.getElementById('mainInner'); if(mi) mi.style.display = '';
   DASH_ON = false;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.add('off');
+  syncBackToOpp();
 }
 
 function goToDashboard(){
@@ -3069,6 +3075,7 @@ function dashRoleFamily(role){
 }
 
 async function loadDashboard(){
+  OPP_RETURN = null;
   var body = document.getElementById('dashBody');
   if(!body || !window.supabaseClient) return;
   var sessionRes = await window.supabaseClient.auth.getSession();
@@ -3355,12 +3362,13 @@ async function dashShowSessions(){
   body.parentNode.scrollTop = 0;
 }
 
-async function dashShowSession(id, label){
+async function dashShowSession(id, label, backLabel, backFn){
+  backLabel = backLabel || 'Sessions'; backFn = backFn || 'dashShowSessions()';
   var body = document.getElementById('dashBody');
   if(!body || !window.supabaseClient) return;
   if(!DASH_ON) showDashboard(true);
   var sub = 'Read-only transcript.';
-  body.innerHTML = dashView(escapeHtml(label), sub, 'Sessions', 'dashShowSessions()', '<div class="dash-loading">Loading...</div>');
+  body.innerHTML = dashView(escapeHtml(label), sub, backLabel, backFn, '<div class="dash-loading">Loading...</div>');
   var res = await window.supabaseClient.from('messages').select('role,content,created_at').eq('conversation_id', id).order('created_at', {ascending:true});
   var inner = '';
   if(res.error || !res.data || !res.data.length){
@@ -3385,7 +3393,7 @@ async function dashShowSession(id, label){
       if(gaps.length) inner += '<div class="gap-box sess-gap">' + gapBoxHtml(gaps) + '</div>';
     }
   }catch(e){ console.error('session gap box', e); }
-  body.innerHTML = dashView(escapeHtml(label), sub, 'Sessions', 'dashShowSessions()', '<div class="dash-transcript">' + inner + '</div>');
+  body.innerHTML = dashView(escapeHtml(label), sub, backLabel, backFn, '<div class="dash-transcript">' + inner + '</div>');
   externalizeLinks(body);
   body.parentNode.scrollTop = 0;
 }
@@ -3410,7 +3418,26 @@ var OPP_STAGES = [['considering','Considering'],['applied','Applied'],['screenin
 var OPP_STAGE_LABEL = {}; OPP_STAGES.forEach(function(s){ OPP_STAGE_LABEL[s[0]] = s[1]; });
 var OPP_OUTCOME_KIND = { applied:'applied', screening:'recruiter_screen', interviewing:'interview', offer:'offer', accepted:'accepted', hired:'hired', rejected:'rejected', withdrawn:'withdrew' };
 var OPP_CURRENT = null;
-var OPP_BRIEF = null; // {id, archived_at} of an existing research brief for the open opportunity
+var OPP_BRIEF = null;
+// Set when a tool is opened from an opportunity, so the header can offer a
+// way back to it. Cleared whenever the dashboard itself is shown again.
+var OPP_RETURN = null; // { id, label }
+function oppReturnHere(){
+  if(OPP_CURRENT) OPP_RETURN = { id: OPP_CURRENT.id, label: (OPP_CURRENT.company || OPP_CURRENT.role_title) + ' opportunity' };
+}
+function syncBackToOpp(){
+  var el = document.getElementById('navBackOpp');
+  if(!el) return;
+  if(OPP_RETURN && !DASH_ON){ el.textContent = '\u2190 Back to ' + OPP_RETURN.label; el.classList.add('show'); }
+  else el.classList.remove('show');
+}
+function backToOpportunity(){
+  if(isSending || !OPP_RETURN) return;
+  var id = OPP_RETURN.id;
+  clearChatState();
+  showDashboard(true);
+  dashShowOpportunity(id);
+} // {id, archived_at} of an existing research brief for the open opportunity
 
 // Where "paste a posting" goes: Career accounts track it as an opportunity;
 // everyone else gets the Resume Review stopgap, as before.
@@ -3500,6 +3527,7 @@ async function dashShowOpportunities(){
 }
 
 async function dashShowOpportunity(id, row){
+  OPP_RETURN = null;
   if(!DASH_ON) showDashboard(true);
   var body = document.getElementById('dashBody');
   if(!body || !window.supabaseClient) return;
@@ -3601,13 +3629,14 @@ async function dashRemoveOpportunity(id){
 // archived one opens read-only like any past session.
 function dashOppOpenBrief(){
   if(!OPP_BRIEF){ dashOppResearch(); return; }
-  if(OPP_BRIEF.archived_at) dashShowSession(OPP_BRIEF.id, 'Company Research');
+  if(OPP_BRIEF.archived_at) dashShowSession(OPP_BRIEF.id, 'Company Research', (OPP_CURRENT.company || 'the') + ' opportunity', 'dashShowOpportunity(\'' + OPP_CURRENT.id + '\')');
   else dashOppResearch();
 }
-function dashOppPractice(){ if(OPP_CURRENT) dashStartMode(OPP_CURRENT.role_title, 'practice', 'Practice Q&A'); }
+function dashOppPractice(){ if(!OPP_CURRENT) return; oppReturnHere(); dashStartMode(OPP_CURRENT.role_title, 'practice', 'Practice Q&A'); }
 async function dashOppResearch(){
   if(!OPP_CURRENT || !OPP_CURRENT.company) return;
   var o = OPP_CURRENT;
+  oppReturnHere();
   hideDashboard();
   ROLE = o.role_title; window.ROLE = o.role_title;
   enterAppShell(o.role_title);
@@ -3631,6 +3660,7 @@ async function dashOppResearch(){
 async function dashOppResume(){
   if(!OPP_CURRENT) return;
   var o = OPP_CURRENT;
+  oppReturnHere();
   hideDashboard();
   ROLE = null; window.ROLE = null;
   enterAppShell(null);
