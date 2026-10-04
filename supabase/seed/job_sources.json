@@ -2,841 +2,1111 @@
  "Airbnb": {
   "ats": "greenhouse",
   "slug": "airbnb",
-  "roles": 154
+  "roles": 154,
+  "tier": 1
  },
  "Spotify": {
   "ats": "lever",
   "slug": "spotify",
-  "roles": 82
+  "roles": 82,
+  "tier": 1
  },
  "Block": {
   "ats": "greenhouse",
   "slug": "block",
-  "roles": 227
+  "roles": 227,
+  "tier": 1
  },
  "Coinbase": {
   "ats": "greenhouse",
   "slug": "coinbase",
-  "roles": 229
+  "roles": 229,
+  "tier": 1
  },
  "Cloudflare": {
   "ats": "greenhouse",
   "slug": "cloudflare",
-  "roles": 405
+  "roles": 405,
+  "tier": 1
  },
  "Datadog": {
   "ats": "greenhouse",
   "slug": "datadog",
-  "roles": 444
+  "roles": 444,
+  "tier": 1
  },
  "Snowflake": {
   "ats": "ashby",
   "slug": "snowflake",
-  "roles": 347
+  "roles": 347,
+  "tier": 1
  },
  "OpenAI": {
   "ats": "ashby",
   "slug": "openai",
-  "roles": 828
+  "roles": 828,
+  "tier": 1
  },
  "Anthropic": {
   "ats": "greenhouse",
   "slug": "anthropic",
-  "roles": 638
+  "roles": 638,
+  "tier": 1
  },
  "xAI": {
   "ats": "greenhouse",
   "slug": "xai",
-  "roles": 301
+  "roles": 301,
+  "tier": 1
  },
  "Perplexity": {
   "ats": "ashby",
   "slug": "perplexity",
-  "roles": 127
+  "roles": 127,
+  "tier": 1
  },
  "Scale AI": {
   "ats": "greenhouse",
   "slug": "scaleai",
-  "roles": 192
+  "roles": 192,
+  "tier": 1
  },
  "Cohere": {
   "ats": "ashby",
   "slug": "cohere",
-  "roles": 137
+  "roles": 137,
+  "tier": 1
  },
  "Character.AI": {
   "ats": "ashby",
   "slug": "character",
-  "roles": 13
+  "roles": 13,
+  "tier": 1
  },
  "ElevenLabs": {
   "ats": "ashby",
   "slug": "elevenlabs",
-  "roles": 171
+  "roles": 171,
+  "tier": 1
  },
  "Harvey": {
   "ats": "ashby",
   "slug": "harvey",
-  "roles": 326
+  "roles": 326,
+  "tier": 1
  },
  "Glean": {
   "ats": "greenhouse",
   "slug": "gleanwork",
-  "roles": 128
+  "roles": 128,
+  "tier": 1
  },
  "Sierra": {
   "ats": "ashby",
   "slug": "sierra",
-  "roles": 194
+  "roles": 194,
+  "tier": 1
  },
  "Cursor / Anysphere": {
   "ats": "ashby",
   "slug": "cursor",
-  "roles": 132
+  "roles": 132,
+  "tier": 1
  },
  "Replit": {
   "ats": "ashby",
   "slug": "replit",
-  "roles": 72
+  "roles": 72,
+  "tier": 1
  },
  "Together AI": {
   "ats": "greenhouse",
   "slug": "togetherai",
-  "roles": 77
+  "roles": 77,
+  "tier": 1
  },
  "Fireworks AI": {
   "ats": "ashby",
   "slug": "fireworks",
-  "roles": 84
+  "roles": 84,
+  "tier": 1
  },
  "Modal": {
   "ats": "ashby",
   "slug": "modal",
-  "roles": 38
+  "roles": 38,
+  "tier": 1
  },
  "LangChain": {
   "ats": "ashby",
   "slug": "langchain",
-  "roles": 102
+  "roles": 102,
+  "tier": 1
  },
  "Thinking Machines Lab": {
   "ats": "ashby",
   "slug": "thinkingmachines",
-  "roles": 55
+  "roles": 55,
+  "tier": 1
  },
  "Decagon": {
   "ats": "ashby",
   "slug": "decagon",
-  "roles": 148
+  "roles": 148,
+  "tier": 1
  },
  "Linear": {
   "ats": "ashby",
   "slug": "linear",
-  "roles": 30
+  "roles": 30,
+  "tier": 1
  },
  "Ramp": {
   "ats": "ashby",
   "slug": "ramp",
-  "roles": 158
+  "roles": 158,
+  "tier": 1
  },
  "Brex": {
   "ats": "greenhouse",
   "slug": "brex",
-  "roles": 282
+  "roles": 282,
+  "tier": 1
  },
  "Notion": {
   "ats": "ashby",
   "slug": "notion",
-  "roles": 137
+  "roles": 137,
+  "tier": 1
  },
  "Figma": {
   "ats": "greenhouse",
   "slug": "figma",
-  "roles": 162
+  "roles": 162,
+  "tier": 1
  },
  "Vercel": {
   "ats": "greenhouse",
   "slug": "vercel",
-  "roles": 85
+  "roles": 85,
+  "tier": 1
  },
  "Supabase": {
   "ats": "ashby",
   "slug": "supabase",
-  "roles": 48
+  "roles": 48,
+  "tier": 1
  },
  "Airtable": {
   "ats": "greenhouse",
   "slug": "airtable",
-  "roles": 4
+  "roles": 4,
+  "tier": 1
  },
  "Webflow": {
   "ats": "greenhouse",
   "slug": "webflow",
-  "roles": 25
+  "roles": 25,
+  "tier": 1
  },
  "Zapier": {
   "ats": "ashby",
   "slug": "zapier",
-  "roles": 11
+  "roles": 11,
+  "tier": 1
  },
  "Mercury": {
   "ats": "greenhouse",
   "slug": "mercury",
-  "roles": 61
+  "roles": 61,
+  "tier": 1
  },
  "Plaid": {
   "ats": "ashby",
   "slug": "plaid",
-  "roles": 119
+  "roles": 119,
+  "tier": 1
  },
  "Stripe": {
   "ats": "greenhouse",
   "slug": "stripe",
-  "roles": 716
+  "roles": 716,
+  "tier": 1
  },
  "Gong": {
   "ats": "greenhouse",
   "slug": "gongio",
-  "roles": 99
+  "roles": 99,
+  "tier": 1
  },
  "Intercom": {
   "ats": "greenhouse",
   "slug": "intercom",
-  "roles": 108
+  "roles": 108,
+  "tier": 1
  },
  "Klaviyo": {
   "ats": "greenhouse",
   "slug": "klaviyo",
-  "roles": 133
+  "roles": 133,
+  "tier": 1
  },
  "HubSpot": {
   "ats": "greenhouse",
   "slug": "hubspotjobs",
-  "roles": 132
+  "roles": 132,
+  "tier": 1
  },
  "Asana": {
   "ats": "greenhouse",
   "slug": "asana",
-  "roles": 97
+  "roles": 97,
+  "tier": 1
  },
  "ClickUp": {
   "ats": "ashby",
   "slug": "clickup",
-  "roles": 48
+  "roles": 48,
+  "tier": 1
  },
  "Databricks": {
   "ats": "greenhouse",
   "slug": "databricks",
-  "roles": 887
+  "roles": 887,
+  "tier": 1
  },
  "Palantir": {
   "ats": "lever",
   "slug": "palantir",
-  "roles": 319
+  "roles": 319,
+  "tier": 1
  },
  "MongoDB": {
   "ats": "greenhouse",
   "slug": "mongodb",
-  "roles": 389
+  "roles": 389,
+  "tier": 1
  },
  "Elastic": {
   "ats": "greenhouse",
   "slug": "elastic",
-  "roles": 392
+  "roles": 392,
+  "tier": 1
  },
  "GitLab": {
   "ats": "greenhouse",
   "slug": "gitlab",
-  "roles": 211
+  "roles": 211,
+  "tier": 1
  },
  "Docker": {
   "ats": "ashby",
   "slug": "docker",
-  "roles": 61
+  "roles": 61,
+  "tier": 1
  },
  "Grafana Labs": {
   "ats": "greenhouse",
   "slug": "grafanalabs",
-  "roles": 121
+  "roles": 121,
+  "tier": 1
  },
  "Sentry": {
   "ats": "ashby",
   "slug": "sentry",
-  "roles": 43
+  "roles": 43,
+  "tier": 1
  },
  "CircleCI": {
   "ats": "greenhouse",
   "slug": "circleci",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "Temporal": {
   "ats": "ashby",
   "slug": "temporal",
-  "roles": 64
+  "roles": 64,
+  "tier": 1
  },
  "Cockroach Labs": {
   "ats": "greenhouse",
   "slug": "cockroachlabs",
-  "roles": 19
+  "roles": 19,
+  "tier": 1
  },
  "PlanetScale": {
   "ats": "greenhouse",
   "slug": "planetscale",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "DigitalOcean": {
   "ats": "greenhouse",
   "slug": "digitalocean98",
-  "roles": 170
+  "roles": 170,
+  "tier": 1
  },
  "Fastly": {
   "ats": "greenhouse",
   "slug": "fastly",
-  "roles": 43
+  "roles": 43,
+  "tier": 1
  },
  "Rubrik": {
   "ats": "greenhouse",
   "slug": "rubrik",
-  "roles": 128
+  "roles": 128,
+  "tier": 1
  },
  "Okta": {
   "ats": "greenhouse",
   "slug": "okta",
-  "roles": 368
+  "roles": 368,
+  "tier": 1
  },
  "Twilio": {
   "ats": "greenhouse",
   "slug": "twilio",
-  "roles": 125
+  "roles": 125,
+  "tier": 1
  },
  "Verkada": {
   "ats": "greenhouse",
   "slug": "verkada",
-  "roles": 307
+  "roles": 307,
+  "tier": 1
  },
  "Robinhood": {
   "ats": "greenhouse",
   "slug": "robinhood",
-  "roles": 162
+  "roles": 162,
+  "tier": 1
  },
  "Chime": {
   "ats": "greenhouse",
   "slug": "chime",
-  "roles": 66
+  "roles": 66,
+  "tier": 1
  },
  "SoFi": {
   "ats": "greenhouse",
   "slug": "sofi",
-  "roles": 56
+  "roles": 56,
+  "tier": 1
  },
  "Affirm": {
   "ats": "greenhouse",
   "slug": "affirm",
-  "roles": 189
+  "roles": 189,
+  "tier": 1
  },
  "Kraken": {
   "ats": "ashby",
   "slug": "kraken.com",
-  "roles": 79
+  "roles": 79,
+  "tier": 1
  },
  "Gemini": {
   "ats": "greenhouse",
   "slug": "gemini",
-  "roles": 34
+  "roles": 34,
+  "tier": 1
  },
  "Jane Street": {
   "ats": "greenhouse",
   "slug": "janestreet",
-  "roles": 230
+  "roles": 230,
+  "tier": 1
  },
  "DoorDash": {
   "ats": "greenhouse",
   "slug": "doordashusa",
-  "roles": 458
+  "roles": 458,
+  "tier": 1
  },
  "Instacart": {
   "ats": "greenhouse",
   "slug": "instacart",
-  "roles": 131
+  "roles": 131,
+  "tier": 1
  },
  "Lyft": {
   "ats": "greenhouse",
   "slug": "lyft",
-  "roles": 192
+  "roles": 192,
+  "tier": 1
  },
  "Reddit": {
   "ats": "greenhouse",
   "slug": "reddit",
-  "roles": 152
+  "roles": 152,
+  "tier": 1
  },
  "Pinterest": {
   "ats": "greenhouse",
   "slug": "pinterest",
-  "roles": 168
+  "roles": 168,
+  "tier": 1
  },
  "Duolingo": {
   "ats": "greenhouse",
   "slug": "duolingo",
-  "roles": 59
+  "roles": 59,
+  "tier": 1
  },
  "Roblox": {
   "ats": "greenhouse",
   "slug": "roblox",
-  "roles": 253
+  "roles": 253,
+  "tier": 1
  },
  "Epic Games": {
   "ats": "greenhouse",
   "slug": "epicgames",
-  "roles": 147
+  "roles": 147,
+  "tier": 1
  },
  "Peloton": {
   "ats": "greenhouse",
   "slug": "peloton",
-  "roles": 57
+  "roles": 57,
+  "tier": 1
  },
  "SpaceX": {
   "ats": "greenhouse",
   "slug": "spacex",
-  "roles": 2643
+  "roles": 2643,
+  "tier": 1
  },
  "Waymo": {
   "ats": "greenhouse",
   "slug": "waymo",
-  "roles": 366
+  "roles": 366,
+  "tier": 1
  },
  "Zoox": {
   "ats": "lever",
   "slug": "zoox",
-  "roles": 234
+  "roles": 234,
+  "tier": 1
  },
  "Anduril": {
   "ats": "greenhouse",
   "slug": "andurilindustries",
-  "roles": 2430
+  "roles": 2430,
+  "tier": 1
  },
  "Shield AI": {
   "ats": "lever",
   "slug": "shieldai",
-  "roles": 596
+  "roles": 596,
+  "tier": 1
  },
  "Figure AI": {
   "ats": "greenhouse",
   "slug": "figureai",
-  "roles": 97
+  "roles": 97,
+  "tier": 1
  },
  "CoreWeave": {
   "ats": "greenhouse",
   "slug": "coreweave",
-  "roles": 311
+  "roles": 311,
+  "tier": 1
  },
  "Cerebras": {
   "ats": "ashby",
   "slug": "cerebras",
-  "roles": 117
+  "roles": 117,
+  "tier": 1
  },
  "ServiceNow": {
   "ats": "smartrecruiters",
   "slug": "servicenow",
-  "roles": 706
+  "roles": 706,
+  "tier": 1
  },
  "Hugging Face": {
   "ats": "workable",
   "slug": "huggingface",
-  "roles": 8
+  "roles": 8,
+  "tier": 1
  },
  "Rippling": {
   "ats": "rippling",
   "slug": "rippling",
-  "roles": 651
+  "roles": 651,
+  "tier": 1
  },
  "Canva": {
   "ats": "smartrecruiters",
   "slug": "canva",
-  "roles": 131
+  "roles": 131,
+  "tier": 1
  },
  "Zocdoc": {
   "ats": "greenhouse",
   "slug": "zocdoc",
-  "roles": 58
+  "roles": 58,
+  "tier": 1
  },
  "Oscar Health": {
   "ats": "greenhouse",
   "slug": "oscar",
-  "roles": 246
+  "roles": 246,
+  "tier": 1
  },
  "Hims & Hers": {
   "ats": "ashby",
   "slug": "hims-and-hers",
-  "roles": 142
+  "roles": 142,
+  "tier": 1
  },
  "Ro": {
   "ats": "lever",
   "slug": "ro",
-  "roles": 56
+  "roles": 56,
+  "tier": 1
  },
  "Maven Clinic": {
   "ats": "greenhouse",
   "slug": "mavenclinic",
-  "roles": 37
+  "roles": 37,
+  "tier": 1
  },
  "Included Health": {
   "ats": "lever",
   "slug": "includedhealth",
-  "roles": 53
+  "roles": 53,
+  "tier": 1
  },
  "Komodo Health": {
   "ats": "greenhouse",
   "slug": "komodohealth",
-  "roles": 28
+  "roles": 28,
+  "tier": 1
  },
  "Flatiron Health": {
   "ats": "greenhouse",
   "slug": "flatironhealth",
-  "roles": 29
+  "roles": 29,
+  "tier": 1
  },
  "Aledade": {
   "ats": "lever",
   "slug": "aledade",
-  "roles": 32
+  "roles": 32,
+  "tier": 1
  },
  "PathAI": {
   "ats": "greenhouse",
   "slug": "pathai",
-  "roles": 16
+  "roles": 16,
+  "tier": 1
  },
  "Veeva Systems": {
   "ats": "lever",
   "slug": "veeva",
-  "roles": 937
+  "roles": 937,
+  "tier": 1
  },
  "One Medical": {
   "ats": "greenhouse",
   "slug": "onemedical",
-  "roles": 405
+  "roles": 405,
+  "tier": 1
  },
  "Tia": {
   "ats": "greenhouse",
   "slug": "tia",
-  "roles": 29
+  "roles": 29,
+  "tier": 1
  },
  "Warner Music Group": {
   "ats": "lever",
   "slug": "wmg",
-  "roles": 33
+  "roles": 33,
+  "tier": 1
  },
  "Sony Music Entertainment": {
   "ats": "greenhouse",
   "slug": "sonymusicentertainment",
-  "roles": 138
+  "roles": 138,
+  "tier": 1
  },
  "Twitch": {
   "ats": "greenhouse",
   "slug": "twitch",
-  "roles": 50
+  "roles": 50,
+  "tier": 1
  },
  "Roku": {
   "ats": "greenhouse",
   "slug": "roku",
-  "roles": 233
+  "roles": 233,
+  "tier": 1
  },
  "The New York Times": {
   "ats": "greenhouse",
   "slug": "thenewyorktimes",
-  "roles": 140
+  "roles": 140,
+  "tier": 1
  },
  "Vox Media": {
   "ats": "greenhouse",
   "slug": "voxmedia",
-  "roles": 15
+  "roles": 15,
+  "tier": 1
  },
  "The Athletic": {
   "ats": "lever",
   "slug": "theathletic",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "Hearst": {
   "ats": "greenhouse",
   "slug": "hearst",
-  "roles": 51
+  "roles": 51,
+  "tier": 1
  },
  "Match Group": {
   "ats": "lever",
   "slug": "matchgroup",
-  "roles": 72
+  "roles": 72,
+  "tier": 1
  },
  "Take-Two Interactive": {
   "ats": "greenhouse",
   "slug": "taketwo",
-  "roles": 33
+  "roles": 33,
+  "tier": 1
  },
  "Riot Games": {
   "ats": "greenhouse",
   "slug": "riotgames",
-  "roles": 164
+  "roles": 164,
+  "tier": 1
  },
  "WPP": {
   "ats": "greenhouse",
   "slug": "wpp",
-  "roles": 207
+  "roles": 207,
+  "tier": 1
  },
  "R/GA": {
   "ats": "greenhouse",
   "slug": "rga",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "Thoughtworks": {
   "ats": "greenhouse",
   "slug": "thoughtworks",
-  "roles": 31
+  "roles": 31,
+  "tier": 1
  },
  "Glossier": {
   "ats": "greenhouse",
   "slug": "glossier",
-  "roles": 27
+  "roles": 27,
+  "tier": 1
  },
  "Flexport": {
   "ats": "greenhouse",
   "slug": "flexport",
-  "roles": 199
+  "roles": 199,
+  "tier": 1
  },
  "Flexe": {
   "ats": "greenhouse",
   "slug": "flexe",
-  "roles": 5
+  "roles": 5,
+  "tier": 1
  },
  "Uber Freight": {
   "ats": "greenhouse",
   "slug": "uberfreight",
-  "roles": 68
+  "roles": 68,
+  "tier": 1
  },
  "Gopuff": {
   "ats": "lever",
   "slug": "gopuff",
-  "roles": 795
+  "roles": 795,
+  "tier": 1
  },
  "Hopper": {
   "ats": "ashby",
   "slug": "hopper",
-  "roles": 19
+  "roles": 19,
+  "tier": 1
  },
  "TripAdvisor": {
   "ats": "greenhouse",
   "slug": "tripadvisor",
-  "roles": 100
+  "roles": 100,
+  "tier": 1
  },
  "Compass": {
   "ats": "greenhouse",
   "slug": "urbancompass",
-  "roles": 200
+  "roles": 200,
+  "tier": 1
  },
  "Opendoor": {
   "ats": "rippling",
   "slug": "opendoor",
-  "roles": 59
+  "roles": 59,
+  "tier": 1
  },
  "Toast": {
   "ats": "greenhouse",
   "slug": "toast",
-  "roles": 328
+  "roles": 328,
+  "tier": 1
  },
  "Mindbody": {
   "ats": "greenhouse",
   "slug": "mindbody",
-  "roles": 24
+  "roles": 24,
+  "tier": 1
  },
  "Thumbtack": {
   "ats": "ashby",
   "slug": "thumbtack",
-  "roles": 57
+  "roles": 57,
+  "tier": 1
  },
  "Angi": {
   "ats": "ashby",
   "slug": "angi",
-  "roles": 43
+  "roles": 43,
+  "tier": 1
  },
  "Houzz": {
   "ats": "lever",
   "slug": "houzz",
-  "roles": 6
+  "roles": 6,
+  "tier": 1
  },
  "Rover": {
   "ats": "lever",
   "slug": "rover",
-  "roles": 36
+  "roles": 36,
+  "tier": 1
  },
  "Poshmark": {
   "ats": "ashby",
   "slug": "poshmark",
-  "roles": 30
+  "roles": 30,
+  "tier": 1
  },
  "StockX": {
   "ats": "greenhouse",
   "slug": "stockx",
-  "roles": 35
+  "roles": 35,
+  "tier": 1
  },
  "Faire": {
   "ats": "greenhouse",
   "slug": "faire",
-  "roles": 80
+  "roles": 80,
+  "tier": 1
  },
  "OfferUp": {
   "ats": "greenhouse",
   "slug": "offerup",
-  "roles": 7
+  "roles": 7,
+  "tier": 1
  },
  "Zscaler": {
   "ats": "greenhouse",
   "slug": "zscaler",
-  "roles": 364
+  "roles": 364,
+  "tier": 1
  },
  "Wiz": {
   "ats": "greenhouse",
   "slug": "wizinc",
-  "roles": 134
+  "roles": 134,
+  "tier": 1
  },
  "Vanta": {
   "ats": "ashby",
   "slug": "vanta",
-  "roles": 84
+  "roles": 84,
+  "tier": 1
  },
  "Drata": {
   "ats": "ashby",
   "slug": "drata",
-  "roles": 35
+  "roles": 35,
+  "tier": 1
  },
  "Abnormal Security": {
   "ats": "greenhouse",
   "slug": "abnormalsecurity",
-  "roles": 78
+  "roles": 78,
+  "tier": 1
  },
  "OneTrust": {
   "ats": "greenhouse",
   "slug": "onetrust",
-  "roles": 90
+  "roles": 90,
+  "tier": 1
  },
  "Illumio": {
   "ats": "ashby",
   "slug": "illumio",
-  "roles": 65
+  "roles": 65,
+  "tier": 1
  },
  "Netskope": {
   "ats": "greenhouse",
   "slug": "netskope",
-  "roles": 150
+  "roles": 150,
+  "tier": 1
  },
  "Axonius": {
   "ats": "greenhouse",
   "slug": "axonius",
-  "roles": 23
+  "roles": 23,
+  "tier": 1
  },
  "BigID": {
   "ats": "greenhouse",
   "slug": "bigid",
-  "roles": 6
+  "roles": 6,
+  "tier": 1
  },
  "Snyk": {
   "ats": "ashby",
   "slug": "snyk",
-  "roles": 13
+  "roles": 13,
+  "tier": 1
  },
  "LaunchDarkly": {
   "ats": "greenhouse",
   "slug": "launchdarkly",
-  "roles": 59
+  "roles": 59,
+  "tier": 1
  },
  "New Relic": {
   "ats": "greenhouse",
   "slug": "newrelic",
-  "roles": 47
+  "roles": 47,
+  "tier": 1
  },
  "Braze": {
   "ats": "greenhouse",
   "slug": "braze",
-  "roles": 349
+  "roles": 349,
+  "tier": 1
  },
  "Iterable": {
   "ats": "ashby",
   "slug": "iterable",
-  "roles": 13
+  "roles": 13,
+  "tier": 1
  },
  "Attentive": {
   "ats": "greenhouse",
   "slug": "attentive",
-  "roles": 32
+  "roles": 32,
+  "tier": 1
  },
  "Sprout Social": {
   "ats": "greenhouse",
   "slug": "sproutsocial",
-  "roles": 23
+  "roles": 23,
+  "tier": 1
  },
  "Hootsuite": {
   "ats": "greenhouse",
   "slug": "hootsuite",
-  "roles": 11
+  "roles": 11,
+  "tier": 1
  },
  "Later": {
   "ats": "greenhouse",
   "slug": "later",
-  "roles": 42
+  "roles": 42,
+  "tier": 1
  },
  "Lattice": {
   "ats": "greenhouse",
   "slug": "lattice",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "Culture Amp": {
   "ats": "greenhouse",
   "slug": "cultureamp",
-  "roles": 32
+  "roles": 32,
+  "tier": 1
  },
  "15Five": {
   "ats": "lever",
   "slug": "15five",
-  "roles": 1
+  "roles": 1,
+  "tier": 1
  },
  "BetterUp": {
   "ats": "ashby",
   "slug": "betterup",
-  "roles": 6
+  "roles": 6,
+  "tier": 1
  },
  "Ashby": {
   "ats": "ashby",
   "slug": "ashby",
-  "roles": 62
+  "roles": 62,
+  "tier": 1
  },
  "Greenhouse": {
   "ats": "greenhouse",
   "slug": "greenhouse",
-  "roles": 18
+  "roles": 18,
+  "tier": 1
  },
  "Oyster": {
   "ats": "ashby",
   "slug": "oyster",
-  "roles": 26
+  "roles": 26,
+  "tier": 1
  },
  "Gusto": {
   "ats": "greenhouse",
   "slug": "gusto",
-  "roles": 94
+  "roles": 94,
+  "tier": 1
  },
  "AbbVie": {
   "ats": "smartrecruiters",
   "slug": "abbvie",
-  "roles": 1858
+  "roles": 1858,
+  "tier": 1
  },
  "Recursion": {
   "ats": "greenhouse",
   "slug": "recursionpharmaceuticals",
-  "roles": 12
+  "roles": 12,
+  "tier": 1
  },
  "Insitro": {
   "ats": "ashby",
   "slug": "insitro",
-  "roles": 13
+  "roles": 13,
+  "tier": 1
  },
  "Benchling": {
   "ats": "ashby",
   "slug": "benchling",
-  "roles": 56
+  "roles": 56,
+  "tier": 1
+ },
+ "Mistral AI": {
+  "ats": "ashby",
+  "slug": "mistral.ai",
+  "roles": 209,
+  "tier": 1
+ },
+ "Runway": {
+  "ats": "ashby",
+  "slug": "runway-ml",
+  "roles": 45,
+  "tier": 1
+ },
+ "Confluent": {
+  "ats": "ashby",
+  "slug": "confluent",
+  "roles": 17,
+  "tier": 1
+ },
+ "Pure Storage": {
+  "ats": "greenhouse",
+  "slug": "purestorage",
+  "roles": 360,
+  "tier": 1
+ },
+ "Chainalysis": {
+  "ats": "ashby",
+  "slug": "chainalysis-careers",
+  "roles": 51,
+  "tier": 1
+ },
+ "Headspace": {
+  "ats": "greenhouse",
+  "slug": "hs",
+  "roles": 3,
+  "tier": 1
+ },
+ "Cedar": {
+  "ats": "greenhouse",
+  "slug": "careportalinc",
+  "roles": 13,
+  "tier": 1
+ },
+ "Amwell": {
+  "ats": "greenhouse",
+  "slug": "amwell",
+  "roles": 9,
+  "tier": 1
+ },
+ "Carbon Health": {
+  "ats": "rippling",
+  "slug": "carbon-health",
+  "roles": 349,
+  "tier": 1
+ },
+ "NBCUniversal": {
+  "ats": "smartrecruiters",
+  "slug": "NBCUniversal3",
+  "roles": 444,
+  "tier": 1
+ },
+ "VML": {
+  "ats": "greenhouse",
+  "slug": "wundermanthompson",
+  "roles": 484,
+  "tier": 1
+ },
+ "TravelPerk": {
+  "ats": "ashby",
+  "slug": "perk",
+  "roles": 127,
+  "tier": 1
+ },
+ "GOAT": {
+  "ats": "greenhouse",
+  "slug": "goatgroup",
+  "roles": 9,
+  "tier": 1
+ },
+ "SentinelOne": {
+  "ats": "greenhouse",
+  "slug": "sentinellabs",
+  "roles": 257,
+  "tier": 1
+ },
+ "Tenable": {
+  "ats": "greenhouse",
+  "slug": "tenableinc",
+  "roles": 37,
+  "tier": 1
+ },
+ "Harness": {
+  "ats": "greenhouse",
+  "slug": "harnessinc",
+  "roles": 70,
+  "tier": 1
+ },
+ "Schrödinger": {
+  "ats": "greenhouse",
+  "slug": "schrdinger",
+  "roles": 28,
+  "tier": 1
  }
 }

@@ -1,0 +1,1576 @@
+{
+ "solid": {
+  "Amazon": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://www.amazon.jobs/en/search.json?result_limit=10&offset=0",
+   "body": null,
+   "roles": 10000,
+   "notes": "Response: {hits, jobs[]}. 'hits' is capped at 10000 (real total is higher). Paginate with offset + result_limit; filter with base_query, loc_query, category[] etc. Posting URL = https://www.amazon.jobs + job_path. Each job has title, company_name, location, posted_date, description, basic_qualifications."
+  },
+  "Apple": {
+   "system": "custom",
+   "method": "POST",
+   "endpoint": "https://jobs.apple.com/api/v1/search",
+   "body": {
+    "query": "",
+    "filters": {},
+    "page": 1,
+    "locale": "en-us",
+    "sort": "",
+    "format": {
+     "longDate": "MMMM D, YYYY",
+     "mediumDate": "MMM D, YYYY"
+    }
+   },
+   "roles": 6197,
+   "notes": "Worked with no CSRF token or cookies. Response: res.totalRecords, res.searchResults[] (postingTitle, positionId, transformedPostingTitle, locations, postingDate, team, jobSummary). 20 per page, paginate with page=N. Posting URL pattern https://jobs.apple.com/en-us/details/{positionId}/{transformedPostingTitle} (pattern built from fields, not separately fetched). Default sort leads with retail roles; use filters/query to narrow."
+  },
+  "Google": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://www.google.com/about/careers/applications/jobs/feed.xml",
+   "body": null,
+   "roles": 3479,
+   "notes": "XML feed, not JSON (the old careers.google.com/api/v3/search JSON API is gone - 404). One ~20 MB file with every job, no pagination: <jobs><job> with published, jobid, title, url, jobtype, employer (Google / DeepMind / YouTube), categories, remote/isRemote/isHybrid, locations (city/state/country), description (escaped HTML). Fetch once and cache; do not hit per user request."
+  },
+  "Microsoft": {
+   "system": "eightfold",
+   "method": "GET",
+   "endpoint": "https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=&location=&start=0",
+   "body": null,
+   "roles": 2314,
+   "notes": "Microsoft moved to Eightfold's newer 'PCSX' API; the classic /api/apply/v2/jobs returns 403 'Not authorized for PCSX' and the old gcsservices.careers.microsoft.com API is dead. Response: data.count, data.positions[] (id, displayJobId, name, locations, department, postedTs, positionUrl). 10 per page, paginate with start=10,20... Posting URL = https://apply.careers.microsoft.com + positionUrl."
+  },
+  "NVIDIA": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "tenant=nvidia, wd5, site=NVIDIAExternalCareerSite. total=2000 looks like Workday's cap; narrow with searchText/appliedFacets. Paginate offset/limit (max 20). Posting URL = https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite + externalPath."
+  },
+  "Netflix": {
+   "system": "eightfold",
+   "method": "GET",
+   "endpoint": "https://explore.jobs.netflix.net/api/apply/v2/jobs?domain=netflix.com&start=0&num=10",
+   "body": null,
+   "roles": 471,
+   "notes": "Eightfold. Response has 'count' and 'positions[]' (name, location, department, canonicalPositionUrl, t_create). Paginate with start/num (num max ~10)."
+  },
+  "Salesforce": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://salesforce.wd12.myworkdayjobs.com/wday/cxs/salesforce/External_Career_Site/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1523,
+   "notes": "tenant=salesforce, wd12, site=External_Career_Site. Paginate offset/limit (max 20). Posting URL = host + /External_Career_Site + externalPath."
+  },
+  "Adobe": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://adobe.wd5.myworkdayjobs.com/wday/cxs/adobe/external_experienced/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 526,
+   "notes": "tenant=adobe, wd5, site=external_experienced (experienced hires only; Adobe has a separate university site, not checked). Posting URL = host + /external_experienced + externalPath."
+  },
+  "Oracle": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://eeho.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX_45001,limit=25",
+   "body": null,
+   "roles": 2227,
+   "notes": "Oracle Recruiting Cloud, host eeho.fa.us2.oraclecloud.com, siteNumber=CX_45001. Jobs in items[0].requisitionList (Id, Title, PrimaryLocation, PostedDate); total in items[0].TotalJobsCount. Paginate by adding ,offset=N inside the finder. Posting URL pattern https://careers.oracle.com/en/sites/jobsearch/job/{Id} (pattern built from Id, not separately fetched)."
+  },
+  "IBM": {
+   "system": "custom",
+   "method": "POST",
+   "endpoint": "https://www-api.ibm.com/search/api/v2",
+   "body": {
+    "appId": "careers",
+    "scopes": [
+     "careers2"
+    ],
+    "query": {
+     "bool": {
+      "must": []
+     }
+    },
+    "size": 10,
+    "from": 0,
+    "sort": [
+     {
+      "_score": "desc"
+     }
+    ],
+    "lang": "zz",
+    "_source": [
+     "title",
+     "url",
+     "field_keyword_19",
+     "field_keyword_17"
+    ]
+   },
+   "roles": 2014,
+   "notes": "IBM's Elasticsearch-style search API used by ibm.com/careers/search. Total in hits.total.value; jobs in hits.hits[]._source (title, url, field_keyword_19=location, field_keyword_17=work mode). Paginate with from/size. Omit _source to get all fields (description, etc)."
+  },
+  "Cisco": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://cisco.wd5.myworkdayjobs.com/wday/cxs/cisco/Cisco_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1339,
+   "notes": "tenant=cisco, wd5, site=Cisco_Careers. Posting URL = host + /Cisco_Careers + externalPath."
+  },
+  "Atlassian": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://www.atlassian.com/endpoint/careers/listings",
+   "body": null,
+   "roles": 356,
+   "notes": "Atlassian's own endpoint in front of iCIMS. Returns the full list as one JSON array (no pagination, large payload with full descriptions). Fields: id, title, type, locations[], category, overview, portalJobPost.portalUrl (iCIMS apply page). Public page is https://www.atlassian.com/company/careers/details/{id}."
+  },
+  "Retool": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://api.gem.com/job_board/v0/retool/job_posts/",
+   "body": null,
+   "roles": 25,
+   "notes": "Gem ATS (jobs.gem.com/retool). Public job-board API returns a JSON array of all posts in one response: title, absolute_url, location, location_type, departments, offices, employment_type, content (HTML), content_plain, first_published_at. Same pattern works for any Gem customer: https://api.gem.com/job_board/v0/{slug}/job_posts/"
+  },
+  "GitHub": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://www.github.careers/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 73,
+   "notes": "iCIMS with a Jibe front end (www.github.careers). Response: totalCount, jobs[].data (title, req_id, description, city/state/country, apply_url, meta_data.canonical_url). Paginate with page/limit. Public posting page: https://www.github.careers/careers-home/jobs/{req_id}."
+  },
+  "Akamai": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://fa-extu-saasfaprod1.fa.ocs.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX_1,limit=25",
+   "body": null,
+   "roles": 259,
+   "notes": "Oracle Recruiting Cloud, host fa-extu-saasfaprod1.fa.ocs.oraclecloud.com (generic host name, but postings are Akamai's). siteNumber CX_1 (CX_1001 returns the same list). Jobs in items[0].requisitionList[] (Id, Title, PrimaryLocation, PostedDate); total in items[0].TotalJobsCount; paginate with ,offset=N in the finder. Posting URL built from the standard pattern, not fetched. akamai.com/careers itself returns 403 to scripts."
+  },
+  "CrowdStrike": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://crowdstrike.wd5.myworkdayjobs.com/wday/cxs/crowdstrike/crowdstrikecareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 356,
+   "notes": "Workday tenant=crowdstrike, datacenter=wd5, site=crowdstrikecareers. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://crowdstrike.wd5.myworkdayjobs.com/en-US/crowdstrikecareers + externalPath. "
+  },
+  "JPMorgan Chase": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://jpmc.fa.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX_1001,limit=25",
+   "body": null,
+   "roles": 7367,
+   "notes": "Oracle Recruiting Cloud, host jpmc.fa.oraclecloud.com, site CX_1001. Jobs in items[0].requisitionList[] (Id, Title, PrimaryLocation, PostedDate); total in items[0].TotalJobsCount. Paginate by adding ,offset=N inside the finder. Keyword filter: ,keyword=... Posting URL = /hcmUI/CandidateExperience/en/sites/CX_1001/job/{Id} (URL built from pattern, not fetched)."
+  },
+  "Morgan Stanley": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://ms.wd5.myworkdayjobs.com/wday/cxs/ms/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1353,
+   "notes": "Workday tenant=ms, datacenter=wd5, site=External. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://ms.wd5.myworkdayjobs.com/en-US/External + externalPath. "
+  },
+  "Capital One": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://capitalone.wd12.myworkdayjobs.com/wday/cxs/capitalone/Capital_One/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1884,
+   "notes": "Workday tenant=capitalone, datacenter=wd12, site=Capital_One. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://capitalone.wd12.myworkdayjobs.com/en-US/Capital_One + externalPath. "
+  },
+  "Visa": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://visa.wd5.myworkdayjobs.com/wday/cxs/visa/Visa/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 785,
+   "notes": "Workday tenant=visa, datacenter=wd5, site=Visa. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://visa.wd5.myworkdayjobs.com/en-US/Visa + externalPath. Visa left SmartRecruiters (that API now returns 0); corporate.visa.com/en/jobs redirects to the Workday site /Visa."
+  },
+  "Mastercard": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://mastercard.wd1.myworkdayjobs.com/wday/cxs/mastercard/CorporateCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1036,
+   "notes": "Workday tenant=mastercard, datacenter=wd1, site=CorporateCareers. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://mastercard.wd1.myworkdayjobs.com/en-US/CorporateCareers + externalPath. "
+  },
+  "PayPal": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://paypal.wd1.myworkdayjobs.com/wday/cxs/paypal/jobs/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 291,
+   "notes": "Workday tenant=paypal, datacenter=wd1, site=jobs. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://paypal.wd1.myworkdayjobs.com/en-US/jobs + externalPath. paypal.eightfold.ai API returned 403; Workday works."
+  },
+  "Circle": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://circle.wd1.myworkdayjobs.com/wday/cxs/circle/Circle/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 48,
+   "notes": "Workday tenant=circle, datacenter=wd1, site=Circle. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://circle.wd1.myworkdayjobs.com/en-US/Circle + externalPath. This is the USDC company (circle.com), not Circle.so."
+  },
+  "Snap": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://snapchat.wd1.myworkdayjobs.com/wday/cxs/snapchat/snap/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 193,
+   "notes": "Workday tenant=snapchat, datacenter=wd1, site=snap. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://snapchat.wd1.myworkdayjobs.com/en-US/snap + externalPath. Tenant is 'snapchat'."
+  },
+  "Etsy": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://etsy.wd5.myworkdayjobs.com/wday/cxs/etsy/Etsy_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 59,
+   "notes": "Workday tenant=etsy, datacenter=wd5, site=Etsy_Careers. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://etsy.wd5.myworkdayjobs.com/en-US/Etsy_Careers + externalPath. "
+  },
+  "Nike": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://nike.wd1.myworkdayjobs.com/wday/cxs/nike/nke/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 810,
+   "notes": "Workday tenant=nike, datacenter=wd1, site=nke. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://nike.wd1.myworkdayjobs.com/en-US/nke + externalPath. Includes many retail store roles; filter with appliedFacets if only corporate roles are wanted."
+  },
+  "Disney": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://disney.wd5.myworkdayjobs.com/wday/cxs/disney/disneycareer/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 600,
+   "notes": "Workday tenant=disney, datacenter=wd5, site=disneycareer. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://disney.wd5.myworkdayjobs.com/en-US/disneycareer + externalPath. Total of 600 looks low for Disney; other Disney units may live on other sites. Not investigated."
+  },
+  "Warner Bros. Discovery": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://warnerbros.wd5.myworkdayjobs.com/wday/cxs/warnerbros/global/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 283,
+   "notes": "Workday tenant=warnerbros, datacenter=wd5, site=global. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://warnerbros.wd5.myworkdayjobs.com/en-US/global + externalPath. "
+  },
+  "Comcast": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://comcast.wd115.myworkdayjobs.com/wday/cxs/comcast/Comcast_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 645,
+   "notes": "Workday tenant=comcast, datacenter=wd115, site=Comcast_Careers. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://comcast.wd115.myworkdayjobs.com/en-US/Comcast_Careers + externalPath. Datacenter is wd115 (the old wd5 host returns 422)."
+  },
+  "Color Health": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://api.careerpuck.com/v1/public/job-boards/color-health",
+   "body": null,
+   "roles": 19,
+   "notes": "CareerPuck job board (permalink color-health) fronting an Ashby ATS (atsSourcePlatform=ashby; the direct Ashby slug was not found). This is the API the app.careerpuck.com board page calls; color.com/careers links to it. Single response, no pagination: jobs[] with title, location, department, workplaceType, salaryDescription, publicUrl, applyUrl, postedAt, content (HTML-entity-encoded)."
+  },
+  "Tempus": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://tempus.wd5.myworkdayjobs.com/wday/cxs/tempus/Tempus_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 153,
+   "notes": "Workday tenant=tempus, datacenter=wd5, site=Tempus_Careers. Paginate with offset/limit (max 20); response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://tempus.wd5.myworkdayjobs.com/en-US/Tempus_Careers + externalPath. "
+  },
+  "Medallia": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://jobs.medallia.com/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 70,
+   "notes": "iCIMS with the Jibe career-site front end (jobs.medallia.com). JSON: jobs[].data.{title,req_id,description,apply_url,city,country,...}; total in totalCount; paginate with page (1-based) and limit. data.apply_url points at *.icims.com/jobs/{id}/login; canonical page is jobs.medallia.com/jobs/{req_id}."
+  },
+  "Teladoc Health": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://teladoc.wd503.myworkdayjobs.com/wday/cxs/teladoc/teladochealth_is_hiring/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 45,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=teladoc, dc=wd503, site=teladochealth_is_hiring. "
+  },
+  "Cityblock Health": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://cityblockhealth.wd1.myworkdayjobs.com/wday/cxs/cityblockhealth/CityblockExternalCareerSite/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 31,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=cityblockhealth, dc=wd1, site=CityblockExternalCareerSite. "
+  },
+  "Universal Music Group": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://umusic.wd5.myworkdayjobs.com/wday/cxs/umusic/UMGUS/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 29,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=umusic, dc=wd5, site=UMGUS. UMGUS is the US site only; other countries have separate sites on the same tenant."
+  },
+  "Paramount Global": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://careers.paramount.com/googlefeed.xml",
+   "body": null,
+   "roles": 271,
+   "notes": "SAP SuccessFactors Recruiting Marketing site. googlefeed.xml is one RSS/XML file (~2.9 MB) with every open job: item fields title, description (full HTML), link, g:id, g:location, g:job_function, g:employer, g:expiration_date. No pagination; total = count of <item>. /sitemap.xml lists the same 271 job URLs. The /services/rss/job/ feed returned an error."
+  },
+  "Condé Nast": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://condenast.wd115.myworkdayjobs.com/wday/cxs/condenast/CondeCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 124,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=condenast, dc=wd115, site=CondeCareers. Note datacenter is wd115 (wd5 returns 422). Global board."
+  },
+  "Bloomberg": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://bloomberg.avature.net/careers/SearchJobs/feed/",
+   "body": null,
+   "roles": null,
+   "notes": "Avature career portal RSS feed (XML, RSS 2.0). Returns 20 newest items per request: title, link (job detail/apply page), description, pubDate. No total in the feed. The HTML search page at .../SearchJobs/?jobRecordsPerPage=20&jobOffset=N paginates; whether the feed honours jobOffset was not tested. "
+  },
+  "Dow Jones": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://dowjones.wd1.myworkdayjobs.com/wday/cxs/dowjones/Dow_Jones_Career/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 225,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=dowjones, dc=wd1, site=Dow_Jones_Career. "
+  },
+  "Electronic Arts": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://jobs.ea.com/en_US/careers/SearchJobs/feed/",
+   "body": null,
+   "roles": 351,
+   "notes": "Avature career portal RSS feed (XML, RSS 2.0). Returns 20 newest items per request: title, link (job detail/apply page), description, pubDate. No total in the feed. The HTML search page at .../SearchJobs/?jobRecordsPerPage=20&jobOffset=N paginates; whether the feed honours jobOffset was not tested. Total 351 was read from the HTML search page https://jobs.ea.com/en_US/careers/SearchJobs, not the feed."
+  },
+  "Activision Blizzard": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://xboxgaming.wd1.myworkdayjobs.com/wday/cxs/xboxgaming/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 98,
+   "notes": "Workday tenant is xboxgaming (wd1), site External; found via apply links on careers.activisionblizzard.com. Page with offset, limit max 20. Alternative that also worked: the Phenom front end, POST https://careers.activisionblizzard.com/widgets with JSON body {\"lang\": \"en_us\", \"deviceType\": \"desktop\", \"country\": \"us\", \"pageName\": \"search-results\", \"ddoKey\": \"refineSearch\", \"sortBy\": \"\", \"subsearch\": \"\", \"from\": 0, \"jobs\": true, \"counts\": true, \"all_fields\": [\"category\", \"country\", \"city\"], \"size\": 10, \"clearAll\": false, \"jdsource\": \"facets\", \"isSliderEnable\": false, \"pageId\": \"page11\", \"siteType\": \"external\", \"keywords\": \"\", \"global\": true, \"selected_fields\": {}, \"locationData\": {}} -> refineSearch.totalHits / refineSearch.data.jobs[] (title, location, applyUrl); it reported 57 hits, fewer than Workday's 98. activision.eightfold.ai API returned 403."
+  },
+  "Accenture": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://accenture.wd103.myworkdayjobs.com/wday/cxs/accenture/AccentureCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=accenture, dc=wd103, site=AccentureCareers. Global board; total reported 2000 is the Workday cap, real count is higher. Filter by country via appliedFacets."
+  },
+  "Deloitte": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://apply.deloitte.com/en_US/careers/SearchJobs/feed/",
+   "body": null,
+   "roles": null,
+   "notes": "Avature career portal RSS feed (XML, RSS 2.0). Returns 20 newest items per request: title, link (job detail/apply page), description, pubDate. No total in the feed. The HTML search page at .../SearchJobs/?jobRecordsPerPage=20&jobOffset=N paginates; whether the feed honours jobOffset was not tested. apply.deloitte.com is Deloitte US (and US-India) only; other member firms use separate sites. Feed titles are internal requisition names (prefixed 'US E - ...'); the link slug carries the cleaner public title."
+  },
+  "PwC": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://pwc.wd3.myworkdayjobs.com/wday/cxs/pwc/Global_Experienced_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 3898,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=pwc, dc=wd3, site=Global_Experienced_Careers. Global experienced-hire board (all countries); campus roles are on a separate site (Global_Campus_Careers, not tested). Filter by country via appliedFacets."
+  },
+  "EY": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://careers.ey.com/googlefeed.xml",
+   "body": null,
+   "roles": 7989,
+   "notes": "SAP SuccessFactors Recruiting Marketing site, global. googlefeed.xml is a single very large RSS/XML file of all jobs (only the first 2 MB was fetched here, via a Range request, to stay polite; it is likely tens of MB in full). Same item fields as other SuccessFactors feeds (title, description, link, g:id, g:location, g:employer). total_jobs 7989 is the URL count from https://careers.ey.com/sitemap.xml (1.8 MB), which is the lighter way to enumerate jobs; titles and locations are in the URL slug. Filter to US by location suffix ', US,'."
+  },
+  "Boston Consulting Group": {
+   "system": "phenom",
+   "method": "POST",
+   "endpoint": "https://careers.bcg.com/widgets",
+   "body": {
+    "lang": "en_global",
+    "deviceType": "desktop",
+    "country": "global",
+    "pageName": "search-results",
+    "ddoKey": "refineSearch",
+    "sortBy": "",
+    "subsearch": "",
+    "from": 0,
+    "jobs": true,
+    "counts": true,
+    "all_fields": [
+     "category",
+     "country",
+     "city"
+    ],
+    "size": 10,
+    "clearAll": false,
+    "jdsource": "facets",
+    "isSliderEnable": false,
+    "pageId": "page1",
+    "siteType": "external",
+    "keywords": "",
+    "global": true,
+    "selected_fields": {},
+    "locationData": {}
+   },
+   "roles": 887,
+   "notes": "Phenom career site. POST JSON with Content-Type: application/json, no token needed. Response: refineSearch.totalHits, refineSearch.data.jobs[] with title, city, country, category, jobSeqNo, applyUrl. Paginate with from (offset) and size. Public job page: https://careers.bcg.com/global/en/job/{jobSeqNo}. applyUrl goes to experiencedtalent.bcg.com (Eightfold); strip its query string."
+  },
+  "Oliver Wyman": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://mmc.wd1.myworkdayjobs.com/wday/cxs/mmc/MMC/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": "Oliver Wyman"
+   },
+   "roles": 405,
+   "notes": "Oliver Wyman posts on parent Marsh McLennan's Workday (tenant mmc, wd1, site MMC; 1943 jobs across Marsh, Mercer, Guy Carpenter and Oliver Wyman). No company facet was seen in the first response, so the body uses searchText 'Oliver Wyman' (405 hits; a text match, so keep only titles starting with 'Oliver Wyman' to be safe). Page with offset, limit max 20."
+  },
+  "Booz Allen Hamilton": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://bah.wd1.myworkdayjobs.com/wday/cxs/bah/BAH_Jobs/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "Workday CXS. Page with offset (limit max 20). Apply/detail URL = https://{host}/{site}{externalPath}. total is capped at 2000 by Workday when larger. tenant=bah, dc=wd1, site=BAH_Jobs. total 2000 is the Workday cap."
+  },
+  "Slalom": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://jobs.slalom.com/en_US/careersmarketplace/SearchJobs/feed/",
+   "body": null,
+   "roles": null,
+   "notes": "Avature career portal RSS feed (XML, RSS 2.0). Returns 20 newest items per request: title, link (job detail/apply page), description, pubDate. No total in the feed. The HTML search page at .../SearchJobs/?jobRecordsPerPage=20&jobOffset=N paginates; whether the feed honours jobOffset was not tested. Slalom's Workday tenant (slalom.wd1) answers 401 to the public API; the public site is this Avature portal."
+  },
+  "Publicis Groupe": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://careers.publicisgroupe.com/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 3046,
+   "notes": "iCIMS with the Jibe front end (careers.publicisgroupe.com), global across Publicis agencies (Sapient, etc.). JSON: jobs[].data.{title,req_id,description,apply_url,city,country,brand...}; total in totalCount; paginate with page (1-based) and limit. Public job page: https://careers.publicisgroupe.com/jobs/{req_id}. SmartRecruiters company PublicisGroupe exists but returns 0 postings."
+  },
+  "Havas": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://wd3.myworkdaysite.com/wday/cxs/havas/GroupExternalCareerSite/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 364,
+   "notes": "Workday on the myworkdaysite.com host (not myworkdayjobs.com): tenant=havas, wd3, site=GroupExternalCareerSite. Posting URL = https://wd3.myworkdaysite.com/recruiting/havas/GroupExternalCareerSite + externalPath (pattern from search results, not fetched). Global group board, many French-language postings; use the location facet for US. Some Havas agencies (e.g. Havas Life) also post on Jobvite."
+  },
+  "Infosys": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://intapgateway.infosysapps.com/careersci/search/intapjbsrch/getCareerSearchJobs?sourceId=1,21&searchText=ALL",
+   "body": null,
+   "roles": 1229,
+   "notes": "In-house API behind career.infosys.com. Returns a bare JSON array of ALL postings in one response (no pagination; 1229 items, several MB). Fields: postingTitle, roleDesignation, location, country, company, postingDescription, referenceCode, createdOn, expiryDate, min/maxExperienceLevel. No URL field: posting URL is built as https://career.infosys.com/jobdesc?jobReferenceCode={referenceCode} (URL pattern not fetched live - confirm). Mostly India; filter on country."
+  },
+  "Capgemini": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://cg-job-search-microservices.azurewebsites.net/api/job-search?page=1&size=10&country_code=en-us",
+   "body": null,
+   "roles": 693,
+   "notes": "In-house search microservice behind capgemini.com job search (ATS underneath is SuccessFactors). Response {count, data:[{id,title,location,brand,contract_type,experience_level,sbu,description,description_stripped,apply_job_url,updated_at}]}. Params: page, size, country_code (en-us gives the 693 US jobs; other locales e.g. en-gb, en-in). Descriptions are large; keep size small."
+  },
+  "EPAM Systems": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.epam.com/api/jobs/v2/search/careers?size=10&lang=en",
+   "body": null,
+   "roles": 1469,
+   "notes": "In-house JSON API on careers.epam.com, no auth. Response {data:{total, jobs:[{uid, name, country[], city, vacancy_type, seniority, primary_skill, skills[], text, seo.url, created_at}]}}. Posting URL = https://careers.epam.com + seo.url (constructed, not fetched). size= controls page size; the offset parameter name was not confirmed (likely from=). Caveat: the endpoint path came from prior knowledge, not from reading the careers page, because www.epam.com/careers returns 403 to curl; confirm in a browser network tab that the site still calls it. Global; filter on country."
+  },
+  "Globant": {
+   "system": "custom",
+   "method": "POST",
+   "endpoint": "https://career.globant.com/api/sap/job-requisition-v1",
+   "body": {},
+   "roles": 101,
+   "notes": "In-house Next.js career site over SAP SuccessFactors. POST with JSON body {} returns {total, showMore, jobRequisition:[{jobReqId, jobTitle, location, country, area, createdDateTime, jobDescription(HTML)}]}, 10 per page. The pagination field name was not confirmed (site uses an incrementing page number; try {\"page\":2}). Posting URL = https://career.globant.com/job/{TitleWithoutSpacesOrPunctuation}/{jobReqId} (verified 200 for 79128). Fallback: https://career.globant.com/sitemap.xml lists job URLs (only 42 of them when checked)."
+  },
+  "Guidehouse": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://guidehouse.wd1.myworkdayjobs.com/wday/cxs/guidehouse/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 827,
+   "notes": "tenant=guidehouse, wd1, site=External. Paginate with offset/limit (max 20). Posting URL = https://guidehouse.wd1.myworkdayjobs.com/External + externalPath."
+  },
+  "Target": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://target.wd5.myworkdayjobs.com/wday/cxs/target/targetcareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "tenant=target, wd5, site=targetcareers. total is reported as 2000, which is Workday's cap; real count is likely higher, use facets (appliedFacets) to segment. Mostly corporate/HQ plus store roles."
+  },
+  "Costco": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://careers.costco.com/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 20183,
+   "notes": "iCIMS-hosted career site (Jibe) JSON API. jobs[].data.{title,req_id,city,state,description,apply_url,meta_data.canonical_url}; totalCount; page & limit params. apply_url = careers-costco.icims.com/jobs/{id}/login. Mostly warehouse roles."
+  },
+  "Home Depot": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://homedepot.wd5.myworkdayjobs.com/wday/cxs/homedepot/CareerDepot/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 984,
+   "notes": "tenant=homedepot, wd5, site=CareerDepot (linked from careers.homedepot.com). Appears to hold corporate/support-center/field roles; hourly store roles go through a separate BrassRing site (sjobs.brassring.com partnerid=25526), not checked."
+  },
+  "Lowe's": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://lowes.wd5.myworkdayjobs.com/wday/cxs/lowes/LWS_External_CS/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 12601,
+   "notes": "tenant=lowes, wd5, site=LWS_External_CS. Dominated by store roles; use appliedFacets/searchText to narrow to corporate."
+  },
+  "Chewy": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://chewy.wd5.myworkdayjobs.com/wday/cxs/chewy/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 264,
+   "notes": "tenant=chewy, wd5, site=External (found by guess, returned real Chewy roles). careers.chewy.com is the branded front end."
+  },
+  "eBay": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://ebay.wd5.myworkdayjobs.com/wday/cxs/ebay/apply/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 294,
+   "notes": "tenant=ebay, wd5, site=apply."
+  },
+  "Adidas": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://careers.adidas-group.com/jobs/feed.xml",
+   "body": null,
+   "roles": 1167,
+   "notes": "XML feed (Indeed-style <source><job>), not JSON, ~5.8MB, all jobs in one response, no pagination. Per job: title, date, referencenumber, url, company, city, country, description. Linked from careers.adidas-group.com/jobs; postings live on jobs.adidas-group.com (SuccessFactors). Global and retail-heavy; some entries carry dates from 2021-2022 (evergreen store reqs), so filter on country and treat date with care."
+  },
+  "Lululemon": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://careers.lululemon.com/en_US/careers/SearchJobs/feed/?jobRecordsPerPage=20",
+   "body": null,
+   "roles": null,
+   "notes": "Avature career site; RSS (XML) feed of search results, not JSON. item.title is 'Role | Store/Location', link, pubDate; description is empty so details need the JobDetail HTML page. Feed gives no total count and default order is oldest first. Standard Avature paging is jobOffset=N with jobRecordsPerPage (not tested beyond first page). The HTML search is https://careers.lululemon.com/en_US/careers/SearchJobs. lululemon.wd3.myworkdayjobs.com exists but returns 401 for public requests."
+  },
+  "Sephora": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://jobs.sephora.com/sitemap.xml",
+   "body": null,
+   "roles": 749,
+   "notes": "SuccessFactors Recruiting Marketing site. /sitemap.xml is actually an RSS 2.0 (Google Base) feed of every open job in one ~6MB XML response, not JSON: item.title, link, g:id, g:employer, g:job_function, g:location, g:expiration_date, description (HTML). No pagination. Global (US, France, etc.); filter on g:location."
+  },
+  "Ulta Beauty": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://careers.ulta.com/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 9878,
+   "notes": "iCIMS-hosted career site (Jibe) JSON API. Response: {jobs:[{data:{title, req_id, slug, city, state, description, apply_url, meta_data.canonical_url, hiring_organization}}], totalCount}. Paginate with page & limit; filters such as keywords=, location=, categories= are supported. apply_url goes to fdcnmcareers-ulta.icims.com/jobs/{id}/login; public posting page is careers.ulta.com/jobs/{req_id}."
+  },
+  "Gap": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://gapinc.wd1.myworkdayjobs.com/wday/cxs/gapinc/GAPINC/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 247,
+   "notes": "tenant=gapinc, wd1, site=GAPINC. Covers Gap Inc. brands (Old Navy, Athleta, Banana Republic, Gap)."
+  },
+  "Levi Strauss & Co.": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://levistraussandco.wd5.myworkdayjobs.com/wday/cxs/levistraussandco/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1297,
+   "notes": "tenant=levistraussandco, wd5, site=External. Global, includes Beyond Yoga."
+  },
+  "Victoria's Secret": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://jobsapi-google.m-cloud.io/api/job/search?pageSize=10&offset=0&companyName=companies%2F382ab4db-03e8-40cc-b413-51539aca9954&orderBy=posting_publish_time%20desc",
+   "body": null,
+   "roles": 1440,
+   "notes": "careers.victoriassecret.com is a Symphony Talent (Findly / m-cloud) site over Taleo (vsco.taleo.net). The page's own widget calls jobsapi-google.m-cloud.io with orgId companies/382ab4db-03e8-40cc-b413-51539aca9954. Response {totalHits, searchResults:[{job:{title,url,primary_city,primary_state,primary_category,description,open_date,brand,...}}]}. Paginate with offset & pageSize. Mostly store roles; filter on primary_category / brand."
+  },
+  "REI": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://www.rei.jobs/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 234,
+   "notes": "iCIMS-hosted career site (Jibe) JSON API, same shape as Ulta: jobs[].data.{title,req_id,apply_url,meta_data.canonical_url}, totalCount; page & limit params. apply_url points to retail-rei.icims.com / careers-rei.icims.com."
+  },
+  "Southwest Airlines": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://swa.wd1.myworkdayjobs.com/wday/cxs/swa/external/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 72,
+   "notes": "tenant swa, wd1, site 'external'. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "Alaska Airlines": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.alaskaair.com/jobs/feed/json",
+   "body": null,
+   "roles": 49,
+   "notes": "Careers site is a DirectEmployers/NLx-style microsite over iCIMS (employee-alaskaair.icims.com). One GET returns the whole list as a JSON array (no pagination): city, state, country, company ('Alaska Airlines' or 'Horizon Air'), title, reqid, description, date_new, guid, url. Same data as RSS at /jobs/feed/rss and as a sitemap at /sitemaps/jobs_1.xml. Response is ~475 KB because it includes full descriptions."
+  },
+  "Boeing": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://boeing.wd1.myworkdayjobs.com/wday/cxs/boeing/EXTERNAL_CAREERS/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 758,
+   "notes": "tenant boeing, wd1, site EXTERNAL_CAREERS. Public marketing site is jobs.boeing.com (Radancy) but apply goes to this Workday site. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "UPS": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://hcmportal.wd5.myworkdayjobs.com/wday/cxs/hcmportal/Search/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1478,
+   "notes": "tenant is 'hcmportal' (not 'ups'), wd5, site 'Search'; found from applyUrl values on www.jobs-ups.com (Phenom front end). Global list; use the country facet for US. The Phenom site also publishes job-URL sitemaps: https://www.jobs-ups.com/us/en/sitemap.xml -> sitemap1..3.xml (500 job URLs in sitemap1). I did not confirm whether US hourly/driver roles are all in this Workday site. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "Expedia Group": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://expedia.wd108.myworkdayjobs.com/wday/cxs/expedia/search/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 163,
+   "notes": "tenant expedia, wd108, site 'search'. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "Booking.com": {
+   "system": "icims",
+   "method": "GET",
+   "endpoint": "https://jobs.booking.com/api/jobs?page=1&limit=10",
+   "body": null,
+   "roles": 150,
+   "notes": "iCIMS with a Jibe (iCIMS Attract) front end; client_code workingatbooking. Pagination: page (1-based) + limit; response totalCount, jobs[].data.{title,req_id,description,city,country,apply_url,hiring_organization}. apply_url points to external-workingatbooking.icims.com/jobs/{req_id}/login. Includes 41 'Booking Holdings' brand jobs alongside 109 Booking.com; filter on data.hiring_organization / brand."
+  },
+  "Marriott International": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://ejwl.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX,limit=25",
+   "body": null,
+   "roles": 12956,
+   "notes": "host ejwl.fa.us2.oraclecloud.com, siteNumber CX (found via the sign-in link on careers.marriott.com, whose front end is Paradox). Global, ~13k postings, mostly hotel property roles - filter by location/keyword facets. Apply URL pattern is the standard Oracle CX one built from Id; not individually fetched. Oracle Recruiting Cloud. Pagination: add ,offset=N inside the finder (limit max ~200 works, 25 used here); response items[0].TotalJobsCount and items[0].requisitionList[].{Id,Title,PrimaryLocation,PostedDate,ShortDescriptionStr}. Posting URL = https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{Id}; detail JSON = /hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id=\"{Id}\",siteNumber={site}."
+  },
+  "Hilton": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://efet.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX_1,limit=25",
+   "body": null,
+   "roles": 4291,
+   "notes": "host efet.fa.us2.oraclecloud.com, siteNumber CX_1 (linked from jobs.hilton.com, a Phenom front end). Apply URL pattern built from Id; not individually fetched. Oracle Recruiting Cloud. Pagination: add ,offset=N inside the finder (limit max ~200 works, 25 used here); response items[0].TotalJobsCount and items[0].requisitionList[].{Id,Title,PrimaryLocation,PostedDate,ShortDescriptionStr}. Posting URL = https://{host}/hcmUI/CandidateExperience/en/sites/{site}/job/{Id}; detail JSON = /hcmRestApi/resources/latest/recruitingCEJobRequisitionDetails?expand=all&onlyData=true&finder=ById;Id=\"{Id}\",siteNumber={site}."
+  },
+  "Zillow": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://zillow.wd5.myworkdayjobs.com/wday/cxs/zillow/Zillow_Group_External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 121,
+   "notes": "tenant zillow, wd5, site Zillow_Group_External. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "WeWork": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://wework.wd1.myworkdayjobs.com/wday/cxs/wework/WeWork/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 76,
+   "notes": "tenant wework, wd1, site WeWork. www.wework.com/careers itself sits behind a Cloudflare challenge, but the Workday API is open. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "JLL": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://jll.wd1.myworkdayjobs.com/wday/cxs/jll/jllcareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "tenant jll, wd1, site jllcareers. total is reported as 2000, which is Workday's cap - real count is higher; use appliedFacets (e.g. country) to segment. Workday CXS. Pagination: body limit (max 20) + offset; response total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/en-US/{site}{externalPath}; detail JSON = GET /wday/cxs/{tenant}/{site}{externalPath}."
+  },
+  "AppFolio": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://app.jobvite.com/CompanyJobs/Xml.aspx?c=qh79Vfwc",
+   "body": null,
+   "roles": 148,
+   "notes": "System is Jobvite (not in the enum, so 'custom'); careersite id 'appfolio', companyEId qh79Vfwc. XML feed, no pagination, ~3.9 MB with full descriptions: <job> with id, title, requisitionid, category, jobtype, location, date, detail-url, apply-url, description. 148 <job> elements but the same requisition repeats once per location (the first five are all 'VP, Total Rewards'), so dedupe on <id>/<requisitionid>; the HTML list at https://jobs.jobvite.com/appfolio/search?nl=1 shows 32 distinct jobs. Last three sample titles come from that HTML list, not the XML."
+  },
+  "Palo Alto Networks": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://paloaltonetworks.wd5.myworkdayjobs.com/wday/cxs/paloaltonetworks/panwexternalcareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1515,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=paloaltonetworks, dc=wd5, site=panwexternalcareers. Public careers site jobs.paloaltonetworks.com is TalentBrew/Radancy (HTML) and its apply buttons point to this Workday site."
+  },
+  "Arctic Wolf": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://arcticwolf.wd1.myworkdayjobs.com/wday/cxs/arcticwolf/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 119,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=arcticwolf, dc=wd1, site=External. "
+  },
+  "Darktrace": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://darktrace.wd3.myworkdayjobs.com/wday/cxs/darktrace/DarktaceExternal/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 76,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=darktrace, dc=wd3, site=DarktaceExternal. Site name really is spelled 'DarktaceExternal' (their typo, missing r)."
+  },
+  "Dynatrace": {
+   "system": "custom",
+   "method": "POST",
+   "endpoint": "https://www.dynatrace.com/api/coveo/search/",
+   "body": {
+    "q": "",
+    "numberOfResults": 1000,
+    "wildcards": true,
+    "facets": []
+   },
+   "roles": 104,
+   "notes": "In-house Coveo search proxy used by dynatrace.com/careers/jobs/ (no token needed; server adds it). Headers: Content-Type: application/json, Accept: application/json. Response: totalCount, results[] with title, clickUri, and raw{job_id, apply_url, office_locations, country, region, team, division, seniority, employment_type, flex_option, description, date}. The site itself asks numberOfResults:1000 in one call; I verified with numberOfResults:5. Underlying ATS appears to be SmartRecruiters-like numeric ids but SmartRecruiters slugs 'Dynatrace'/'Dynatrace1' return 0."
+  },
+  "Sprinklr": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://sprinklr.wd1.myworkdayjobs.com/wday/cxs/sprinklr/careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 74,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=sprinklr, dc=wd1, site=careers. "
+  },
+  "Eightfold AI": {
+   "system": "eightfold",
+   "method": "GET",
+   "endpoint": "https://app.eightfold.ai/api/pcsx/search?domain=eightfold.ai&query=&location=&start=0",
+   "body": null,
+   "roles": 60,
+   "notes": "Uses Eightfold's newer PCSX API, not the classic one: /api/apply/v2/jobs?domain=eightfold.ai returns 403 'Not authorized for PCSX'. Response: data.count (total), data.positions[] (10 per page; paginate with start=10,20..) with id, name, locations, standardizedLocations, department, postedTs, workLocationOption, positionUrl (relative; prefix https://app.eightfold.ai; the apply_url_example was built that way and not separately fetched). eightfold.eightfold.ai did not resolve. Careers page links to https://app.eightfold.ai/careers/search."
+  },
+  "Pfizer": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://pfizer.wd1.myworkdayjobs.com/wday/cxs/pfizer/PfizerCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 512,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=pfizer, dc=wd1, site=PfizerCareers. "
+  },
+  "Johnson & Johnson": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://jj.wd5.myworkdayjobs.com/wday/cxs/jj/JJ/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1772,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=jj, dc=wd5, site=JJ. "
+  },
+  "Merck": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://msd.wd5.myworkdayjobs.com/wday/cxs/msd/SearchJobs/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 990,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=msd, dc=wd5, site=SearchJobs. This is Merck & Co. (US; 'MSD' outside North America), not Merck KGaA."
+  },
+  "Eli Lilly": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://lilly.wd115.myworkdayjobs.com/wday/cxs/lilly/LLY/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 665,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=lilly, dc=wd115, site=LLY. Datacenter is wd115 (wd5 returns 422). Public site careers.lilly.com is Phenom and links to this Workday site for apply."
+  },
+  "Bristol Myers Squibb": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://bristolmyerssquibb.wd5.myworkdayjobs.com/wday/cxs/bristolmyerssquibb/BMS/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 677,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=bristolmyerssquibb, dc=wd5, site=BMS. "
+  },
+  "Gilead Sciences": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://gilead.wd1.myworkdayjobs.com/wday/cxs/gilead/gileadcareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 505,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=gilead, dc=wd1, site=gileadcareers. "
+  },
+  "Moderna": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://modernatx.wd1.myworkdayjobs.com/wday/cxs/modernatx/M_tx/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 234,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=modernatx, dc=wd1, site=M_tx. "
+  },
+  "Regeneron": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://regeneron.wd1.myworkdayjobs.com/wday/cxs/regeneron/Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 542,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=regeneron, dc=wd1, site=Careers. "
+  },
+  "Vertex Pharmaceuticals": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://vrtx.wd501.myworkdayjobs.com/wday/cxs/vrtx/Vertex_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 297,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=vrtx, dc=wd501, site=Vertex_Careers. Tenant is 'vrtx' on wd501."
+  },
+  "Amgen": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://amgen.wd1.myworkdayjobs.com/wday/cxs/amgen/Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1724,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=amgen, dc=wd1, site=Careers. "
+  },
+  "Genentech": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://roche.wd3.myworkdayjobs.com/wday/cxs/roche/ROG-A2O-GENE/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 219,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=roche, dc=wd3, site=ROG-A2O-GENE. Genentech is a Roche subsidiary: a Genentech-only site (ROG-A2O-GENE) inside the Roche tenant. Public site careers.gene.com is Phenom and links here for apply. These postings probably also appear in Roche's roche-ext site (overlap not checked) - dedupe on the requisition id at the end of externalPath."
+  },
+  "Roche": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://roche.wd3.myworkdayjobs.com/wday/cxs/roche/roche-ext/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1177,
+   "notes": "Workday CXS. Paginate with offset/limit (max 20); 'total' is the count. Posting URL = https://{host}/{site} + externalPath. tenant=roche, dc=wd3, site=roche-ext. Global Roche site; may overlap with the Genentech site ROG-A2O-GENE (not checked)."
+  },
+  "Novartis": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://novartis.wd3.myworkdayjobs.com/wday/cxs/novartis/Novartis_Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 822,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=novartis, site=Novartis_Careers. "
+  },
+  "AstraZeneca": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://astrazeneca.wd3.myworkdayjobs.com/wday/cxs/astrazeneca/Careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1008,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=astrazeneca, site=Careers. "
+  },
+  "Sanofi": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://sanofi.wd3.myworkdayjobs.com/wday/cxs/sanofi/SanofiCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 807,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=sanofi, site=SanofiCareers. "
+  },
+  "Biogen": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://biibhr.wd3.myworkdayjobs.com/wday/cxs/biibhr/external/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 254,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=biibhr, site=external. Tenant is 'biibhr', not 'biogen'."
+  },
+  "Illumina": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://illumina.wd1.myworkdayjobs.com/wday/cxs/illumina/illumina-careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 154,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=illumina, site=illumina-careers. "
+  },
+  "BlackRock": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://blackrock.wd1.myworkdayjobs.com/wday/cxs/blackrock/BlackRock_Professional/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 301,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=blackrock, site=BlackRock_Professional. Professional (experienced) site only; campus roles are on a separate site not checked."
+  },
+  "Fidelity Investments": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://fmr.wd1.myworkdayjobs.com/wday/cxs/fmr/FidelityCareers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 800,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=fmr, site=FidelityCareers. Tenant is 'fmr'."
+  },
+  "Vanguard": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://vanguard.wd5.myworkdayjobs.com/wday/cxs/vanguard/vanguard_external/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 344,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=vanguard, site=vanguard_external. "
+  },
+  "Bank of America": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://ghr.wd1.myworkdayjobs.com/wday/cxs/ghr/Lateral-US/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1974,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=ghr, site=Lateral-US. Tenant is 'ghr'. Lateral-US = US experienced hires only; other regions/campus are on other sites not checked."
+  },
+  "Wells Fargo": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://wd1.myworkdaysite.com/wday/cxs/wf/WellsFargoJobs/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1564,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=wf, site=WellsFargoJobs. Uses myworkdaysite.com host (no tenant subdomain); public posting URLs are https://wd1.myworkdaysite.com/recruiting/wf/WellsFargoJobs/job/..."
+  },
+  "Citi": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://citi.wd5.myworkdayjobs.com/wday/cxs/citi/2/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=citi, site=2. Site name is literally '2'. total=2000 looks like Workday's cap; real count is likely higher - use appliedFacets to segment."
+  },
+  "Deutsche Bank": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://db.wd3.myworkdayjobs.com/wday/cxs/db/DBWebsite/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1158,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=db, site=DBWebsite. "
+  },
+  "T-Mobile": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://tmobile.wd1.myworkdayjobs.com/wday/cxs/tmobile/External/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2000,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=tmobile, site=External. total=2000 looks like Workday's cap. First page is dominated by identical 'Mobile Associate - Retail Sales' store postings; filter by facets/searchText for corporate roles."
+  },
+  "Verizon": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://verizon.wd12.myworkdayjobs.com/wday/cxs/verizon/verizon-careers/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1031,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=verizon, site=verizon-careers. Datacenter wd12. First page mostly retail roles."
+  },
+  "AT&T": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://att.wd1.myworkdayjobs.com/wday/cxs/att/ATTGeneral/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 1132,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=att, site=ATTGeneral. ATTGeneral site; AT&T may run other sites (e.g. for specific job families) not checked."
+  },
+  "Johnson Controls": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://jci.wd5.myworkdayjobs.com/wday/cxs/jci/JCI/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 2601,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=jci, site=JCI. Tenant 'jci'."
+  },
+  "General Electric": {
+   "system": "workday",
+   "method": "POST",
+   "endpoint": "https://geaerospace.wd5.myworkdayjobs.com/wday/cxs/geaerospace/GE_ExternalSite/jobs",
+   "body": {
+    "appliedFacets": {},
+    "limit": 20,
+    "offset": 0,
+    "searchText": ""
+   },
+   "roles": 523,
+   "notes": "Workday CXS. Paginate with body limit (max 20) + offset; response fields total, jobPostings[].title/externalPath/locationsText/postedOn. Posting URL = https://{host}/{site}{externalPath}; detail JSON = GET https://{host}/wday/cxs/{tenant}/{site}{externalPath}. tenant=geaerospace, site=GE_ExternalSite. GE split into three companies; this is GE Aerospace (the legal successor of General Electric). GE Vernova also verified: POST https://gevernova.wd5.myworkdayjobs.com/wday/cxs/gevernova/Vernova_ExternalSite/jobs (total 2125). GE HealthCare not checked."
+  },
+  "Siemens": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://jobs.siemens.com/en_US/externaljobs/SearchJobs/feed/?jobRecordsPerPage=20",
+   "body": null,
+   "roles": null,
+   "notes": "Avature RSS 2.0 feed (XML, not JSON); returned 20 <item>s with title/link/description. No total count in the feed. Pagination presumably via jobOffset (standard Avature) - not tested. HTML search: https://jobs.siemens.com/en_US/externaljobs/SearchJobs. Siemens AG only; Siemens Energy / Healthineers have separate sites."
+  },
+  "Honeywell": {
+   "system": "oracle",
+   "method": "GET",
+   "endpoint": "https://ibqbjb.fa.ocs.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions?onlyData=true&expand=requisitionList.secondaryLocations&finder=findReqs;siteNumber=CX_1,limit=25",
+   "body": null,
+   "roles": 1265,
+   "notes": "Oracle Recruiting Cloud, host ibqbjb.fa.ocs.oraclecloud.com, siteNumber=CX_1 (site path 'Honeywell', fronted by careers.honeywell.com). Response: items[0].TotalJobsCount and items[0].requisitionList[] (Id, Title, PrimaryLocation, PostedDate). Paginate by adding ,offset=N inside the finder. apply_url_example is built from the standard pattern /en/sites/Honeywell/job/{Id} and was not itself fetched."
+  }
+ },
+ "fragile": {
+  "Intuit": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://jobs.intuit.com/search-jobs/results?ActiveFacetID=0&CurrentPage=1&RecordsPerPage=15&Distance=50&RadiusUnitType=0&Keywords=&Location=&ShowRadius=False&IsPagination=False&CustomFacetName=&FacetTerm=&FacetType=0&SearchResultsModuleName=Search+Results&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&PostalCode=&ResultsType=0",
+   "body": null,
+   "roles": 584,
+   "notes": "Radancy/TalentBrew site (jobs.intuit.com). Endpoint returns JSON {filters, results, hasJobs} but 'results' is an HTML fragment that must be parsed: total in data-total-results attribute, each job is <a href=\"/job/...\"><h2>title</h2>. Sent header X-Requested-With: XMLHttpRequest. Paginate with CurrentPage. Intuit's Workday tenant (intuit.wd1, site 'External') returns 401 on the CXS endpoint, so it is not usable."
+  },
+  "Shopify": {
+   "system": "ashby",
+   "method": "GET",
+   "endpoint": "https://www.shopify.com/careers.data",
+   "body": null,
+   "roles": 116,
+   "notes": "Shopify's ATS is Ashby but the public Ashby posting API is not exposed (slug 'shopify' 404). The careers page (React Router) loads its data from /careers.data, which is JSON in React Router 'turbo-stream' encoding: one flat array where objects look like {\"_12\": 34} = key string at index 12, value at index 34 (negative = null/undefined). Decode by resolving indexes; job objects are the ones with an 'externalLink' key. Fields: id, title, departmentName, teamName, locationName, workplaceType, employmentType, publishedDate, externalLink, updatedAt. All 116 jobs in one response. Fragile: an internal page-data format that can change without notice."
+  },
+  "Deel": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://jobs.deel.com/deel/sitemap.xml",
+   "body": null,
+   "roles": 259,
+   "notes": "SITEMAP ONLY - weaker than the others. Deel hosts jobs on its own ATS (jobs.deel.com/deel); Ashby board 'deel' exists but is empty. The XML sitemap lists 259 job URLs with lastmod but NO titles; each job page must be fetched for its title (page <title> is '{job title} @ Deel'; only one detail page was fetched to confirm). jobs.deel.com robots.txt disallows /api/ and */application, so the JSON API is off limits; sitemap and /overview pages are allowed. Alternative: https://www.deel.com/careers/ HTML embeds all jobs (title, department, location_name, external_link) in its Next.js payload, but that is HTML scraping."
+  },
+  "Klarna": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://jobs.deel.com/job-boards/klarna",
+   "body": null,
+   "roles": 101,
+   "notes": "Klarna moved to Deel's ATS (klarna.com/careers links to jobs.deel.com/job-boards/klarna). No separate JSON API found; the page is server-rendered HTML (~800 KB) with (a) a schema.org JSON-LD ItemList of every posting URL (101 unique job ids) and (b) the Next.js RSC payload containing escaped JSON objects with id, title, job.workArrangementEnum, createdAt, updatedAt. Title regex matched 89 objects, so parse carefully. Posting URL = https://jobs.deel.com/klarna/job-details/{id}/overview. Needs HTML/embedded-JSON parsing, not a clean API."
+  },
+  "Two Sigma": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://careers.twosigma.com/careers/OpenRoles/feed/",
+   "body": null,
+   "roles": null,
+   "notes": "Avature portal. RSS 2.0 feed (XML, not JSON): item title, description (= location), link, pubDate. LIMITATION: feed returns only 20 items and ignored jobRecordsPerPage=50 and jobOffset=20 in testing, so it is not the full list and gives no total. Full list needs the HTML search page https://careers.twosigma.com/careers/OpenRoles/?jobRecordsPerPage=10&jobOffset=N (10 per page, JobDetail links in HTML)."
+  },
+  "Patagonia": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://patagonia.hirehive.com/api/v1/jobs",
+   "body": null,
+   "roles": 13,
+   "notes": "EUROPE ONLY. This is Patagonia's HireHive board and all 13 postings are European (NL 6, DE 2, IT 2, AT 1, FR 1, SE 1). Response: publishedJobsCount, nextPage, jobs[].{id,title,location,country,category,type,description,publishedDate,hostedUrl}. US/Canada jobs were NOT found: www.patagonia.com/careers and careers.patagonia.com return an Akamai bot-failover page to curl, so the US ATS could not be identified. Workday tenant patagonia.wd5 answers 422 for the site names tried (PWCareers, etc.), so a tenant may exist with an unknown site name. Treat as not found for US roles."
+  },
+  "United Airlines": {
+   "system": "phenom",
+   "method": "GET",
+   "endpoint": "https://careers.united.com/sitemap.xml",
+   "body": null,
+   "roles": 134,
+   "notes": "SITEMAP ONLY. Phenom front end over Taleo (applyUrl = https://ual-pro.taleo.net/careersection/10400/jobdetail.ftl?job={reqId}). sitemap.xml lists 134 job URLs /us/en/job/{reqId}/{Title-Slug}; titles above are read from the slugs. The HTML search page https://careers.united.com/us/en/search-results embeds JSON (phApp.ddo, totalHits 134) with full job fields, and each job page embeds applyUrl. No standalone JSON endpoint found without the Phenom widget POST, which I did not test."
+  },
+  "JetBlue": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://careers.jetblue.com/sitemap.xml",
+   "body": null,
+   "roles": 51,
+   "notes": "SITEMAP + RSS, no JSON API. SuccessFactors Recruiting Marketing (career8.successfactors.com). (1) sitemap.xml lists every open job URL: 51 <loc> entries /job/{City-Title-State-Zip}/{id}/ with lastmod; titles above are read from the slugs. (2) RSS search feed https://careers.jetblue.com/services/rss/job/?locale=en_US&keywords=(TERM) returns <item> title/link/description - keywords=(jetblue) returned 12 items (e.g. 'Manager, People Data Insights'); empty keywords=() returns an error, so the RSS needs a real search term and is not a full listing. Use the sitemap for the full set."
+  },
+  "FedEx": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.fedex.com/sitemap-a0a4453b-en.xml",
+   "body": null,
+   "roles": 4270,
+   "notes": "Paradox-hosted career site. No open JSON API: /api/jobs returns 403 Access Denied. Two public sources: (1) XML sitemap index https://careers.fedex.com/sitemap.xml -> per-language sitemaps; the English one (endpoint above) had 3163 job URLs of the form /{title-slug}/job/{id}; (2) the HTML page https://careers.fedex.com/jobs embeds JSON in window.__PRELOAD_STATE__ (jobSearch.totalJob = 4270, jobSearch.jobs = 25 per page with title, locations, employmentType, applyURL, originalURL, companyName). total_jobs is the embedded totalJob figure. Sample titles are from the embedded JSON."
+  },
+  "Offerpad": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://workforcenow.adp.com/mascsr/default/careercenter/public/events/staffing/v1/job-requisitions?cid=1259f4b4-8ba3-4cf9-86d2-e957dc127478&timeStamp=1&lang=en_US&ccId=19000101_000001&locale=en_US&$top=20",
+   "body": null,
+   "roles": 15,
+   "notes": "System is ADP Workforce Now recruitment (not in the enum, so 'custom'). cid identifies Offerpad. Pagination: $top / $skip; response meta.totalNumber, jobRequisitions[].requisitionTitle/itemID/postDate/payGradeRange/requisitionLocations. Deep link built from itemID via &jobId= (the form ADP uses; not separately fetched). 11 of the 15 are identical 'Real Estate Agent (1099 Agent)' postings for different markets."
+  },
+  "Cushman & Wakefield": {
+   "system": "workday",
+   "method": "GET",
+   "endpoint": "https://careers.cushmanwakefield.com/sitemap.xml",
+   "body": null,
+   "roles": 2212,
+   "notes": "SITEMAP ONLY. ATS is Workday (tenant cushwake, wd1) but the site name could not be found: External, careers, Cushman_Wakefield, Cushman_Wakefield_Careers, External_Careers all return 422. The public careers site serves a 4 MB sitemap.xml (6949 URLs; 2212 are /en/jobs/{reqId}/{title-slug}/, latest lastmod 2026-10-03); titles above are read from the slugs. Job pages themselves return 403 cf-mitigated: challenge (Cloudflare) to a plain request, so no details server-side; links work in a browser. total_jobs = count of English job URLs in the sitemap. If someone opens one job in a browser and clicks Apply, the Workday site name will be in the URL and the standard Workday POST should then work."
+  },
+  "Procore": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.procore.com/sitemap.xml",
+   "body": null,
+   "roles": 90,
+   "notes": "SITEMAP ONLY. Careers site is Clinch Talent (system not in enum). sitemap.xml answers 200 with 152 URLs, 90 of them /jobs/{title-location-slug}; titles above are read from the slugs. The job pages and /jobs/search themselves answer 202 with x-amzn-waf-action: challenge (AWS WAF) to a plain request, so details cannot be fetched server-side; the links work in a real browser. SmartRecruiters company 'ProcoreTechnologies' exists but returns 0 postings. Underlying ATS not identified."
+  },
+  "Vinted": {
+   "system": "greenhouse",
+   "method": "GET",
+   "endpoint": "https://careers.vinted.com/jobs",
+   "body": null,
+   "roles": 145,
+   "notes": "HTML WITH EMBEDDED JSON, not a clean API. Vinted is on Greenhouse EU (job ids end in ...101, s101.recruiting.eu.greenhouse.io) but the board token is not exposed and boards-api slugs vinted/vintedgroup/vintedeu/vintedcareers all 404. The Next.js careers page embeds the full Greenhouse job list in <script id=\"__NEXT_DATA__\"> at props.pageProps.jobs (145 objects in Greenhouse job-board shape: id, title, absolute_url, location, departments, offices, content, updated_at, first_published) plus props.pageProps.departments. Page is ~9.6 MB. The /_next/data/{buildId}/jobs.json route returned 404, so parse the HTML. Company is Europe-based (few or no US roles)."
+  },
+  "Rapid7": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.rapid7.com/sitemap.xml",
+   "body": null,
+   "roles": 33,
+   "notes": "WEAKER THAN THE OTHERS: no JSON API found. Careers site is a Clinch Talent (PageUp) Rails/Turbo site. sitemap.xml lists 33 /jobs/<slug> URLs (mixed with non-job pages; filter on '/jobs/'). Titles, requisition id, department, location come from server-rendered HTML at https://careers.rapid7.com/jobs/search?page=N (30 rows per page, 2 pages; rows are <tr data-job-url=...> with td.job-search-results-title etc). /jobs/search.json returns 202 with empty body. Each job page has one JSON-LD block (likely JobPosting, not inspected). Underlying ATS not exposed (req ids look like R9285); apply button is a form on the careers site itself."
+  },
+  "Gem": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://api.gem.com/job_board/v0/gem/job_posts/",
+   "body": null,
+   "roles": 4,
+   "notes": "Gem's own ATS (board at jobs.gem.com/gem). Returns a bare JSON array, Greenhouse-like fields: id, title, absolute_url, content, content_plain, departments, offices, location, location_type, employment_type, first_published_at, updated_at. Only 4 postings open right now. Same pattern works for other Gem ATS customers: /job_board/v0/<slug>/job_posts/."
+  },
+  "BioNTech": {
+   "system": "successfactors",
+   "method": "GET",
+   "endpoint": "https://jobs.biontech.com/sitemap.xml",
+   "body": null,
+   "roles": 134,
+   "notes": "WEAKER THAN THE OTHERS: SAP SuccessFactors career site (RMK), no JSON API. sitemap.xml lists 134 job URLs (/job/<City>-<Title>-<region>-<zip>/<id>/, with lastmod); titles must be parsed from the URL slug (sample titles above are derived that way) or the job page. Includes non-English (Chinese) postings. There is also an RSS feed with real titles/descriptions, https://jobs.biontech.com/services/rss/job/?locale=en_US&keywords=(<term>), verified with keywords=(manager); it needs a non-empty keyword (empty '()' returns a query error), so it cannot list everything in one call."
+  },
+  "Takeda": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://jobs.takeda.com/search-jobs/results?ActiveFacetID=0&CurrentPage=1&RecordsPerPage=15&Distance=50&RadiusUnitType=0&Keywords=&Location=&ShowRadius=False&IsPagination=False&FacetType=0&SearchResultsModuleName=Search+Results&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&ResultsType=0",
+   "body": null,
+   "roles": 810,
+   "notes": "Radancy TalentBrew career site. GET returns JSON {filters, results, hasJobs, hasContent}; 'results' is an HTML fragment - parse <a href=\"/job/...\" data-job-id> for title/link and data-total-results / data-total-pages on the section element for counts. Paginate with CurrentPage (RecordsPerPage=15). Send header X-Requested-With: XMLHttpRequest. Job page on this host has the Apply button to the underlying ATS. /sitemap.xml also lists job URLs. TalentBrew company id 1113. www.takedajobs.com redirects here. Underlying ATS is Workday (tenant takeda on wd3 exists) but site name 'External' returned 422; real site name not determined."
+  },
+  "10x Genomics": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://careers.kula.ai/10xgenomics",
+   "body": null,
+   "roles": 32,
+   "notes": "Kula ATS (careers.10xgenomics.com redirects to careers.kula.ai/10xgenomics). No separate JSON API found; the page is server-rendered Next.js HTML (~540KB) with all jobs embedded: job links match /10xgenomics/{id}-{slug}, and titles appear in the escaped RSC payload as \\\"title\\\":\\\"...\\\". total_jobs = count of unique job ids in the page. Needs HTML/regex parsing, not a clean JSON endpoint. www.10xgenomics.com/careers returned 429."
+  },
+  "Charles Schwab": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://www.schwabjobs.com/search-jobs/results?ActiveFacetID=0&CurrentPage=1&RecordsPerPage=15&Distance=50&RadiusUnitType=0&Keywords=&Location=&ShowRadius=False&IsPagination=False&FacetType=0&SearchResultsModuleName=Search+Results&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&ResultsType=0",
+   "body": null,
+   "roles": 303,
+   "notes": "Radancy TalentBrew career site. GET returns JSON {filters, results, hasJobs, hasContent}; 'results' is an HTML fragment - parse <a href=\"/job/...\" data-job-id> for title/link and data-total-results / data-total-pages on the section element for counts. Paginate with CurrentPage (RecordsPerPage=15). Send header X-Requested-With: XMLHttpRequest. Job page on this host has the Apply button to the underlying ATS. /sitemap.xml also lists job URLs. TalentBrew company id 33727. Workday tenant 'schwab' on wd1 exists but site 'External' returned 422; site name not determined."
+  },
+  "Barclays": {
+   "system": "custom",
+   "method": "GET",
+   "endpoint": "https://search.jobs.barclays/search-jobs/results?ActiveFacetID=0&CurrentPage=1&RecordsPerPage=15&Distance=50&RadiusUnitType=0&Keywords=&Location=&ShowRadius=False&IsPagination=False&FacetType=0&SearchResultsModuleName=Search+Results&SearchFiltersModuleName=Search+Filters&SortCriteria=0&SortDirection=0&SearchType=5&ResultsType=0",
+   "body": null,
+   "roles": 757,
+   "notes": "Radancy TalentBrew career site. GET returns JSON {filters, results, hasJobs, hasContent}; 'results' is an HTML fragment - parse <a href=\"/job/...\" data-job-id> for title/link and data-total-results / data-total-pages on the section element for counts. Paginate with CurrentPage (RecordsPerPage=15). Send header X-Requested-With: XMLHttpRequest. Job page on this host has the Apply button to the underlying ATS. /sitemap.xml also lists job URLs. TalentBrew company id 13015. Titles are inside <a class=\"job-title--link\"><strong>..</strong></a> here (not <h2>)."
+  },
+  "HSBC": {
+   "system": "avature",
+   "method": "GET",
+   "endpoint": "https://mycareer.hsbc.com/en_GB/external/SearchJobs/feed/?jobRecordsPerPage=20",
+   "body": null,
+   "roles": null,
+   "notes": "Avature RSS 2.0 feed (XML, not JSON). WEAK: the feed returned only 4 items even with jobRecordsPerPage=20, so it likely does not expose the full job list; no total in the feed. HTML search is https://mycareer.hsbc.com/en_GB/external/SearchJobs (pagination via jobOffset, not tested). Workday tenant hsbc/wd3 site 'external' returned 422."
+  }
+ }
+}
