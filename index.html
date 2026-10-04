@@ -2939,6 +2939,28 @@ function renderPlanMenuItem(){
 // career_profile, career_claims, prep_scores, conversations (archived),
 // career_stories, career_opportunities. Nothing is computed by a model.
 var DASH_ON = false;
+// Where on the dashboard the person is, kept in the address bar so a
+// refresh comes back to the same view. Only these shapes are ours; the
+// auth flow also uses the hash and must be left alone.
+var DASH_HASH_RE = /^(opp\/[0-9a-f-]{8,}|opps\/new|opps|sessions)$/i;
+var DASH_BOOT_HASH = (function(){ var h = String(window.location.hash || '').replace(/^#/, ''); return DASH_HASH_RE.test(h) ? h : null; })();
+function setDashHash(h){
+  try{
+    var cur = String(window.location.hash || '').replace(/^#/, '');
+    if(cur === (h || '')) return;
+    if(!h && cur && !DASH_HASH_RE.test(cur)) return; // not ours to clear
+    window.history.replaceState(null, '', window.location.pathname + (window.location.search || '') + (h ? '#' + h : ''));
+  }catch(e){}
+}
+// Returns true when the hash named a view and it was opened.
+function routeDashHash(h){
+  var m;
+  if((m = /^opp\/(.+)$/i.exec(h))){ dashShowOpportunity(m[1]); return true; }
+  if(h === 'opps/new'){ dashAddOpportunity(); return true; }
+  if(h === 'opps'){ dashShowOpportunities(); return true; }
+  if(h === 'sessions'){ dashShowSessions(); return true; }
+  return false;
+}
 var DASH_ROLE = null;
 var DASH_PROFILE = null;
 
@@ -2966,6 +2988,7 @@ function hideDashboard(){
   DASH_ON = false;
   var nav = document.getElementById('navHome'); if(nav) nav.classList.add('off');
   syncBackToOpp();
+  if(!DASH_BOOT_HASH) setDashHash('');
 }
 
 function goToDashboard(){
@@ -3157,8 +3180,10 @@ async function loadDashboard(){
   DASH_ROLE = profile.target_role_title || lastRole || null;
   DASH_PROFILE = profile; BRAIN_PROFILE = profile;
   var d = { name:name, profile:profile, claims:claims, scores:scores, past:past, stories:stories, opps:opps, latest:latest, resumeScore:resumeScore };
-  if(dashNeedsOnboarding(d)){ renderOnboarding(body, d); return; }
+  if(dashNeedsOnboarding(d)){ setDashHash(''); renderOnboarding(body, d); return; }
   ONB = null;
+  if(DASH_BOOT_HASH){ var bh = DASH_BOOT_HASH; DASH_BOOT_HASH = null; if(routeDashHash(bh)) return; }
+  setDashHash('');
   renderDashboard(body, d);
 }
 
@@ -3398,6 +3423,7 @@ async function dashShowSessions(){
   if(!body || !window.supabaseClient) return;
   if(!DASH_ON) showDashboard(true);
   var sub = 'Live sessions pick up where you left off. Finished ones are read-only.';
+  setDashHash('sessions');
   body.innerHTML = dashView('Sessions', sub, 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
   var sessionRes = await window.supabaseClient.auth.getSession();
   var session = sessionRes.data && sessionRes.data.session;
@@ -3591,7 +3617,8 @@ function dashAddOpportunity(){
     + '<input id="oppUrl" type="url" class="dash-input" placeholder="Link to the posting (optional)"/>'
     + '<div class="onb-status" id="oppStatus"></div>'
     + '<div class="onb-foot"><button class="dash-btn primary" id="oppGo" onclick="dashSubmitOpportunity()">Score it</button><span class="dash-muted">Takes about ten seconds.</span></div>';
-  body.innerHTML = dashView('Add an opportunity', 'A role you’re considering, applying to, or interviewing for.', 'My Career', 'loadDashboard()', inner);
+  setDashHash('opps/new');
+  body.innerHTML = dashView('Add an opportunity', 'A role you\u2019re considering, applying to, or interviewing for.', 'My Career', 'loadDashboard()', inner);
   body.parentNode.scrollTop = 0;
   var ta = document.getElementById('oppJd'); if(ta) ta.focus();
 }
@@ -3641,6 +3668,7 @@ async function dashShowOpportunities(){
   // The funnel, counted from the rows. Nothing estimated.
   var cnt = function(list){ return rows.filter(function(o){ return list.indexOf(o.stage) !== -1; }).length; };
   var funnel = rows.length ? rows.length + ' tracked \u00b7 ' + cnt(['applied','screening','interviewing','offer','accepted','hired','rejected','withdrawn']) + ' applied \u00b7 ' + cnt(['interviewing','offer','accepted','hired']) + ' reached interviews \u00b7 ' + cnt(['offer','accepted','hired']) + ' offers.' : 'Nothing tracked yet.';
+  setDashHash('opps');
   body.innerHTML = dashView('Opportunities', funnel + ' Open one to log where it stands or prep for it.', 'My Career', 'loadDashboard()', inner);
   body.parentNode.scrollTop = 0;
 }
@@ -3657,6 +3685,7 @@ async function dashShowOpportunity(id, row){
     if(!row){ dashShowOpportunities(); return; }
   }
   OPP_CURRENT = row;
+  setDashHash('opp/' + row.id);
   // A brief already written for this company and role is the thing to
   // offer, not another research run.
   OPP_BRIEF = null;
