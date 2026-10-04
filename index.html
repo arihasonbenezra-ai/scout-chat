@@ -419,6 +419,16 @@ button,input,textarea{font-family:inherit}
 .dash-select:focus{border-color:#F26B5E}
 .opp-fit{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:14px;background:#F3F1EC}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.opp-log{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dash-input.sm{width:auto;min-width:190px;flex:0 0 auto;height:40px;border-radius:999px}
+.dash-input.grow{flex:1 1 260px;width:auto;height:40px;border-radius:999px}
+.opp-log .dash-btn{padding:9px 18px;font-size:14.5px}
+.opp-history{display:flex;flex-direction:column;border:1px solid #ECEAE5;border-radius:12px;overflow:hidden}
+.opp-event{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid #F1EFEA}
+.opp-event:first-child{border-top:none}
+.opp-event-k{font-size:15.5px;font-weight:600}
+.opp-event-d{font-size:14px;color:#6B6B6B;margin-left:10px}
+.opp-event-n{font-size:14px;color:#555;margin-top:3px;line-height:1.45}
 .dash-gaps{display:flex;flex-direction:column}
 .gap-box.sess-gap{margin:16px 0 0;max-width:none}
 .dash-gaps .gap-row{padding:12px 0;border-top:1px solid #EEECE7}
@@ -1583,6 +1593,15 @@ async function archiveCompletedPrepSession(){
   inputEl.disabled = true;
   inputEl.placeholder = 'Set complete. Use the restart icon for a new one.';
   addMsgWithoutSave('bot', '_Set complete and saved to Past sessions. Use the \u21bb icon next to your role to start a new set._');
+  // This set was prep for a real role: point back at its record.
+  if(typeof OPP_RETURN !== 'undefined' && OPP_RETURN){
+    var ob = document.createElement('button');
+    ob.className = 'new-review-btn';
+    ob.textContent = 'Log where the ' + OPP_RETURN.label + ' stands';
+    ob.onclick = backToOpportunity;
+    msgEl.appendChild(ob);
+    scrollMain();
+  }
 }
 
 // One restart per set. After a restart, the candidate has to answer the
@@ -3089,7 +3108,7 @@ async function loadDashboard(){
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
     sb.from('conversations').select('id,mode,role,archived_at,created_at,updated_at,answer_count,readiness_score,research_company,resume_stage,research_stage').eq('user_id', uid).order('updated_at',{ascending:false}).limit(12),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
-    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
+    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(25),
     sb.from('resume_scores').select('id,conversation_id,overall,dimensions,scored_dims,total_dims,created_at,has_posting').eq('user_id', uid).order('created_at',{ascending:false}).limit(1)
   ].map(function(pr){ return pr.then(function(r){ return r; }, function(e){ return {error:e}; }); }));
   var profile = (q[0] && q[0].data) || {};
@@ -3228,6 +3247,8 @@ function renderDashboard(body, d){
   var next = [];
   // No target yet: that comes first, since prep and matching point at it.
   if(!p.target_role_title) next.push({hot:true, t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
+  var staleOpp = (d.opps || []).filter(oppStale).sort(function(a,b){ return new Date(a.updated_at) - new Date(b.updated_at); })[0];
+  if(staleOpp && !locked) next.push({hot:!next.length, t:'Any news from ' + (staleOpp.company || staleOpp.role_title) + '?', s:(OPP_STAGE_LABEL[staleOpp.stage] || staleOpp.stage) + ' since ' + dashDate(staleOpp.updated_at) + ', nothing logged after. Record what happened, even if it is nothing yet.', fn:'dashShowOpportunity(\'' + staleOpp.id + '\')'});
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
   if(rsLow && d.resumeScore.overall != null && d.resumeScore.overall < 8) next.push({t:'Resume: ' + rsLow.dimension.toLowerCase() + ' scored ' + rsLow.score + '/5', s:(rsLow.improvement || 'Fix it, then run the review again to see the score move.').slice(0,120), fn:'dashResume()'});
@@ -3261,7 +3282,7 @@ function renderDashboard(body, d){
   // Opportunities
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div>' + (d.opps.length ? '<button class="dash-link" onclick="dashShowOpportunities()">All</button>' : '') + '</div>';
   if(d.opps.length){
-    html += d.opps.map(dashOppRow).join('');
+    html += d.opps.slice(0,3).map(dashOppRow).join('');
     if(!locked) html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
   } else {
     html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashAddOpportunity()') + '">' + (locked ? 'Career plan' : 'Paste a posting') + '</button></div>';
@@ -3458,10 +3479,14 @@ function oppFitLabel(o){
   var cls = o.fit_score >= 70 ? 'dash-score' : o.fit_score >= 40 ? 'dash-score mid' : 'dash-score low';
   return '<span class="' + cls + '">' + o.fit_score + '% fit</span>';
 }
+// An opportunity in motion that has had no update for a week: time to ask.
+var OPP_ACTIVE = { applied:1, screening:1, interviewing:1, offer:1 };
+function oppDaysQuiet(o){ return Math.floor((Date.now() - new Date(o.updated_at).getTime()) / 86400000); }
+function oppStale(o){ return !!(o && OPP_ACTIVE[o.stage] && oppDaysQuiet(o) >= 7); }
 function dashOppRow(o){
   var bits = [OPP_STAGE_LABEL[o.stage] || o.stage].concat(oppFacts(o).slice(0,2));
   bits.push(dashDate(o.updated_at));
-  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' · ' + escapeHtml(o.company) : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div></div>' + oppFitLabel(o) + '</button>';
+  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + (oppStale(o) ? ' <span class="dash-tag coral">Any news?</span>' : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div></div>' + oppFitLabel(o) + '</button>';
 }
 
 function dashAddOpportunity(){
@@ -3522,7 +3547,10 @@ async function dashShowOpportunities(){
   var rows = r.data || [];
   var inner = rows.length ? rows.map(dashOppRow).join('') : '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason.</div></div>';
   if(isCareerPlan()) inner += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
-  body.innerHTML = dashView('Opportunities', rows.length + (rows.length === 1 ? ' role' : ' roles') + ' you’re tracking. Open one to log where it stands or prep for it.', 'My Career', 'loadDashboard()', inner);
+  // The funnel, counted from the rows. Nothing estimated.
+  var cnt = function(list){ return rows.filter(function(o){ return list.indexOf(o.stage) !== -1; }).length; };
+  var funnel = rows.length ? rows.length + ' tracked \u00b7 ' + cnt(['applied','screening','interviewing','offer','accepted','hired','rejected','withdrawn']) + ' applied \u00b7 ' + cnt(['interviewing','offer','accepted','hired']) + ' reached interviews \u00b7 ' + cnt(['offer','accepted','hired']) + ' offers.' : 'Nothing tracked yet.';
+  body.innerHTML = dashView('Opportunities', funnel + ' Open one to log where it stands or prep for it.', 'My Career', 'loadDashboard()', inner);
   body.parentNode.scrollTop = 0;
 }
 
@@ -3547,6 +3575,11 @@ async function dashShowOpportunity(id, row){
       OPP_BRIEF = (br.data && br.data[0]) || null;
     }catch(e){ console.error('brief lookup', e); }
   }
+  var outcomes = [];
+  try{
+    var oc = await window.supabaseClient.from('career_outcomes').select('id,kind,detail,occurred_at,created_at').eq('opportunity_id', row.id).order('created_at',{ascending:false});
+    outcomes = oc.data || [];
+  }catch(e){ console.error('outcomes', e); }
   var canEdit = isCareerPlan();
   var m = row.posting || {};
   var reqs = Array.isArray(m.requirements) ? m.requirements : [];
@@ -3580,10 +3613,31 @@ async function dashShowOpportunity(id, row){
   }
 
   // Stage
-  html += '<div class="dash-label">Where it stands</div><div class="opp-stage">' + (canEdit
-      ? selectHtml('oppStage', OPP_STAGES, row.stage).replace('<select ', '<select class="dash-select" onchange="dashSetStage(\'' + row.id + '\', this.value)" ')
-      : '<span class="dash-chip">' + escapeHtml(OPP_STAGE_LABEL[row.stage] || row.stage) + '</span>')
-    + '<span class="dash-muted" id="oppStageNote">' + (canEdit ? 'Change it as things move. Each change is logged with the date.' : '') + '</span></div>';
+  html += '<div class="dash-label">Where it stands</div>';
+  if(canEdit){
+    var today = new Date().toISOString().slice(0,10);
+    var offerish = row.stage === 'offer' || row.stage === 'accepted' || row.stage === 'hired';
+    html += '<div class="opp-log">'
+      + selectHtml('oppStage', OPP_STAGES, row.stage).replace('<select ', '<select class="dash-select" onchange="dashStageChanged()" ')
+      + '<input type="date" id="oppDate" class="dash-input sm" value="' + today + '" max="' + today + '"/>'
+      + '<input type="text" id="oppComp" class="dash-input sm" inputmode="numeric" placeholder="Base salary offered, e.g. 185000" style="' + (offerish ? '' : 'display:none') + '"/>'
+      + '<input type="text" id="oppNote" class="dash-input grow" maxlength="200" placeholder="Note (optional): who you spoke to, what happens next"/>'
+      + '<button class="dash-btn" id="oppLogBtn" onclick="dashLogOutcome(\'' + row.id + '\')">Log update</button></div>'
+      + '<div class="dash-muted" id="oppStageNote">' + (oppStale(row)
+          ? (OPP_STAGE_LABEL[row.stage] || row.stage) + ' since ' + dashDate(row.updated_at) + ', ' + oppDaysQuiet(row) + ' days with nothing logged. Any news? <button class="dash-link" onclick="dashStillWaiting(\'' + row.id + '\')">Still waiting, ask me again in a week</button>'
+          : 'Log each step as it happens: applied, heard back, interviewed, offer. Each entry keeps its date.') + '</div>';
+  } else {
+    html += '<div class="opp-stage"><span class="dash-chip">' + escapeHtml(OPP_STAGE_LABEL[row.stage] || row.stage) + '</span></div>';
+  }
+  if(outcomes.length){
+    html += '<div class="opp-history">' + outcomes.map(function(o){
+      var d = o.detail || {};
+      var comp = d.comp ? dashComp({ target_comp_min: d.comp }) + ' base' : '';
+      return '<div class="opp-event"><div><span class="opp-event-k">' + escapeHtml(OUTCOME_KIND_LABEL[o.kind] || o.kind) + '</span><span class="opp-event-d">' + dashDate(o.occurred_at || o.created_at) + (comp ? ' \u00b7 ' + escapeHtml(comp) : '') + '</span>'
+        + (d.note ? '<div class="opp-event-n">' + escapeHtml(d.note) + '</div>' : '') + '</div>'
+        + (canEdit ? '<button class="dash-chip-x" onclick="dashRemoveOutcome(\'' + o.id + '\',\'' + row.id + '\')" aria-label="Remove this entry">&times;</button>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
 
   // Prep for this one
   html += '<div class="dash-label">Prep for this one</div><div class="dash-actions">'
@@ -3596,24 +3650,73 @@ async function dashShowOpportunity(id, row){
   body.parentNode.scrollTop = 0;
 }
 
-async function dashSetStage(id, stage){
-  if(!window.supabaseClient || !OPP_STAGE_LABEL[stage]) return;
-  var note = document.getElementById('oppStageNote');
+var OUTCOME_KIND_LABEL = { applied:'Applied', recruiter_screen:'Recruiter screen', interview:'Interview', final_round:'Final round', offer:'Offer', accepted:'Accepted the offer', rejected:'Rejected', withdrew:'Withdrew', hired:'Hired', started_role:'Started the role' };
+var OUTCOME_KIND_STAGE = { applied:'applied', recruiter_screen:'screening', interview:'interviewing', final_round:'interviewing', offer:'offer', accepted:'accepted', rejected:'rejected', withdrew:'withdrawn', hired:'hired', started_role:'hired' };
+
+// Comp is only asked for where a number exists: an offer, or after it.
+function dashStageChanged(){
+  var sel = document.getElementById('oppStage'), comp = document.getElementById('oppComp');
+  if(!sel || !comp) return;
+  var v = sel.value;
+  comp.style.display = (v === 'offer' || v === 'accepted' || v === 'hired') ? '' : 'none';
+}
+
+// One entry in the outcome log: what happened, when, and for an offer the
+// number. The log is the record; the trigger from 0020 moves the stage.
+async function dashLogOutcome(id){
+  if(!window.supabaseClient) return;
+  var sel = document.getElementById('oppStage'), note = document.getElementById('oppStageNote'), btn = document.getElementById('oppLogBtn');
+  if(!sel || !OPP_STAGE_LABEL[sel.value]) return;
+  var stage = sel.value;
   var sessionRes = await window.supabaseClient.auth.getSession();
   var session = sessionRes.data && sessionRes.data.session;
   if(!session) return;
+  var dateEl = document.getElementById('oppDate'), compEl = document.getElementById('oppComp'), noteEl = document.getElementById('oppNote');
+  var today = new Date().toISOString().slice(0,10);
+  var when = dateEl && /^\d{4}-\d{2}-\d{2}$/.test(dateEl.value) && dateEl.value <= today ? dateEl.value : today;
+  var detail = outcomeDetail(compEl && compEl.style.display !== 'none' ? compEl.value : '', noteEl ? noteEl.value : '');
+  if(btn) btn.disabled = true;
   if(note) note.textContent = 'Saving...';
   var r;
   var kind = OPP_OUTCOME_KIND[stage];
   if(kind){
-    // The outcome log is the record; the trigger moves the stage.
-    r = await window.supabaseClient.from('career_outcomes').insert({ user_id: session.user.id, opportunity_id: id, kind: kind, source: 'ezzy_flow' });
+    r = await window.supabaseClient.from('career_outcomes').insert({ user_id: session.user.id, opportunity_id: id, kind: kind, source: 'ezzy_flow', occurred_at: when, detail: detail });
   } else {
     r = await window.supabaseClient.from('career_opportunities').update({ stage: stage, updated_at: new Date().toISOString() }).eq('id', id);
   }
-  if(r.error){ console.error('stage', r.error); if(note) note.textContent = 'Could not save. Try again.'; return; }
-  if(OPP_CURRENT && OPP_CURRENT.id === id) OPP_CURRENT.stage = stage;
-  if(note) note.textContent = 'Logged: ' + OPP_STAGE_LABEL[stage] + ', ' + dashDate(new Date().toISOString()) + '.';
+  if(r.error){ console.error('log outcome', r.error); if(btn) btn.disabled = false; if(note) note.textContent = 'Could not save. Try again.'; return; }
+  dashShowOpportunity(id);
+}
+// People type 185, 185k, $185,000. Anything under 10,000 is read as thousands.
+function outcomeDetail(compText, noteText){
+  var detail = {};
+  var raw = parseFloat(String(compText || '').replace(/[$,\s]/g,'').replace(/k$/i,''));
+  if(!isNaN(raw) && raw > 0){ detail.comp = raw >= 10000 ? Math.round(raw) : Math.round(raw * 1000); detail.currency = 'USD'; }
+  var n = String(noteText || '').trim().slice(0,200);
+  if(n) detail.note = n;
+  return detail;
+}
+
+// "Nothing yet" is an answer too: it resets the week without inventing an event.
+async function dashStillWaiting(id){
+  if(!window.supabaseClient) return;
+  var r = await window.supabaseClient.from('career_opportunities').update({ updated_at: new Date().toISOString() }).eq('id', id);
+  if(r.error){ console.error('still waiting', r.error); return; }
+  dashShowOpportunity(id);
+}
+
+// Removing an entry puts the stage back to whatever the latest remaining
+// entry says (or Considering when none are left).
+async function dashRemoveOutcome(outcomeId, oppId){
+  if(!window.supabaseClient) return;
+  if(!confirm('Remove this entry from the history?')) return;
+  var r = await window.supabaseClient.from('career_outcomes').delete().eq('id', outcomeId);
+  if(r.error){ console.error('remove outcome', r.error); return; }
+  var left = await window.supabaseClient.from('career_outcomes').select('kind,created_at').eq('opportunity_id', oppId).order('created_at',{ascending:false});
+  var latest = left.data && left.data[0];
+  var stage = (latest && OUTCOME_KIND_STAGE[latest.kind]) || 'considering';
+  await window.supabaseClient.from('career_opportunities').update({ stage: stage, updated_at: new Date().toISOString() }).eq('id', oppId);
+  dashShowOpportunity(oppId);
 }
 
 async function dashRemoveOpportunity(id){
