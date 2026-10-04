@@ -3889,7 +3889,29 @@ async function dashOppResume(){
   // An old review on file would swallow the posting; start clean instead.
   if(RESUME_STAGE !== 'awaiting_resume') await startNewResumeReview();
   PENDING_JD = o.jd_text || null;
-  if(PENDING_JD) addMsg('bot', 'I have the ' + o.role_title + (o.company ? ' posting from ' + o.company : ' posting') + '. Drop or paste your resume and I’ll review it against that.');
+  if(!PENDING_JD) return;
+  var posting = 'the ' + o.role_title + (o.company ? ' posting from ' + o.company : ' posting');
+  // The resume from the last review is on file; asking for it again is busywork.
+  var last = await latestResumeOnFile();
+  if(last){
+    resumeDropDismissed = true;
+    var dz = document.getElementById('dropZone'); if(dz) dz.classList.remove('active');
+    addMsg('bot', 'Reviewing the resume from your last review (' + dashDate(last.when) + ') against ' + posting + '. To use a different resume, click Start a new review when this one finishes.');
+    handleSendText(last.text);
+  } else {
+    addMsg('bot', 'I have ' + posting + '. Drop or paste your resume and I\u2019ll review it against that.');
+  }
+}
+// The most recent resume the person gave a review, if any.
+async function latestResumeOnFile(){
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+    if(!uid) return null;
+    var r = await window.supabaseClient.from('conversations').select('resume_text,updated_at').eq('user_id', uid).eq('mode', 'resume').not('resume_text', 'is', null).order('updated_at', {ascending:false}).limit(1);
+    var row = r.data && r.data[0];
+    return row && row.resume_text && row.resume_text.trim().length >= 200 ? { text: row.resume_text, when: row.updated_at } : null;
+  }catch(e){ console.error('latest resume', e); return null; }
 }
 
 // --- First visit on the Career plan ----------------------------------------
