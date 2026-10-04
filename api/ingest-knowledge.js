@@ -6,7 +6,7 @@ export const runtime = 'edge';
 // links, or run on a schedule; one call = one page.
 
 const SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
-const USER_AGENT = 'EzzyKnowledgeBot/0.1 (+https://meetezzy.com; contact: arib@senylabs.io)';
+const USER_AGENT = 'EzzyKnowledgeBot/0.1 (+https://meetezzy.com; contact: hello@meetezzy.com)';
 const MAX_CONTENT_CHARS = 15000;
 
 const EXTRACT_KNOWLEDGE_SYSTEM = [
