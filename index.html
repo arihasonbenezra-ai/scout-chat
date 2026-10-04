@@ -417,7 +417,18 @@ button,input,textarea{font-family:inherit}
 .dash-input:focus{border-color:#F26B5E}
 .dash-select{height:40px;border:1px solid #D5D2CB;border-radius:999px;padding:0 14px;font-size:14.5px;font-family:inherit;background:#fff;color:#111;outline:none}
 .dash-select:focus{border-color:#F26B5E}
-.opp-fit{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:14px;background:#F3F1EC}
+.opp-fit{display:flex;flex-direction:column;gap:12px;padding:20px 22px;border-radius:14px;background:#F3F1EC;border-left:6px solid #C9C6C0}
+.opp-fit.v-apply{background:#E6F4EA;border-left-color:#1E7A3D}
+.opp-fit.v-fix{background:#FFF7E3;border-left-color:#C28A0E}
+.opp-fit.v-skip{background:#FCEAE6;border-left-color:#C2493C}
+.opp-verdict{font-size:30px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.opp-fit.v-apply .opp-verdict{color:#17602F}.opp-fit.v-fix .opp-verdict{color:#7A560A}.opp-fit.v-skip .opp-verdict{color:#8F3229}
+.opp-fixes{display:flex;flex-direction:column;gap:8px}
+.opp-fix{background:#fff;border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:2px}
+.opp-fix-t{font-size:15.5px;font-weight:600}
+.opp-fix-n{font-size:14px;color:#6B6B6B;line-height:1.45}
+.opp-vs{display:flex;flex-direction:column;gap:3px;font-size:15px;color:#333;line-height:1.5}
+.opp-fit .dash-btn{align-self:flex-start;padding:10px 20px;font-size:15px}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .opp-now{font-size:16.5px;color:#333}
 .opp-log{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 14px;padding:18px 20px;border:1px solid #ECEAE5;border-radius:14px;background:#FAFAF8}
@@ -3495,10 +3506,69 @@ function oppFacts(o){
   if(comp) chips.push(comp);
   return chips;
 }
+// The verdict rule. Three numbers a recruiter can argue with, kept in one
+// place: a clean apply needs this fit with nothing required missing; below
+// the floor, or with this many required items missing, it is a skip;
+// everything between is "apply with these fixes".
+var VERDICT = { applyFit: 75, skipFit: 40, skipRequiredMissing: 2, maxFixes: 3 };
+function oppVerdict(o){
+  var out = { key: null, label: '', why: '', fixes: [], caveat: '' };
+  if(!o || o.fit_score == null) return out;
+  var reqs = (o.posting && Array.isArray(o.posting.requirements)) ? o.posting.requirements : [];
+  var gaps = Array.isArray(o.fit_reasons) ? o.fit_reasons : [];
+  var imp = {}; reqs.forEach(function(r){ imp[r.requirement] = r.importance; });
+  var isReq = function(g){ return imp[g.requirement] === 'required'; };
+  var missingReq = gaps.filter(function(g){ return g.status === 'missing' && isReq(g); });
+  var partials = gaps.filter(function(g){ return g.status === 'partial'; }).sort(function(a,b){ return (isReq(b)?1:0) - (isReq(a)?1:0); });
+  var names = function(list){ return list.map(function(g){ return g.requirement; }).join('; '); };
+  if(o.fit_score < VERDICT.skipFit || missingReq.length >= VERDICT.skipRequiredMissing){
+    out.key = 'skip'; out.label = 'Skip';
+    out.why = missingReq.length >= VERDICT.skipRequiredMissing
+      ? missingReq.length + ' required items have no evidence anywhere in your resume or profile: ' + names(missingReq) + '. A better-written resume does not close that.'
+      : 'Too little of what this posting asks for shows up in your resume or profile.';
+    out.caveat = 'If you do have that experience and Ezzy has not seen it, add it to your resume and score the posting again.';
+    return out;
+  }
+  if(o.fit_score >= VERDICT.applyFit && !missingReq.length && partials.filter(isReq).length <= 1){
+    out.key = 'apply'; out.label = 'Apply';
+    out.why = 'Nothing required is missing, and most of what they ask for is on your resume as written.';
+    return out;
+  }
+  out.key = 'fix'; out.label = 'Apply with these fixes';
+  out.fixes = partials.slice(0, VERDICT.maxFixes).map(function(g){ return { requirement: g.requirement, note: g.note || '' }; });
+  out.why = out.fixes.length
+    ? 'You have related experience for ' + (out.fixes.length === 1 ? 'this item' : 'these items') + ', but the resume does not show it at the level the posting asks for.'
+    : 'Close, but not a clean match.';
+  if(missingReq.length) out.caveat = 'One required item has no evidence at all: ' + names(missingReq) + '. A resume fix will not cover it, so be ready to speak to it.';
+  return out;
+}
+// The posting's stated facts next to the saved target. Only lines where
+// both sides exist; nothing inferred.
+function oppVsTarget(o, p){
+  var m = (o && o.posting) || {}, out = [];
+  p = p || {};
+  var cap = function(t){ return t ? t.charAt(0).toUpperCase() + t.slice(1) : ''; };
+  if(m.level && p.target_level) out.push(m.level === p.target_level ? 'Level: ' + cap(m.level) + ', same as your target.' : 'Level: ' + cap(m.level) + '. Your target is ' + cap(p.target_level) + '.');
+  var k = function(v){ return '$' + Math.round(v/1000) + 'k'; };
+  var pmin = m.comp_min || m.comp_max, pmax = m.comp_max || m.comp_min;
+  if(pmin && (p.target_comp_min || p.target_comp_max)){
+    var range = pmin === pmax ? k(pmin) : k(pmin) + '–' + k(pmax);
+    if(p.target_comp_min && pmax < p.target_comp_min) out.push('Pay: ' + range + '. Your range starts at ' + k(p.target_comp_min) + '.');
+    else if(p.target_comp_max && pmin > p.target_comp_max) out.push('Pay: ' + range + ', above the top of your range (' + k(p.target_comp_max) + ').');
+    else out.push('Pay: ' + range + ', inside the range you set.');
+  }
+  if(m.work_type && p.target_work_type && p.target_work_type !== 'any'){
+    var w = function(t){ return t === 'onsite' ? 'on-site' : t; };
+    out.push(m.work_type === p.target_work_type ? 'Work type: ' + w(m.work_type) + ', what you asked for.' : 'Work type: ' + w(m.work_type) + '. You asked for ' + w(p.target_work_type) + '.');
+  }
+  return out;
+}
 function oppFitLabel(o){
   if(o.fit_score == null) return '<span class="dash-nr">not scored</span>';
-  var cls = o.fit_score >= 70 ? 'dash-score' : o.fit_score >= 40 ? 'dash-score mid' : 'dash-score low';
-  return '<span class="' + cls + '">' + o.fit_score + '% fit</span>';
+  var v = oppVerdict(o);
+  var cls = v.key === 'apply' ? 'dash-score' : v.key === 'fix' ? 'dash-score mid' : 'dash-score low';
+  var short = v.key === 'apply' ? 'Apply' : v.key === 'fix' ? 'Apply with fixes' : 'Skip';
+  return '<span class="' + cls + '">' + short + ' · ' + o.fit_score + '%</span>';
 }
 // An opportunity in motion that has had no update for a week: time to ask.
 var OPP_ACTIVE = { applied:1, screening:1, interviewing:1, offer:1 };
@@ -3612,13 +3682,24 @@ async function dashShowOpportunity(id, row){
   var html = '<div class="dash-chips">' + oppFacts(row).map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
     + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>';
 
-  // Fit
-  html += '<div class="opp-fit">';
-  if(row.fit_score != null){
-    html += '<div class="dash-big"><div class="dash-big-n">' + row.fit_score + '</div><div class="dash-big-d">% fit</div></div>'
-      + '<div class="dash-text">' + matched + ' of ' + reqs.length + ' requirements matched outright' + (partial ? ', ' + partial + ' partial' : '') + '. Required items count double. Every judgment below points at your resume or profile; a note with a number Ezzy couldn’t find there is marked and treated as partial.</div>';
+  // Verdict: apply, apply with these fixes, or skip. Computed from the
+  // match above; the fit number stays as the working underneath it.
+  var V = oppVerdict(row);
+  html += '<div class="opp-fit' + (V.key ? ' v-' + V.key : '') + '">';
+  if(V.key){
+    html += '<div class="opp-verdict">' + V.label + '</div><div class="dash-text">' + escapeHtml(V.why) + '</div>';
+    if(V.fixes.length){
+      html += '<div class="opp-fixes">' + V.fixes.map(function(f){
+        return '<div class="opp-fix"><span class="opp-fix-t">' + escapeHtml(f.requirement) + '</span>' + (f.note ? '<span class="opp-fix-n">' + escapeHtml(f.note) + '</span>' : '') + '</div>';
+      }).join('') + '</div>';
+      html += '<div class="dash-actions"><button class="dash-btn" onclick="dashOppResume()">Fix these in a resume review</button></div>';
+    }
+    if(V.caveat) html += '<div class="dash-text">' + escapeHtml(V.caveat) + '</div>';
+    var vs = oppVsTarget(row, DASH_PROFILE);
+    if(vs.length) html += '<div class="opp-vs"><span class="opp-sub">Against your target</span>' + vs.map(function(t){ return '<div>' + escapeHtml(t) + '</div>'; }).join('') + '</div>';
+    html += '<div class="dash-muted">' + row.fit_score + '% fit: ' + matched + ' of ' + reqs.length + ' requirements matched outright' + (partial ? ', ' + partial + ' partial' : '') + '. Required items count double. The verdict is a rule applied to that match, not an opinion; every row below points at your resume or profile.</div>';
   } else {
-    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">Not scored</div></div><div class="dash-text">Ezzy has nothing on file to check this posting against yet. Do a Resume Review and it learns your skills and experience; then add the posting again.</div>';
+    html += '<div class="opp-verdict">No verdict yet</div><div class="dash-text">Ezzy has nothing on file to check this posting against. Do a Resume Review and it learns your skills and experience; then add the posting again.</div>';
   }
   html += '</div>';
 
