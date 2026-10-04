@@ -1,0 +1,20 @@
+151–175: Healthcare / HealthTech
+Zocdoc, Oscar Health, Hims & Hers, Ro, Maven Clinic, Headspace, Spring Health, Included Health, Cedar, Komodo Health, Flatiron Health, Aledade, Color Health, Tempus, PathAI, Veeva Systems, Medallia, Modernizing Medicine, Teladoc Health, Amwell, One Medical, Carbon Health, Cityblock Health, Tia, Alma
+176–200: Media / Entertainment / Music
+Warner Music Group, Universal Music Group, Sony Music Entertainment, Spotify, YouTube, Twitch, Roku, Paramount Global, NBCUniversal, Warner Bros. Discovery, The New York Times, Condé Nast, Vox Media, BuzzFeed, The Athletic, Bloomberg, Dow Jones, Hearst, IAC, Match Group, Electronic Arts, Activision Blizzard, Take-Two Interactive, Riot Games, Epic Games
+201–225: Consulting / Professional Services
+Accenture, Deloitte, PwC, EY, KPMG, McKinsey & Company, Boston Consulting Group, Bain & Company, Oliver Wyman, Booz Allen Hamilton, Slalom, Publicis Groupe, WPP, Omnicom Group, Havas, R/GA, VML, Cognizant, Infosys, Tata Consultancy Services, Capgemini, EPAM Systems, Thoughtworks, Globant, Guidehouse
+226–250: Consumer / Retail / E-commerce
+Walmart, Target, Costco, Home Depot, Lowe's, Best Buy, Wayfair, Chewy, eBay, Etsy, Nike, Adidas, Lululemon, Peloton, Allbirds, Warby Parker, Glossier, Sephora, Ulta Beauty, Gap, Levi Strauss & Co., Ralph Lauren, Victoria's Secret, REI, Patagonia
+251–275: Travel / Transportation / Hospitality
+Delta Air Lines, United Airlines, American Airlines, JetBlue, Southwest Airlines, Alaska Airlines, Boeing, United Airlines, FedEx, UPS, Flexport, Convoy, Flexe, Uber Freight, DoorDash, Instacart, Gopuff, TravelPerk, Hopper, Expedia Group, Booking.com, TripAdvisor, Marriott International, Hilton, Hyatt
+276–300: Real Estate / PropTech / Marketplace
+Zillow, Redfin, Compass, Opendoor, Offerpad, WeWork, CBRE, JLL, Cushman & Wakefield, Procore, Buildium, AppFolio, Toast, Mindbody, Thumbtack, Angi, Houzz, Rover, Vinted, Poshmark, StockX, GOAT, Faire, Whatnot, OfferUp
+301–325: Security / Infrastructure / Enterprise
+Palo Alto Networks, Zscaler, Wiz, SentinelOne, Rubrik, Vanta, Drata, Abnormal Security, Arctic Wolf, Lacework, OneTrust, Darktrace, Rapid7, Tenable, Mandiant, Illumio, Netskope, Axonius, BigID, Snyk, LaunchDarkly, Harness, CircleCI, New Relic, Dynatrace
+326–350: Marketing / Sales / Customer Experience
+Braze, Iterable, Attentive, Klaviyo, Sprinklr, Sprout Social, Hootsuite, Later, Lattice, Culture Amp, 15Five, BetterUp, Eightfold AI, Gem, Ashby, Greenhouse, Lever, Workable, Rippling, HiBob, Deel, Remote, Oyster, Personio, Gusto
+351–375: Biotech / Pharma / Science
+Pfizer, Johnson & Johnson, Merck, Eli Lilly, AbbVie, Bristol Myers Squibb, Gilead Sciences, Moderna, BioNTech, Regeneron, Vertex Pharmaceuticals, Amgen, Genentech, Roche, Novartis, AstraZeneca, Sanofi, Takeda, Biogen, Illumina, 10x Genomics, Recursion, Insitro, Benchling, Schrödinger
+376–400: Other High-Value Employers
+Goldman Sachs, Morgan Stanley, BlackRock, Fidelity Investments, Vanguard, Charles Schwab, Bank of America, Wells Fargo, Citi, UBS, Barclays, Deutsche Bank, HSBC, American Express, Visa, Mastercard, T-Mobile, Verizon, AT&T, Comcast, Disney, Johnson Controls, General Electric, Siemens, Honeywell
