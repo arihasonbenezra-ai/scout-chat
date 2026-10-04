@@ -419,10 +419,16 @@ button,input,textarea{font-family:inherit}
 .dash-select:focus{border-color:#F26B5E}
 .opp-fit{display:flex;flex-direction:column;gap:10px;padding:18px 20px;border-radius:14px;background:#F3F1EC}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.opp-log{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.dash-input.sm{width:auto;min-width:190px;flex:0 0 auto;height:40px;border-radius:999px}
-.dash-input.grow{flex:1 1 260px;width:auto;height:40px;border-radius:999px}
-.opp-log .dash-btn{padding:9px 18px;font-size:14.5px}
+.opp-now{font-size:16.5px;color:#333}
+.opp-log{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 14px;padding:18px 20px;border:1px solid #ECEAE5;border-radius:14px;background:#FAFAF8}
+.opp-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.opp-f.wide{grid-column:1 / -1}
+.opp-f label{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8A8A8A}
+.dash-field{height:42px;border:1px solid #D5D2CB;border-radius:10px;padding:0 12px;font-size:15px;font-family:inherit;background:#fff;color:#111;outline:none;width:100%;box-sizing:border-box}
+.dash-field:focus{border-color:#F26B5E}
+.opp-log .dash-btn{align-self:flex-start;padding:10px 22px;font-size:15px}
+.opp-sub{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A}
+@media (max-width:640px){.opp-log{grid-template-columns:1fr;padding:14px}}
 .opp-history{display:flex;flex-direction:column;border:1px solid #ECEAE5;border-radius:12px;overflow:hidden}
 .opp-event{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid #F1EFEA}
 .opp-event:first-child{border-top:none}
@@ -3076,7 +3082,20 @@ function dashGreeting(name){
   var part = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
   return part + (name ? ', ' + escapeHtml(name.split(' ')[0]) : '') + '.';
 }
-function dashDate(iso){ try{ return new Date(iso).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }catch(e){ return ''; } }
+// A date-only value ("2026-10-04") is a calendar day. Parsed bare it is
+// midnight UTC, which is the evening before in the Americas; pin it to
+// local noon so the day shown is the day that was picked.
+function dashDate(iso){
+  try{
+    var d = /^\d{4}-\d{2}-\d{2}$/.test(String(iso)) ? new Date(iso + 'T12:00:00') : new Date(iso);
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+  }catch(e){ return ''; }
+}
+// Today as the person's own calendar day, not UTC's.
+function localDateStr(d){
+  d = d || new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
 function dashComp(p){
   if(!p.target_comp_min && !p.target_comp_max) return null;
   var k=function(v){ if(!v) return ''; if(v > 10000000) v = v/1000; return '$' + Math.round(v/1000) + 'k'; };
@@ -3615,22 +3634,24 @@ async function dashShowOpportunity(id, row){
   // Stage
   html += '<div class="dash-label">Where it stands</div>';
   if(canEdit){
-    var today = new Date().toISOString().slice(0,10);
+    var today = localDateStr();
     var offerish = row.stage === 'offer' || row.stage === 'accepted' || row.stage === 'hired';
-    html += '<div class="opp-log">'
-      + selectHtml('oppStage', OPP_STAGES, row.stage).replace('<select ', '<select class="dash-select" onchange="dashStageChanged()" ')
-      + '<input type="date" id="oppDate" class="dash-input sm" value="' + today + '" max="' + today + '"/>'
-      + '<input type="text" id="oppComp" class="dash-input sm" inputmode="numeric" placeholder="Base salary offered, e.g. 185000" style="' + (offerish ? '' : 'display:none') + '"/>'
-      + '<input type="text" id="oppNote" class="dash-input grow" maxlength="200" placeholder="Note (optional): who you spoke to, what happens next"/>'
-      + '<button class="dash-btn" id="oppLogBtn" onclick="dashLogOutcome(\'' + row.id + '\')">Log update</button></div>'
+    html += '<div class="opp-now">Currently: <strong>' + escapeHtml(OPP_STAGE_LABEL[row.stage] || row.stage) + '</strong></div>'
+      + '<div class="opp-log">'
+      + '<div class="opp-f"><label for="oppStage">What happened</label>' + selectHtml('oppStage', OPP_STAGES, row.stage).replace('<select ', '<select class="dash-field" onchange="dashStageChanged()" ') + '</div>'
+      + '<div class="opp-f"><label for="oppDate">When</label><input type="date" id="oppDate" class="dash-field" value="' + today + '" max="' + today + '"/></div>'
+      + '<div class="opp-f" id="oppCompWrap" style="' + (offerish ? '' : 'display:none') + '"><label for="oppComp">Base salary offered</label><input type="text" id="oppComp" class="dash-field" inputmode="numeric" placeholder="e.g. 185000"/></div>'
+      + '<div class="opp-f wide"><label for="oppNote">Note (optional)</label><input type="text" id="oppNote" class="dash-field" maxlength="200" placeholder="Who you spoke to, what happens next"/></div>'
+      + '<div class="opp-f wide"><button class="dash-btn primary" id="oppLogBtn" onclick="dashLogOutcome(\'' + row.id + '\')">Log update</button></div></div>'
       + '<div class="dash-muted" id="oppStageNote">' + (oppStale(row)
           ? (OPP_STAGE_LABEL[row.stage] || row.stage) + ' since ' + dashDate(row.updated_at) + ', ' + oppDaysQuiet(row) + ' days with nothing logged. Any news? <button class="dash-link" onclick="dashStillWaiting(\'' + row.id + '\')">Still waiting, ask me again in a week</button>'
-          : 'Log each step as it happens: applied, heard back, interviewed, offer. Each entry keeps its date.') + '</div>';
+          : '') + '</div>';
   } else {
     html += '<div class="opp-stage"><span class="dash-chip">' + escapeHtml(OPP_STAGE_LABEL[row.stage] || row.stage) + '</span></div>';
   }
+  OPP_OUTCOMES = outcomes;
   if(outcomes.length){
-    html += '<div class="opp-history">' + outcomes.map(function(o){
+    html += '<div class="opp-sub">History, newest first</div><div class="opp-history">' + outcomes.map(function(o){
       var d = o.detail || {};
       var comp = d.comp ? dashComp({ target_comp_min: d.comp }) + ' base' : '';
       return '<div class="opp-event"><div><span class="opp-event-k">' + escapeHtml(OUTCOME_KIND_LABEL[o.kind] || o.kind) + '</span><span class="opp-event-d">' + dashDate(o.occurred_at || o.created_at) + (comp ? ' \u00b7 ' + escapeHtml(comp) : '') + '</span>'
@@ -3651,14 +3672,17 @@ async function dashShowOpportunity(id, row){
 }
 
 var OUTCOME_KIND_LABEL = { applied:'Applied', recruiter_screen:'Recruiter screen', interview:'Interview', final_round:'Final round', offer:'Offer', accepted:'Accepted the offer', rejected:'Rejected', withdrew:'Withdrew', hired:'Hired', started_role:'Started the role' };
+// Steps that happen once for a given role. Screens, interviews, and offers can repeat.
+var OUTCOME_ONCE = { applied:1, accepted:1, hired:1, rejected:1, withdrew:1 };
+var OPP_OUTCOMES = [];
 var OUTCOME_KIND_STAGE = { applied:'applied', recruiter_screen:'screening', interview:'interviewing', final_round:'interviewing', offer:'offer', accepted:'accepted', rejected:'rejected', withdrew:'withdrawn', hired:'hired', started_role:'hired' };
 
 // Comp is only asked for where a number exists: an offer, or after it.
 function dashStageChanged(){
-  var sel = document.getElementById('oppStage'), comp = document.getElementById('oppComp');
-  if(!sel || !comp) return;
+  var sel = document.getElementById('oppStage'), wrap = document.getElementById('oppCompWrap');
+  if(!sel || !wrap) return;
   var v = sel.value;
-  comp.style.display = (v === 'offer' || v === 'accepted' || v === 'hired') ? '' : 'none';
+  wrap.style.display = (v === 'offer' || v === 'accepted' || v === 'hired') ? '' : 'none';
 }
 
 // One entry in the outcome log: what happened, when, and for an offer the
@@ -3672,9 +3696,17 @@ async function dashLogOutcome(id){
   var session = sessionRes.data && sessionRes.data.session;
   if(!session) return;
   var dateEl = document.getElementById('oppDate'), compEl = document.getElementById('oppComp'), noteEl = document.getElementById('oppNote');
-  var today = new Date().toISOString().slice(0,10);
+  var today = localDateStr();
   var when = dateEl && /^\d{4}-\d{2}-\d{2}$/.test(dateEl.value) && dateEl.value <= today ? dateEl.value : today;
-  var detail = outcomeDetail(compEl && compEl.style.display !== 'none' ? compEl.value : '', noteEl ? noteEl.value : '');
+  var compWrap = document.getElementById('oppCompWrap');
+  var detail = outcomeDetail(compEl && compWrap && compWrap.style.display !== 'none' ? compEl.value : '', noteEl ? noteEl.value : '');
+  // Some steps happen once per role. A second "Applied" is a mistake, not news.
+  var kindWanted = OPP_OUTCOME_KIND[stage];
+  var dup = OUTCOME_ONCE[kindWanted] && (OPP_OUTCOMES || []).filter(function(o){ return o.kind === kindWanted; })[0];
+  if(dup){
+    if(note) note.textContent = 'Already logged: ' + (OUTCOME_KIND_LABEL[kindWanted] || kindWanted) + ' on ' + dashDate(dup.occurred_at || dup.created_at) + '. Remove that entry below if the date is wrong.';
+    return;
+  }
   if(btn) btn.disabled = true;
   if(note) note.textContent = 'Saving...';
   var r;
