@@ -1,4 +1,5 @@
 export const runtime = 'edge';
+import { fetchDescription } from './_jobs.js';
 
 // Opportunities: a pasted posting -> a career_opportunities row with a fit
 // score computed here, not by the model. The model does two bounded jobs:
@@ -198,6 +199,24 @@ export default async function handler(req, res) {
     var jdText = typeof body.jdText === 'string' ? body.jdText.trim().slice(0, 20000) : '';
     var url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
     if (!/^https?:\/\//i.test(url)) url = '';
+
+    // A role picked from "Roles for you": the posting is read from the
+    // company's own job-board feed now, not from what the candidate pasted.
+    var listing = null, listingKey = null;
+    if (typeof body.listingId === 'string' && /^[0-9a-f-]{16,}$/i.test(body.listingId)) {
+      var ls = await restRows(token, 'job_listings?id=eq.' + body.listingId + '&select=id,company,title,location,url,ats,slug,external_id');
+      listing = ls[0];
+      if (!listing) return res.status(404).json({ error: 'listing_not_found' });
+      listingKey = listing.ats + ':' + listing.slug + ':' + listing.external_id;
+      // Checked before: hand back the same opportunity instead of scoring twice.
+      var prior = await restRows(token, 'career_opportunities?user_id=eq.' + user.id + '&source=eq.job_feed&external_id=eq.' + encodeURIComponent(listingKey) + '&select=*&limit=1');
+      if (prior[0]) return res.status(200).json({ opportunity: prior[0], existing: true });
+      var desc = '';
+      try { desc = await fetchDescription(listing.ats, listing.slug, listing.external_id); }
+      catch (e) { return res.status(502).json({ error: 'listing_unavailable', detail: String(e && e.message || e).slice(0, 160) }); }
+      jdText = [listing.title, listing.company, listing.location ? 'Location: ' + listing.location : '', '', desc].join('\n').trim().slice(0, 20000);
+      url = listing.url;
+    }
     // A requirement list can only come from a real posting; a one-liner
     // would make the model invent requirements and then grade against them.
     var jdLines = jdText.split(/\n/).filter(function (l) { return l.trim(); }).length;
@@ -275,9 +294,10 @@ export default async function handler(req, res) {
     // 4. Save.
     var row = {
       user_id: user.id,
-      company: posting.company ? String(posting.company).slice(0, 120) : null,
-      role_title: String(posting.role_title).slice(0, 160),
-      source: 'pasted_jd',
+      company: listing ? listing.company : (posting.company ? String(posting.company).slice(0, 120) : null),
+      role_title: listing ? String(listing.title).slice(0, 160) : String(posting.role_title).slice(0, 160),
+      source: listing ? 'job_feed' : 'pasted_jd',
+      external_id: listingKey,
       url: url || null,
       jd_text: jdText,
       fit_score: score,

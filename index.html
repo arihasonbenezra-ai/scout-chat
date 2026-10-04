@@ -322,6 +322,15 @@ button,input,textarea{font-family:inherit}
 .dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:26px 28px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .dash-card.dark{background:#111;color:#fff;border-color:#111}
 .dash-card.span2{grid-column:span 2}
+.dash-card.span3{grid-column:1 / -1}
+.role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
+.role-row:last-of-type{margin-bottom:0}
+.role-main{min-width:0;flex:1}
+.role-co{font-weight:500;color:#6B6B6B}
+.role-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
+.role-actions .dash-btn{padding:9px 18px;font-size:14.5px;white-space:nowrap}
+.role-actions .dash-link{font-size:14px}
+@media (max-width:640px){.role-row{flex-direction:column;align-items:stretch}.role-actions{flex-direction:row;align-items:center;justify-content:space-between}}
 .dash-label{font-size:13.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B6B6B}
 .dash-card.dark .dash-label{color:#BDBDBD}
 .dash-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
@@ -2953,7 +2962,7 @@ var DASH_ON = false;
 // Where on the dashboard the person is, kept in the address bar so a
 // refresh comes back to the same view. Only these shapes are ours; the
 // auth flow also uses the hash and must be left alone.
-var DASH_HASH_RE = /^(opp\/[0-9a-f-]{8,}|opps\/new|opps|sessions)$/i;
+var DASH_HASH_RE = /^(opp\/[0-9a-f-]{8,}|opps\/new|opps|sessions|roles)$/i;
 var DASH_BOOT_HASH = (function(){ var h = String(window.location.hash || '').replace(/^#/, ''); return DASH_HASH_RE.test(h) ? h : null; })();
 function setDashHash(h){
   try{
@@ -2970,6 +2979,7 @@ function routeDashHash(h){
   if(h === 'opps/new'){ dashAddOpportunity(); return true; }
   if(h === 'opps'){ dashShowOpportunities(); return true; }
   if(h === 'sessions'){ dashShowSessions(); return true; }
+  if(h === 'roles'){ dashShowRoles(); return true; }
   return false;
 }
 var DASH_ROLE = null;
@@ -3174,7 +3184,7 @@ async function loadDashboard(){
     sb.from('prep_scores').select('id,mode,role,family,dimensions,overall,scored_dims,total_dims,created_at,conversation_id').eq('user_id', uid).order('created_at',{ascending:false}).limit(8),
     sb.from('conversations').select('id,mode,role,archived_at,created_at,updated_at,answer_count,readiness_score,research_company,resume_stage,research_stage').eq('user_id', uid).order('updated_at',{ascending:false}).limit(12),
     sb.from('career_stories').select('id,title,competencies,status,result').eq('user_id', uid).order('updated_at',{ascending:false}).limit(3),
-    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting').eq('user_id', uid).order('updated_at',{ascending:false}).limit(25),
+    sb.from('career_opportunities').select('id,company,role_title,stage,fit_score,updated_at,posting,url').eq('user_id', uid).order('updated_at',{ascending:false}).limit(25),
     sb.from('resume_scores').select('id,conversation_id,overall,dimensions,scored_dims,total_dims,created_at,has_posting').eq('user_id', uid).order('created_at',{ascending:false}).limit(1)
   ].map(function(pr){ return pr.then(function(r){ return r; }, function(e){ return {error:e}; }); }));
   var profile = (q[0] && q[0].data) || {};
@@ -3328,6 +3338,16 @@ function renderDashboard(body, d){
   }).join('') + '<div class="dash-muted">Each of these comes from something on this page, not a generic checklist.</div></div>';
 
   // Past sessions
+  // Roles for you: open roles at companies Ezzy follows, matched on the
+  // target title. Filled in after the page renders (dashLoadRoles).
+  html += '<div class="dash-card span3"><div class="dash-card-head"><div class="dash-label">Roles for you</div><button class="dash-link" id="dashRolesAll" style="display:none" onclick="dashShowRoles()">See all</button></div>'
+    + '<div id="dashRoles">' + (locked
+        ? '<div class="dash-empty"><div class="dash-empty-t">Open roles that match your target</div><div class="dash-empty-s">Live roles from the companies Ezzy follows, matched to the role you\u2019re going for. One click checks your fit and gives a verdict.</div><button class="dash-btn" onclick="openPricingModal()">Career plan</button></div>'
+        : (p.target_role_title
+            ? '<div class="dash-muted">Looking for open ' + escapeHtml(p.target_role_title) + ' roles...</div>'
+            : '<div class="dash-empty"><div class="dash-empty-t">Set your target first</div><div class="dash-empty-s">Roles are matched on the title you\u2019re going for. Set it and open roles show up here.</div><button class="dash-btn" onclick="' + EDIT + '">Set your target</button></div>'))
+    + '</div></div>';
+
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
   if(d.past.length){
     html += d.past.map(dashSessionRow).join('');
@@ -3360,6 +3380,7 @@ function renderDashboard(body, d){
   html += '</div>'; // grid
   html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
+  if(!locked && p.target_role_title) dashLoadRoles(d);
 }
 
 // --- Past sessions (archived conversations, read-only) ------------------
@@ -3497,6 +3518,125 @@ function dashEditTarget(){
   var role = document.getElementById('tgtRole'); if(role) role.focus();
 }
 
+
+// --- Roles for you (Active search) ---------------------------------------
+// Open roles from job_listings (refreshed nightly from open job-board
+// feeds; see api/jobs-sync.js). Matching here is deliberately plain and
+// explainable: the target title's words against the role's title, then
+// level, work type, and location from the saved target. No fit number is
+// shown at this stage. "Check my fit" reads the full posting and runs the
+// real match, which lands as an Opportunity with a verdict.
+var ROLE_SKIP = /^(senior|sr|staff|principal|lead|junior|jr|associate|intern|head|director|vp|chief|manager of|ii|iii|iv|of|and|the|for|to|in|at|a|an)$/;
+var DASH_ROLES = null; // { key, ranked }
+function roleTokens(title){
+  return String(title || '').toLowerCase().replace(/[^a-z0-9+#\s]/g, ' ').split(/\s+/).filter(function(t){ return t.length >= 2 && !ROLE_SKIP.test(t); });
+}
+function roleStem(t){ return t.length > 4 ? t.replace(/(ing|ers|er|ors|or|s)$/, '') : t; }
+function roleHas(stems, tok){
+  var st = roleStem(tok);
+  return stems.some(function(x){ return x === st || (st.length >= 4 && x.length >= 4 && (x.indexOf(st) === 0 || st.indexOf(x) === 0)); });
+}
+// Score one listing against the target. Returns null when the core of the
+// title (its last word: recruiter, engineer, designer...) is not there.
+function rankRole(l, p, toks){
+  var stems = roleTokens(l.title).map(roleStem);
+  var head = toks[toks.length - 1];
+  if(!head || !roleHas(stems, head)) return null;
+  var hits = toks.filter(function(t){ return roleHas(stems, t); });
+  var score = 5 + 2 * hits.length + (hits.length === toks.length ? 3 : 0);
+  var why = [hits.length === toks.length ? 'Title matches your target' : 'Close to your target title'];
+  if(p.target_level && l.level){
+    if(l.level === p.target_level){ score += 2; why.push(p.target_level.charAt(0).toUpperCase() + p.target_level.slice(1) + ' level'); }
+    else score -= 1;
+  }
+  if(p.target_work_type === 'remote'){ if(l.remote){ score += 2; why.push('Remote'); } else score -= 1; }
+  else if(l.remote) why.push('Remote');
+  var locs = (p.target_locations || []).map(function(x){ return String(x).toLowerCase().trim(); }).filter(function(x){ return x.length >= 3 && x !== 'remote'; });
+  var ll = String(l.location || '').toLowerCase();
+  var locHit = locs.filter(function(x){ return ll.indexOf(x) !== -1 || (x === 'nyc' && ll.indexOf('new york') !== -1) || (x === 'sf' && ll.indexOf('san francisco') !== -1); })[0];
+  if(locHit){ score += 2; why.push('In ' + l.location.split(/[•;|]/)[0].trim()); }
+  if(l.posted_at && (Date.now() - new Date(l.posted_at).getTime()) < 21 * 86400000) score += 1;
+  return { l: l, score: score, why: why };
+}
+async function dashFetchRoles(p, oppUrls){
+  var toks = roleTokens(p.target_role_title);
+  if(!toks.length || !window.supabaseClient) return [];
+  var key = toks.join(' ') + '|' + (p.target_level || '') + '|' + (p.target_work_type || '') + '|' + (p.target_locations || []).join(',');
+  if(DASH_ROLES && DASH_ROLES.key === key) return DASH_ROLES.ranked;
+  // Search on the core word of the title; the rest is ranked here.
+  var head = toks[toks.length - 1];
+  var r = await window.supabaseClient.from('job_listings')
+    .select('id,company,title,location,remote,url,posted_at,level,family')
+    .eq('active', true).textSearch('title_tsv', head, { type: 'websearch' })
+    .order('posted_at', { ascending: false, nullsFirst: false }).limit(400);
+  if(r.error){ console.error('roles', r.error); return []; }
+  var have = {}; (oppUrls || []).forEach(function(u){ if(u) have[u] = true; });
+  var ranked = (r.data || []).filter(function(l){ return !have[l.url]; })
+    .map(function(l){ return rankRole(l, p, toks); }).filter(Boolean)
+    .sort(function(a, b){ return b.score - a.score || (new Date(b.l.posted_at || 0) - new Date(a.l.posted_at || 0)); });
+  DASH_ROLES = { key: key, ranked: ranked };
+  return ranked;
+}
+function dashRoleRow(x){
+  var l = x.l;
+  var sub = [l.location, l.posted_at ? 'Posted ' + dashDate(l.posted_at) : ''].filter(Boolean).map(escapeHtml).join(' · ');
+  return '<div class="role-row"><div class="role-main"><div class="dash-row-t">' + escapeHtml(l.title) + ' <span class="role-co">· ' + escapeHtml(l.company) + '</span></div>'
+    + (sub ? '<div class="dash-row-s">' + sub + '</div>' : '')
+    + '<div class="dash-chips" style="margin-top:6px">' + x.why.map(function(w){ return '<span class="dash-chip">' + escapeHtml(w) + '</span>'; }).join('') + '</div></div>'
+    + '<div class="role-actions"><button class="dash-btn" onclick="dashCheckFit(\'' + l.id + '\', this)">Check my fit</button>'
+    + '<a class="dash-link" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener">View posting ↗</a></div></div>';
+}
+async function dashLoadRoles(d){
+  var box = document.getElementById('dashRoles');
+  if(!box) return;
+  var p = d.profile || {};
+  var ranked = [];
+  try{ ranked = await dashFetchRoles(p, (d.opps || []).map(function(o){ return o.url; })); }
+  catch(e){ console.error('roles', e); }
+  box = document.getElementById('dashRoles'); // the page may have re-rendered while we waited
+  if(!box) return;
+  if(!ranked.length){
+    box.innerHTML = '<div class="dash-empty"><div class="dash-empty-t">No open ' + escapeHtml(p.target_role_title) + ' roles right now</div><div class="dash-empty-s">Nothing with that title is open at the companies Ezzy follows today. The list refreshes every night; a broader target title will also widen it.</div></div>';
+    return;
+  }
+  box.innerHTML = ranked.slice(0, 5).map(dashRoleRow).join('')
+    + '<div class="dash-muted" style="margin-top:4px">' + ranked.length + (ranked.length === 1 ? ' open role matches' : ' open roles match') + ' “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>';
+  var all = document.getElementById('dashRolesAll'); if(all && ranked.length > 5) all.style.display = '';
+}
+async function dashShowRoles(){
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body) return;
+  setDashHash('roles');
+  var p = DASH_PROFILE || {};
+  body.innerHTML = dashView('Roles for you', 'Open roles matched to your target.', 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
+  if(!p.target_role_title){ loadDashboard(); return; }
+  var ranked = [];
+  try{ ranked = await dashFetchRoles(p, []); }catch(e){ console.error('roles', e); }
+  var inner = ranked.length ? ranked.slice(0, 60).map(dashRoleRow).join('') : '<div class="dash-empty"><div class="dash-empty-t">No open roles match right now</div><div class="dash-empty-s">The list refreshes every night.</div></div>';
+  body.innerHTML = dashView('Roles for you', ranked.length + ' open ' + (ranked.length === 1 ? 'role' : 'roles') + ' matching “' + escapeHtml(p.target_role_title) + '”' + (ranked.length > 60 ? ', best 60 shown' : '') + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
+}
+// Reads the full posting from the company's feed, runs the real match, and
+// opens the result as an Opportunity.
+async function dashCheckFit(listingId, btn){
+  var token = await getAuthTokenIfSignedIn();
+  if(!token) return;
+  var label = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Reading the posting...'; }
+  var fail = function(msg){ if(btn){ btn.disabled = false; btn.textContent = msg || label; } };
+  try{
+    var res = await fetch(OPP_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ listingId: listingId }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok){
+      if(data.error === 'upgrade_required'){ fail(); openPricingModal(); return; }
+      if(data.error === 'listing_unavailable' || data.error === 'listing_not_found'){ if(btn){ btn.textContent = 'No longer listed'; } return; }
+      console.error('check fit', data); fail('Try again'); return;
+    }
+    DASH_ROLES = null; // this role is an opportunity now
+    dashShowOpportunity(data.opportunity.id, data.opportunity);
+  }catch(e){ console.error('check fit', e); fail('Try again'); }
+}
 
 // --- Opportunities -----------------------------------------------------------
 // A pasted posting -> api/opportunity -> a career_opportunities row with the
