@@ -778,6 +778,25 @@ async function fetchKnowledgeItems(category, role) {
   }
 }
 
+// Resume screening rules (category 'recruiting'): the ones for every
+// resume (subject null) plus the ones for this role family. General rules
+// first; the limit covers the whole set.
+async function fetchScreeningRules(family) {
+  try {
+    var filter = 'category=eq.recruiting&select=claim,status,topic,subject,knowledge_sources(domain,title)&order=subject.nullsfirst,confidence.desc.nullslast&limit=40';
+    filter += family && family !== 'General'
+      ? '&or=(subject.is.null,subject.eq.' + encodeURIComponent(family) + ')'
+      : '&subject=is.null';
+    var res = await fetch(SUPABASE_URL + '/rest/v1/knowledge_items?' + filter, {
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + SUPABASE_ANON_KEY }
+    });
+    if (!res.ok) return [];
+    return await res.json();
+  } catch (e) {
+    return [];
+  }
+}
+
 function knowledgeToText(items) {
   if (!items || !items.length) return null;
   return items.map(function (i) {
@@ -1336,7 +1355,10 @@ export default async function handler(req, res) {
       if (factsText) parts.push('General interview knowledge:\n' + factsText);
       knowledgeText = parts.length ? parts.join('\n\n') : null;
     } else if (mode === 'resume') {
-      knowledgeText = knowledgeToText(await fetchKnowledgeItems('recruiting', role));
+      // Screening rules for every resume plus the candidate's role family.
+      // The family comes from the role picked, else the stated target.
+      var famRole = role || (typeof memParts !== 'undefined' && memParts && memParts[0] && memParts[0].target_role_title) || null;
+      knowledgeText = knowledgeToText(await fetchScreeningRules(familyForRole(famRole)));
     }
 
     // Company Research: serve a cached brief for the initial message of a
