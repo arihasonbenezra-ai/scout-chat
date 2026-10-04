@@ -62,7 +62,11 @@ export default async function handler(req, res) {
   const secret = process.env.CRON_SECRET;
   const auth = req.headers && (req.headers.authorization || req.headers.Authorization);
   const key = (req.query && req.query.key) || '';
-  if (!secret || (auth !== 'Bearer ' + secret && key !== secret)) return res.status(401).json({ error: 'Unauthorized' });
+  // Say which side is wrong; neither message reveals the secret.
+  if (!secret) return res.status(401).json({ error: 'Unauthorized', reason: 'CRON_SECRET is not set on the server. Add it in Vercel (Production) and redeploy.' });
+  if (auth !== 'Bearer ' + secret && String(key).trim() !== secret) {
+    return res.status(401).json({ error: 'Unauthorized', reason: key ? 'The key in the link does not match CRON_SECRET.' : 'No key in the link. Add ?key=YOUR_SECRET to the end.' });
+  }
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Service key missing' });
 
   const t0 = Date.now();
