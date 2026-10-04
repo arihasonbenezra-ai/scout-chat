@@ -317,7 +317,8 @@ var REWRITE_STOP = {};
  + 'company companies organization business businesses function functions program programs project projects process processes result results impact goal goals '
  + 'responsible responsibility responsibilities require required requirements preferred candidate candidates position opportunity looking ideal must should will '
  + 'strategy strategic initiative initiatives stakeholder stakeholders cross functional collaborate collaborated collaboration communicate communication skills skill '
- + 'high highly fast paced environment environments global multiple various several key new first full time').split(' ').forEach(function (w) { REWRITE_STOP[w] = true; });
+ + 'high highly fast paced environment environments global multiple various several key new first full time '
+ + 'when where what which whose whom while were been being have does doing done this that these those there their them they then than with without within into onto from over under about above below between among after before during until since because although though whether either neither both each every some many much more most less least very just only also even still such same other another your yours hers ours will would could should shall might must need needs make makes made making take takes took taken give gives gave given well good best better able like across through along around toward towards upon here time times ways thing things part level levels range area areas type types kind used uses using help helped helps helping works worked bring brings brought show shows showed shown keep kept hold held running getting turn turned move moved them itself themselves what whenever wherever however therefore instead rather than once again always never often').split(' ').forEach(function (w) { REWRITE_STOP[w] = true; });
 var LEVEL_WORDS = { senior: 1, staff: 1, principal: 1, lead: 1, director: 1, head: 1, vp: 1, executive: 1, chief: 1, manager: 1 };
 function stemTok(t) {
   t = String(t || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -328,6 +329,18 @@ function stemSet(text) {
   var out = {};
   normText(text).split(' ').forEach(function (t) { var st = stemTok(t); if (st) out[st] = true; });
   return out;
+}
+// Same word in a different form counts as the same word: "partnered" on the
+// resume covers "partnership" in a rewrite. Exact stem, or one is a prefix
+// of the other once both are at least five letters.
+function hasStem(set, st) {
+  if (!st) return false;
+  if (set[st]) return true;
+  if (st.length < 5) return false;
+  for (var k in set) {
+    if (k.length >= 5 && (k.indexOf(st) === 0 || st.indexOf(k) === 0)) return true;
+  }
+  return false;
 }
 // Quotes may come from the resume OR the posting (a review legitimately
 // cites both). Numbers in a rewrite must come from the resume only, and so
@@ -345,8 +358,8 @@ function checkResumeGrounding(reply, resumeText, jdText) {
       var raw = t.replace(/[^a-z]/g, '');
       var st = stemTok(t);
       if (!raw || REWRITE_STOP[raw] || REWRITE_STOP[st]) return;
-      var level = LEVEL_WORDS[raw] && !resumeStems[st] && !resumeStems[raw];
-      var imported = st && jdStems[st] && !resumeStems[st];
+      var level = LEVEL_WORDS[raw] && !hasStem(resumeStems, st) && !resumeStems[raw];
+      var imported = st && hasStem(jdStems, st) && !hasStem(resumeStems, st);
       if ((level || imported) && badTerms.indexOf(raw) === -1) badTerms.push(raw);
     });
   });

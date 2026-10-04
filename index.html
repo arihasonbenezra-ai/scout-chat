@@ -439,6 +439,7 @@ button,input,textarea{font-family:inherit}
 .opp-fx-why{font-size:14.5px;color:#555;line-height:1.5}
 .opp-fx .dash-link{align-self:flex-start;font-size:14px;margin-top:2px}
 #oppFixesOut:empty{display:none}
+.opp-fixes:empty{display:none}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .opp-now{font-size:16.5px;color:#333}
 .opp-log{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 14px;padding:18px 20px;border:1px solid #ECEAE5;border-radius:14px;background:#FAFAF8}
@@ -3565,9 +3566,12 @@ function oppVerdict(o){
     out.caveat = 'If you do have that experience and Ezzy has not seen it, add it to your resume and score the posting again.';
     return out;
   }
-  if(o.fit_score >= VERDICT.applyFit && !missingReq.length && partials.filter(isReq).length <= 1){
+  if(o.fit_score >= VERDICT.applyFit && !missingReq.length){
     out.key = 'apply'; out.label = 'Apply';
-    out.why = 'Nothing required is missing, and most of what they ask for is on your resume as written.';
+    // Partial matches at this fit are polish, not blockers.
+    out.fixes = partials.slice(0, VERDICT.maxFixes).map(function(g){ return { requirement: g.requirement, note: g.note || '' }; });
+    out.why = 'Nothing required is missing, and most of what they ask for is on your resume as written.'
+      + (out.fixes.length ? ' ' + (out.fixes.length === 1 ? 'One item' : out.fixes.length + ' items') + ' could read stronger, but should not hold you back.' : '');
     return out;
   }
   out.key = 'fix'; out.label = 'Apply with these fixes';
@@ -3728,12 +3732,15 @@ async function dashShowOpportunity(id, row){
   if(V.key){
     html += '<div class="opp-verdict">' + V.label + '</div><div class="dash-text">' + escapeHtml(V.why) + '</div>';
     if(V.fixes.length){
-      html += '<div class="opp-fixes">' + V.fixes.map(function(f){
-        return '<div class="opp-fix"><span class="opp-fix-t">' + escapeHtml(f.requirement) + '</span>' + (f.note ? '<span class="opp-fix-n">' + escapeHtml(f.note) + '</span>' : '') + '</div>';
-      }).join('') + '</div>';
       var stored = row.posting && row.posting.fixes && Array.isArray(row.posting.fixes.items) ? row.posting.fixes : null;
+      if(V.key === 'apply') html += '<div class="opp-sub">Worth sharpening before you send it</div>';
+      // Before the fixes are written: the items and what the match found.
+      // After: the same items, each with its rewrite. Never both.
+      html += '<div class="opp-fixes" id="oppFixShort">' + (stored ? '' : V.fixes.map(function(f){
+        return '<div class="opp-fix"><span class="opp-fix-t">' + escapeHtml(f.requirement) + '</span>' + (f.note ? '<span class="opp-fix-n">' + escapeHtml(f.note) + '</span>' : '') + '</div>';
+      }).join('')) + '</div>';
       html += '<div id="oppFixesOut">' + (stored ? renderOppFixes(stored) : '') + '</div>'
-        + '<div class="opp-fix-actions"><button class="dash-btn primary" id="oppFixBtn" onclick="dashOppFixes()">' + (stored ? 'Write them again' : 'Show me how to fix these') + '</button>'
+        + '<div class="opp-fix-actions"><button class="dash-btn primary" id="oppFixBtn" onclick="dashOppFixes()">' + oppFixBtnLabel(stored, V.key) + '</button>'
         + '<button class="dash-link" onclick="dashOppResume()">or run a full resume review against this posting</button></div>';
     }
     if(V.caveat) html += '<div class="dash-text">' + escapeHtml(V.caveat) + '</div>';
@@ -3904,7 +3911,17 @@ function renderOppFixes(fx){
     }
     return '<div class="opp-fx"><div class="opp-fx-t">' + escapeHtml(f.requirement) + '</div>' + body + '</div>';
   }).join('') + '</div>'
-    + '<div class="dash-muted">Written from the resume in your review on ' + dashDate(fx.resume_date) + '. Each rewrite uses only what that resume already says; anything that needed a fact it does not state was thrown out.</div>';
+    + '<div class="dash-muted">' + (function(){
+        var n = items.filter(function(f){ return !!f.rewrite; }).length;
+        return (n ? n + ' of ' + items.length + (items.length === 1 ? ' has' : ' have') + ' a rewrite you can paste in. ' : 'No rewrites this time. ')
+          + 'Written from the resume in your review on ' + dashDate(fx.resume_date) + ', using only what that resume already says.';
+      })() + '</div>';
+}
+// What the button offers next, given what is already on the page.
+function oppFixBtnLabel(fx, verdictKey){
+  if(!fx) return verdictKey === 'apply' ? 'Show me how to sharpen these' : 'Show me how to fix these';
+  var wrote = (fx.items || []).some(function(f){ return !!f.rewrite; });
+  return wrote ? 'Write them again' : 'Try again';
 }
 function copyOppFix(i, btn){
   var el = document.getElementById('oppFx' + i);
@@ -3938,8 +3955,9 @@ async function dashOppFixes(){
     }
     var fx = { items: data.fixes || [], resume_date: data.resume_date, generated_at: data.generated_at };
     o.posting = Object.assign({}, o.posting || {}, { fixes: fx });
+    var shortList = document.getElementById('oppFixShort'); if(shortList) shortList.innerHTML = '';
     out.innerHTML = renderOppFixes(fx);
-    btn.textContent = 'Write them again';
+    btn.textContent = oppFixBtnLabel(fx);
   }catch(e){
     btn.disabled = false; btn.textContent = 'Show me how to fix these';
     out.innerHTML = '<div class="dash-text">Could not reach Ezzy. Check your connection and try again.</div>';

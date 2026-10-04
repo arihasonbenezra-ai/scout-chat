@@ -90,7 +90,8 @@ var REWRITE_STOP = {};
  + 'company companies organization business businesses function functions program programs project projects process processes result results impact goal goals '
  + 'responsible responsibility responsibilities require required requirements preferred candidate candidates position opportunity looking ideal must should will '
  + 'strategy strategic initiative initiatives stakeholder stakeholders cross functional collaborate collaborated collaboration communicate communication skills skill '
- + 'high highly fast paced environment environments global multiple various several key new first full time').split(' ').forEach(function (w) { REWRITE_STOP[w] = true; });
+ + 'high highly fast paced environment environments global multiple various several key new first full time '
+ + 'when where what which whose whom while were been being have does doing done this that these those there their them they then than with without within into onto from over under about above below between among after before during until since because although though whether either neither both each every some many much more most less least very just only also even still such same other another your yours hers ours will would could should shall might must need needs make makes made making take takes took taken give gives gave given well good best better able like across through along around toward towards upon here time times ways thing things part level levels range area areas type types kind used uses using help helped helps helping works worked bring brings brought show shows showed shown keep kept hold held running getting turn turned move moved them itself themselves what whenever wherever however therefore instead rather than once again always never often').split(' ').forEach(function (w) { REWRITE_STOP[w] = true; });
 var LEVEL_WORDS = { senior: 1, staff: 1, principal: 1, lead: 1, director: 1, head: 1, vp: 1, executive: 1, chief: 1, manager: 1 };
 function stemTok(t) {
   t = String(t || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -101,6 +102,18 @@ function stemSet(text) {
   var out = {};
   normText(text).split(' ').forEach(function (t) { var st = stemTok(t); if (st) out[st] = true; });
   return out;
+}
+// Same word in a different form counts as the same word: "partnered" on the
+// resume covers "partnership" in a rewrite. Exact stem, or one is a prefix
+// of the other once both are at least five letters.
+function hasStem(set, st) {
+  if (!st) return false;
+  if (set[st]) return true;
+  if (st.length < 5) return false;
+  for (var k in set) {
+    if (k.length >= 5 && (k.indexOf(st) === 0 || st.indexOf(k) === 0)) return true;
+  }
+  return false;
 }
 // Returns the list of things in `rewrite` that the resume does not support.
 function rewriteProblems(rewrite, resumeText, jdText) {
@@ -119,8 +132,8 @@ function rewriteProblems(rewrite, resumeText, jdText) {
     }
     var raw = t.replace(/[^a-z]/g, ''), st = stemTok(t);
     if (!raw || REWRITE_STOP[raw] || REWRITE_STOP[st]) return;
-    var level = LEVEL_WORDS[raw] && !resumeStems[st] && !resumeStems[raw];
-    var imported = st && jdStems[st] && !resumeStems[st];
+    var level = LEVEL_WORDS[raw] && !hasStem(resumeStems, st) && !resumeStems[raw];
+    var imported = st && hasStem(jdStems, st) && !hasStem(resumeStems, st);
     if ((level || imported) && bad.indexOf(raw) === -1) bad.push(raw);
   });
   return bad;
@@ -179,43 +192,78 @@ export default async function handler(req, res) {
       'Resume:',
       resumeText
     ].join('\n');
-    const ar = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-5', max_tokens: 1500, system: FIX_SYSTEM,
-        messages: [{ role: 'user', content: userContent }],
-        tools: [FIX_TOOL], tool_choice: { type: 'tool', name: 'record_fixes' }
-      })
-    });
-    const data = await ar.json();
-    if (!ar.ok) return res.status(502).json({ error: 'Could not write the fixes', detail: JSON.stringify(data).slice(0, 300) });
-    const tu = (data.content || []).find(function (b) { return b.type === 'tool_use'; });
-    var out = tu && tu.input && Array.isArray(tu.input.fixes) ? tu.input.fixes : [];
+    var callModel = async function (content, system) {
+      const ar = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5', max_tokens: 1500, system: system,
+          messages: [{ role: 'user', content: content }],
+          tools: [FIX_TOOL], tool_choice: { type: 'tool', name: 'record_fixes' }
+        })
+      });
+      const data = await ar.json();
+      if (!ar.ok) throw new Error(JSON.stringify(data).slice(0, 300));
+      const tu = (data.content || []).find(function (b) { return b.type === 'tool_use'; });
+      return tu && tu.input && Array.isArray(tu.input.fixes) ? tu.input.fixes : [];
+    };
+    // Grade one model item against the resume. ok = usable rewrite;
+    // problems = what the draft used that the resume does not state.
+    var grade = function (t, got) {
+      got = got || {};
+      var cur = String(got.current_line || '').trim(), rw = String(got.rewrite || '').trim();
+      var gap = String(got.honest_gap || '').trim().slice(0, 300);
+      if (!cur || !rw) return { ok: false, tried: false, gap: gap, problems: [] };
+      if (!quoteInResume(cur, resumeText)) return { ok: false, tried: true, ungrounded: true, gap: gap, problems: [] };
+      var problems = rewriteProblems(rw, resumeText, opp.jd_text || '');
+      if (problems.length) return { ok: false, tried: true, gap: gap, problems: problems };
+      return { ok: true, current_line: cur.slice(0, 600), rewrite: rw.slice(0, 600), what_changed: String(got.what_changed || '').trim().slice(0, 240) };
+    };
+    var pick = function (list, t) { return list.find(function (o) { return o && String(o.requirement || '').toLowerCase().trim() === t.requirement.toLowerCase().trim(); }); };
+
+    var out;
+    try { out = await callModel(userContent, FIX_SYSTEM); }
+    catch (e) { return res.status(502).json({ error: 'Could not write the fixes', detail: e.message }); }
+    var graded = targets.map(function (t) { return grade(t, pick(out, t)); });
+
+    // One corrective pass for drafts that reached past the resume.
+    var redo = targets.filter(function (t, i) { return !graded[i].ok && graded[i].tried; });
+    if (redo.length) {
+      var correction = FIX_SYSTEM + '\n\nYour first drafts for these were rejected by a mechanical check:\n'
+        + targets.map(function (t, i) {
+            var g = graded[i];
+            if (g.ok || !g.tried) return null;
+            return '- "' + t.requirement + '": ' + (g.ungrounded ? 'current_line was not found in the resume; copy a line exactly as it appears.' : 'the rewrite used words or numbers the resume does not contain: ' + g.problems.join(', ') + '.');
+          }).filter(Boolean).join('\n')
+        + '\nWrite them again. Do not echo the requirement\'s own wording; describe what the candidate did using the resume\'s own vocabulary and figures. If that cannot be done honestly, use honest_gap.';
+      var redoContent = userContent.replace(/Requirements to make visible[\s\S]*?\n\nResume:/, 'Requirements to make visible:\n' + redo.map(function (t, i) { return (i + 1) + '. ' + t.requirement; }).join('\n') + '\n\nResume:');
+      try {
+        var out2 = await callModel(redoContent, correction);
+        targets.forEach(function (t, i) {
+          if (graded[i].ok || !graded[i].tried) return;
+          var g2 = grade(t, pick(out2, t));
+          if (g2.ok || (!g2.tried && g2.gap)) graded[i] = g2;
+          else if (g2.problems && g2.problems.length) graded[i].problems = g2.problems;
+        });
+      } catch (e) { console.error('[opp-fixes] retry failed', e && e.message); }
+    }
 
     var dropped = 0;
-    var fixes = targets.map(function (t) {
-      var got = out.find(function (o) { return o && String(o.requirement || '').toLowerCase().trim() === t.requirement.toLowerCase().trim(); }) || {};
-      var cur = String(got.current_line || '').trim(), rw = String(got.rewrite || '').trim();
-      var item = { requirement: t.requirement, importance: t.importance, current_line: '', rewrite: '', what_changed: '', honest_gap: String(got.honest_gap || '').trim().slice(0, 300) };
-      if (cur && rw) {
-        var grounded = quoteInResume(cur, resumeText);
-        var problems = grounded ? rewriteProblems(rw, resumeText, opp.jd_text || '') : [];
-        if (grounded && !problems.length) {
-          item.current_line = cur.slice(0, 600); item.rewrite = rw.slice(0, 600); item.what_changed = String(got.what_changed || '').trim().slice(0, 240);
-          item.honest_gap = '';
-        } else {
-          dropped++;
-          item.honest_gap = grounded
-            ? 'Ezzy drafted a rewrite but it used something your resume does not state (' + problems.slice(0, 4).join(', ') + '), so it was thrown out. If that is true of you, add it to your resume and try again.'
-            : 'Ezzy could not point to a line on your resume for this one, so there is no rewrite to offer.';
-        }
-      } else if (!item.honest_gap) {
-        item.honest_gap = 'Nothing on your resume to build on for this one.';
+    var fixes = targets.map(function (t, i) {
+      var g = graded[i];
+      var item = { requirement: t.requirement, importance: t.importance, current_line: '', rewrite: '', what_changed: '', honest_gap: '' };
+      if (g.ok) { item.current_line = g.current_line; item.rewrite = g.rewrite; item.what_changed = g.what_changed; return item; }
+      if (g.tried) {
+        dropped++;
+        item.honest_gap = g.ungrounded
+          ? 'Ezzy could not tie this one to a specific line on your resume, so there is no rewrite to offer.'
+          : 'Ezzy could not write this one from your resume alone. Its drafts kept reaching for something your resume does not say (' + g.problems.slice(0, 4).join(', ') + '). If you have a concrete example of this, add a line about it to your resume and try again.';
+      } else {
+        item.honest_gap = g.gap || 'Your resume has nothing concrete to build on for this one. It is better shown in the interview than forced into a bullet.';
       }
       return item;
     });
-    if (dropped) console.log('[opp-fixes] dropped', dropped);
+    if (dropped) console.log('[opp-fixes] dropped after retry', dropped);
 
     var saved = { items: fixes, resume_date: resumes[0].updated_at, generated_at: new Date().toISOString() };
     try {
