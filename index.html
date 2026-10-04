@@ -426,6 +426,8 @@ button,input,textarea{font-family:inherit}
 .opp-f label{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8A8A8A}
 .dash-field{height:42px;border:1px solid #D5D2CB;border-radius:10px;padding:0 12px;font-size:15px;font-family:inherit;background:#fff;color:#111;outline:none;width:100%;box-sizing:border-box}
 .dash-field:focus{border-color:#F26B5E}
+/* Dropdowns: the native arrow hugs the rounded edge; draw an inset chevron instead. */
+select.dash-field,select.dash-select,.brain-field select{-webkit-appearance:none;-moz-appearance:none;appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%23555' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;background-size:12px 8px;cursor:pointer}
 .opp-log .dash-btn{align-self:flex-start;padding:10px 22px;font-size:15px}
 .opp-sub{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#9A9A9A}
 @media (max-width:640px){.opp-log{grid-template-columns:1fr;padding:14px}}
