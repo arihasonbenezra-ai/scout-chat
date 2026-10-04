@@ -433,5 +433,410 @@
   "ats": "ashby",
   "slug": "cerebras",
   "roles": 117
+ },
+ "ServiceNow": {
+  "ats": "smartrecruiters",
+  "slug": "servicenow",
+  "roles": 706
+ },
+ "Hugging Face": {
+  "ats": "workable",
+  "slug": "huggingface",
+  "roles": 8
+ },
+ "Rippling": {
+  "ats": "rippling",
+  "slug": "rippling",
+  "roles": 651
+ },
+ "Canva": {
+  "ats": "smartrecruiters",
+  "slug": "canva",
+  "roles": 131
+ },
+ "Zocdoc": {
+  "ats": "greenhouse",
+  "slug": "zocdoc",
+  "roles": 58
+ },
+ "Oscar Health": {
+  "ats": "greenhouse",
+  "slug": "oscar",
+  "roles": 246
+ },
+ "Hims & Hers": {
+  "ats": "ashby",
+  "slug": "hims-and-hers",
+  "roles": 142
+ },
+ "Ro": {
+  "ats": "lever",
+  "slug": "ro",
+  "roles": 56
+ },
+ "Maven Clinic": {
+  "ats": "greenhouse",
+  "slug": "mavenclinic",
+  "roles": 37
+ },
+ "Included Health": {
+  "ats": "lever",
+  "slug": "includedhealth",
+  "roles": 53
+ },
+ "Komodo Health": {
+  "ats": "greenhouse",
+  "slug": "komodohealth",
+  "roles": 28
+ },
+ "Flatiron Health": {
+  "ats": "greenhouse",
+  "slug": "flatironhealth",
+  "roles": 29
+ },
+ "Aledade": {
+  "ats": "lever",
+  "slug": "aledade",
+  "roles": 32
+ },
+ "PathAI": {
+  "ats": "greenhouse",
+  "slug": "pathai",
+  "roles": 16
+ },
+ "Veeva Systems": {
+  "ats": "lever",
+  "slug": "veeva",
+  "roles": 937
+ },
+ "One Medical": {
+  "ats": "greenhouse",
+  "slug": "onemedical",
+  "roles": 405
+ },
+ "Tia": {
+  "ats": "greenhouse",
+  "slug": "tia",
+  "roles": 29
+ },
+ "Warner Music Group": {
+  "ats": "lever",
+  "slug": "wmg",
+  "roles": 33
+ },
+ "Sony Music Entertainment": {
+  "ats": "greenhouse",
+  "slug": "sonymusicentertainment",
+  "roles": 138
+ },
+ "Twitch": {
+  "ats": "greenhouse",
+  "slug": "twitch",
+  "roles": 50
+ },
+ "Roku": {
+  "ats": "greenhouse",
+  "slug": "roku",
+  "roles": 233
+ },
+ "The New York Times": {
+  "ats": "greenhouse",
+  "slug": "thenewyorktimes",
+  "roles": 140
+ },
+ "Vox Media": {
+  "ats": "greenhouse",
+  "slug": "voxmedia",
+  "roles": 15
+ },
+ "The Athletic": {
+  "ats": "lever",
+  "slug": "theathletic",
+  "roles": 12
+ },
+ "Hearst": {
+  "ats": "greenhouse",
+  "slug": "hearst",
+  "roles": 51
+ },
+ "Match Group": {
+  "ats": "lever",
+  "slug": "matchgroup",
+  "roles": 72
+ },
+ "Take-Two Interactive": {
+  "ats": "greenhouse",
+  "slug": "taketwo",
+  "roles": 33
+ },
+ "Riot Games": {
+  "ats": "greenhouse",
+  "slug": "riotgames",
+  "roles": 164
+ },
+ "WPP": {
+  "ats": "greenhouse",
+  "slug": "wpp",
+  "roles": 207
+ },
+ "R/GA": {
+  "ats": "greenhouse",
+  "slug": "rga",
+  "roles": 12
+ },
+ "Thoughtworks": {
+  "ats": "greenhouse",
+  "slug": "thoughtworks",
+  "roles": 31
+ },
+ "Glossier": {
+  "ats": "greenhouse",
+  "slug": "glossier",
+  "roles": 27
+ },
+ "Flexport": {
+  "ats": "greenhouse",
+  "slug": "flexport",
+  "roles": 199
+ },
+ "Flexe": {
+  "ats": "greenhouse",
+  "slug": "flexe",
+  "roles": 5
+ },
+ "Uber Freight": {
+  "ats": "greenhouse",
+  "slug": "uberfreight",
+  "roles": 68
+ },
+ "Gopuff": {
+  "ats": "lever",
+  "slug": "gopuff",
+  "roles": 795
+ },
+ "Hopper": {
+  "ats": "ashby",
+  "slug": "hopper",
+  "roles": 19
+ },
+ "TripAdvisor": {
+  "ats": "greenhouse",
+  "slug": "tripadvisor",
+  "roles": 100
+ },
+ "Compass": {
+  "ats": "greenhouse",
+  "slug": "urbancompass",
+  "roles": 200
+ },
+ "Opendoor": {
+  "ats": "rippling",
+  "slug": "opendoor",
+  "roles": 59
+ },
+ "Toast": {
+  "ats": "greenhouse",
+  "slug": "toast",
+  "roles": 328
+ },
+ "Mindbody": {
+  "ats": "greenhouse",
+  "slug": "mindbody",
+  "roles": 24
+ },
+ "Thumbtack": {
+  "ats": "ashby",
+  "slug": "thumbtack",
+  "roles": 57
+ },
+ "Angi": {
+  "ats": "ashby",
+  "slug": "angi",
+  "roles": 43
+ },
+ "Houzz": {
+  "ats": "lever",
+  "slug": "houzz",
+  "roles": 6
+ },
+ "Rover": {
+  "ats": "lever",
+  "slug": "rover",
+  "roles": 36
+ },
+ "Poshmark": {
+  "ats": "ashby",
+  "slug": "poshmark",
+  "roles": 30
+ },
+ "StockX": {
+  "ats": "greenhouse",
+  "slug": "stockx",
+  "roles": 35
+ },
+ "Faire": {
+  "ats": "greenhouse",
+  "slug": "faire",
+  "roles": 80
+ },
+ "OfferUp": {
+  "ats": "greenhouse",
+  "slug": "offerup",
+  "roles": 7
+ },
+ "Zscaler": {
+  "ats": "greenhouse",
+  "slug": "zscaler",
+  "roles": 364
+ },
+ "Wiz": {
+  "ats": "greenhouse",
+  "slug": "wizinc",
+  "roles": 134
+ },
+ "Vanta": {
+  "ats": "ashby",
+  "slug": "vanta",
+  "roles": 84
+ },
+ "Drata": {
+  "ats": "ashby",
+  "slug": "drata",
+  "roles": 35
+ },
+ "Abnormal Security": {
+  "ats": "greenhouse",
+  "slug": "abnormalsecurity",
+  "roles": 78
+ },
+ "OneTrust": {
+  "ats": "greenhouse",
+  "slug": "onetrust",
+  "roles": 90
+ },
+ "Illumio": {
+  "ats": "ashby",
+  "slug": "illumio",
+  "roles": 65
+ },
+ "Netskope": {
+  "ats": "greenhouse",
+  "slug": "netskope",
+  "roles": 150
+ },
+ "Axonius": {
+  "ats": "greenhouse",
+  "slug": "axonius",
+  "roles": 23
+ },
+ "BigID": {
+  "ats": "greenhouse",
+  "slug": "bigid",
+  "roles": 6
+ },
+ "Snyk": {
+  "ats": "ashby",
+  "slug": "snyk",
+  "roles": 13
+ },
+ "LaunchDarkly": {
+  "ats": "greenhouse",
+  "slug": "launchdarkly",
+  "roles": 59
+ },
+ "New Relic": {
+  "ats": "greenhouse",
+  "slug": "newrelic",
+  "roles": 47
+ },
+ "Braze": {
+  "ats": "greenhouse",
+  "slug": "braze",
+  "roles": 349
+ },
+ "Iterable": {
+  "ats": "ashby",
+  "slug": "iterable",
+  "roles": 13
+ },
+ "Attentive": {
+  "ats": "greenhouse",
+  "slug": "attentive",
+  "roles": 32
+ },
+ "Sprout Social": {
+  "ats": "greenhouse",
+  "slug": "sproutsocial",
+  "roles": 23
+ },
+ "Hootsuite": {
+  "ats": "greenhouse",
+  "slug": "hootsuite",
+  "roles": 11
+ },
+ "Later": {
+  "ats": "greenhouse",
+  "slug": "later",
+  "roles": 42
+ },
+ "Lattice": {
+  "ats": "greenhouse",
+  "slug": "lattice",
+  "roles": 12
+ },
+ "Culture Amp": {
+  "ats": "greenhouse",
+  "slug": "cultureamp",
+  "roles": 32
+ },
+ "15Five": {
+  "ats": "lever",
+  "slug": "15five",
+  "roles": 1
+ },
+ "BetterUp": {
+  "ats": "ashby",
+  "slug": "betterup",
+  "roles": 6
+ },
+ "Ashby": {
+  "ats": "ashby",
+  "slug": "ashby",
+  "roles": 62
+ },
+ "Greenhouse": {
+  "ats": "greenhouse",
+  "slug": "greenhouse",
+  "roles": 18
+ },
+ "Oyster": {
+  "ats": "ashby",
+  "slug": "oyster",
+  "roles": 26
+ },
+ "Gusto": {
+  "ats": "greenhouse",
+  "slug": "gusto",
+  "roles": 94
+ },
+ "AbbVie": {
+  "ats": "smartrecruiters",
+  "slug": "abbvie",
+  "roles": 1858
+ },
+ "Recursion": {
+  "ats": "greenhouse",
+  "slug": "recursionpharmaceuticals",
+  "roles": 12
+ },
+ "Insitro": {
+  "ats": "ashby",
+  "slug": "insitro",
+  "roles": 13
+ },
+ "Benchling": {
+  "ats": "ashby",
+  "slug": "benchling",
+  "roles": 56
  }
 }
