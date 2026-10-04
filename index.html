@@ -326,6 +326,13 @@ button,input,textarea{font-family:inherit}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
 .role-row:last-of-type{margin-bottom:0}
 .role-main{min-width:0;flex:1}
+.role-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.role-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:1px solid #D5D2CB;background:#fff;color:#333;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer}
+.role-chip span{font-weight:500;color:#8A8A8A;font-size:13px}
+.role-chip:hover{border-color:#111}
+.role-chip.on{background:#111;border-color:#111;color:#fff}
+.role-chip.on span{color:#CFCFCF}
+.role-sel{width:auto;min-width:170px;height:38px;border-radius:999px;font-size:14.5px}
 .role-co{font-weight:500;color:#6B6B6B}
 .role-actions{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:none}
 .role-actions .dash-btn{padding:9px 18px;font-size:14.5px;white-space:nowrap}
@@ -3551,12 +3558,36 @@ function rankRole(l, p, toks){
   }
   if(p.target_work_type === 'remote'){ if(l.remote){ score += 2; why.push('Remote'); } else score -= 1; }
   else if(l.remote) why.push('Remote');
-  var locs = (p.target_locations || []).map(function(x){ return String(x).toLowerCase().trim(); }).filter(function(x){ return x.length >= 3 && x !== 'remote'; });
-  var ll = String(l.location || '').toLowerCase();
-  var locHit = locs.filter(function(x){ return ll.indexOf(x) !== -1 || (x === 'nyc' && ll.indexOf('new york') !== -1) || (x === 'sf' && ll.indexOf('san francisco') !== -1); })[0];
-  if(locHit){ score += 2; why.push('In ' + l.location.split(/[•;|]/)[0].trim()); }
+  var here = roleInTargetLocation(l, p);
+  if(here){ score += 4; why.push('In ' + here); }
   if(l.posted_at && (Date.now() - new Date(l.posted_at).getTime()) < 21 * 86400000) score += 1;
-  return { l: l, score: score, why: why };
+  return { l: l, score: score, why: why, here: !!here };
+}
+// People write their city many ways; postings do too.
+var ROLE_LOC_ALIASES = { 'nyc':['new york'], 'new york city':['new york'], 'ny':['new york'], 'sf':['san francisco'], 'bay area':['san francisco','bay area','palo alto','mountain view','san jose','oakland','sunnyvale','menlo park'], 'la':['los angeles'], 'dc':['washington'], 'washington dc':['washington'], 'philly':['philadelphia'] };
+function roleTargetPlaces(p){
+  var out = [];
+  (p.target_locations || []).forEach(function(x){
+    x = String(x).toLowerCase().trim();
+    if(x.length < 2 || /^remote/.test(x)) return;
+    (ROLE_LOC_ALIASES[x] || [x.replace(/,.*$/, '').trim()]).forEach(function(a){ if(a.length >= 3 && out.indexOf(a) === -1) out.push(a); });
+  });
+  return out;
+}
+// A posting can list several places ("San Francisco, CA \u2022 New York, NY").
+function rolePlaces(l){
+  return String(l.location || '').split(/\s*[\u2022;|]\s*|\s+or\s+|\s*\/\s*/i).map(function(x){ return x.trim(); }).filter(function(x){ return x.length >= 2; });
+}
+// Returns the posting's place that is in the person's target, or ''.
+function roleInTargetLocation(l, p){
+  var want = roleTargetPlaces(p);
+  if(!want.length) return '';
+  var places = rolePlaces(l);
+  for(var i = 0; i < places.length; i++){
+    var pl = places[i].toLowerCase();
+    if(want.some(function(w){ return pl.indexOf(w) !== -1; })) return places[i];
+  }
+  return '';
 }
 async function dashFetchRoles(p, oppUrls){
   var toks = roleTokens(p.target_role_title);
@@ -3586,6 +3617,77 @@ function dashRoleRow(x){
     + '<div class="role-actions"><button class="dash-btn" onclick="dashCheckFit(\'' + l.id + '\', this)">Check my fit</button>'
     + '<a class="dash-link" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener">View posting ↗</a></div></div>';
 }
+// What the person is looking at: their own locations, remote, everywhere,
+// or one named place; and optionally one level. Remembered between visits.
+var ROLE_FILTER = (function(){ try{ return JSON.parse(localStorage.getItem('ezzyRoleFilter') || 'null') || {}; }catch(e){ return {}; } })();
+var ROLE_VIEW = null; // { ranked, p, where: 'card' | 'list' }
+function roleFilterDefault(ranked, p){
+  if(ROLE_FILTER.loc) return;
+  // Start where they said they want to work, when there is anything there.
+  ROLE_FILTER.loc = ranked.some(function(x){ return x.here; }) ? 'mine' : 'all';
+}
+function applyRoleFilter(ranked){
+  var loc = ROLE_FILTER.loc || 'all', lvl = ROLE_FILTER.level || '';
+  return ranked.filter(function(x){
+    if(loc === 'mine' && !x.here) return false;
+    if(loc === 'remote' && !x.l.remote) return false;
+    if(loc.indexOf('city:') === 0 && !rolePlaces(x.l).some(function(pl){ return pl === loc.slice(5); })) return false;
+    if(lvl && x.l.level !== lvl) return false;
+    return true;
+  });
+}
+function setRoleFilter(key, val){
+  ROLE_FILTER[key] = val;
+  try{ localStorage.setItem('ezzyRoleFilter', JSON.stringify(ROLE_FILTER)); }catch(e){}
+  if(!ROLE_VIEW) return;
+  if(ROLE_VIEW.where === 'list') renderRolesList(); else renderRolesCard();
+}
+function roleFilterBar(full){
+  var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
+  var mine = (p.target_locations || []).filter(function(x){ return !/^remote/i.test(String(x).trim()); }).join(' / ');
+  var n = function(test){ return ranked.filter(test).length; };
+  var loc = ROLE_FILTER.loc || 'all';
+  var chip = function(val, label, count){
+    return '<button class="role-chip' + (loc === val ? ' on' : '') + '" onclick="setRoleFilter(\'loc\',\'' + val + '\')">' + escapeHtml(label) + ' <span>' + count + '</span></button>';
+  };
+  var html = '<div class="role-filters">';
+  if(mine) html += chip('mine', mine, n(function(x){ return x.here; }));
+  html += chip('remote', 'Remote', n(function(x){ return x.l.remote; })) + chip('all', 'Everywhere', ranked.length);
+  if(full){
+    // Every place that appears, most roles first.
+    var counts = {};
+    ranked.forEach(function(x){ rolePlaces(x.l).forEach(function(pl){ counts[pl] = (counts[pl] || 0) + 1; }); });
+    var places = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a] || a.localeCompare(b); }).slice(0, 40);
+    html += '<select class="dash-field role-sel" onchange="setRoleFilter(\'loc\', this.value || \'all\')"><option value="">Pick a place</option>'
+      + places.map(function(pl){ var v = 'city:' + pl; return '<option value="' + escapeHtml(v) + '"' + (loc === v ? ' selected' : '') + '>' + escapeHtml(pl) + ' (' + counts[pl] + ')</option>'; }).join('') + '</select>';
+    var levels = {}; ranked.forEach(function(x){ if(x.l.level) levels[x.l.level] = (levels[x.l.level] || 0) + 1; });
+    var order = ['entry','mid','senior','staff','principal','manager','director','vp','exec'].filter(function(k){ return levels[k]; });
+    if(order.length) html += '<select class="dash-field role-sel" onchange="setRoleFilter(\'level\', this.value)"><option value="">Any level</option>'
+      + order.map(function(k){ return '<option value="' + k + '"' + (ROLE_FILTER.level === k ? ' selected' : '') + '>' + k.charAt(0).toUpperCase() + k.slice(1) + ' (' + levels[k] + ')</option>'; }).join('') + '</select>';
+  }
+  return html + '</div>';
+}
+function roleFilterEmpty(){
+  return '<div class="dash-empty"><div class="dash-empty-t">Nothing under this filter</div><div class="dash-empty-s">There are open roles elsewhere.</div><button class="dash-btn" onclick="ROLE_FILTER.level=\'\';setRoleFilter(\'loc\',\'all\')">Show everywhere</button></div>';
+}
+function renderRolesCard(){
+  var box = document.getElementById('dashRoles');
+  if(!box || !ROLE_VIEW) return;
+  var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
+  var shown = applyRoleFilter(ranked);
+  box.innerHTML = roleFilterBar(false)
+    + (shown.length ? shown.slice(0, 5).map(dashRoleRow).join('') : roleFilterEmpty())
+    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>';
+  var all = document.getElementById('dashRolesAll'); if(all) all.style.display = ranked.length > 5 ? '' : 'none';
+}
+function renderRolesList(){
+  var body = document.getElementById('dashBody');
+  if(!body || !ROLE_VIEW) return;
+  var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
+  var shown = applyRoleFilter(ranked);
+  var inner = roleFilterBar(true) + (shown.length ? shown.slice(0, 80).map(dashRoleRow).join('') : roleFilterEmpty());
+  body.innerHTML = dashView('Roles for you', shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + (shown.length > 80 ? ', best 80 shown' : '') + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
+}
 async function dashLoadRoles(d){
   var box = document.getElementById('dashRoles');
   if(!box) return;
@@ -3599,9 +3701,9 @@ async function dashLoadRoles(d){
     box.innerHTML = '<div class="dash-empty"><div class="dash-empty-t">No open ' + escapeHtml(p.target_role_title) + ' roles right now</div><div class="dash-empty-s">Nothing with that title is open at the companies Ezzy follows today. The list refreshes every night; a broader target title will also widen it.</div></div>';
     return;
   }
-  box.innerHTML = ranked.slice(0, 5).map(dashRoleRow).join('')
-    + '<div class="dash-muted" style="margin-top:4px">' + ranked.length + (ranked.length === 1 ? ' open role matches' : ' open roles match') + ' “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>';
-  var all = document.getElementById('dashRolesAll'); if(all && ranked.length > 5) all.style.display = '';
+  ROLE_VIEW = { ranked: ranked, p: p, where: 'card' };
+  roleFilterDefault(ranked, p);
+  renderRolesCard();
 }
 async function dashShowRoles(){
   if(!DASH_ON) showDashboard(true);
@@ -3613,8 +3715,9 @@ async function dashShowRoles(){
   if(!p.target_role_title){ loadDashboard(); return; }
   var ranked = [];
   try{ ranked = await dashFetchRoles(p, []); }catch(e){ console.error('roles', e); }
-  var inner = ranked.length ? ranked.slice(0, 60).map(dashRoleRow).join('') : '<div class="dash-empty"><div class="dash-empty-t">No open roles match right now</div><div class="dash-empty-s">The list refreshes every night.</div></div>';
-  body.innerHTML = dashView('Roles for you', ranked.length + ' open ' + (ranked.length === 1 ? 'role' : 'roles') + ' matching “' + escapeHtml(p.target_role_title) + '”' + (ranked.length > 60 ? ', best 60 shown' : '') + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
+  ROLE_VIEW = { ranked: ranked, p: p, where: 'list' };
+  roleFilterDefault(ranked, p);
+  renderRolesList();
   body.parentNode.scrollTop = 0;
 }
 // Reads the full posting from the company's feed, runs the real match, and
