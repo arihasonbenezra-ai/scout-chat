@@ -429,6 +429,16 @@ button,input,textarea{font-family:inherit}
 .opp-fix-n{font-size:14px;color:#6B6B6B;line-height:1.45}
 .opp-vs{display:flex;flex-direction:column;gap:3px;font-size:15px;color:#333;line-height:1.5}
 .opp-fit .dash-btn{align-self:flex-start;padding:10px 20px;font-size:15px}
+.opp-fix-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.opp-fixlist{display:flex;flex-direction:column;gap:12px}
+.opp-fx{background:#fff;border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:6px;border:1px solid rgba(0,0,0,.06)}
+.opp-fx-t{font-size:16.5px;font-weight:700;margin-bottom:4px}
+.opp-fx-l{font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#8A8A8A;margin-top:4px}
+.opp-fx-cur{font-size:15px;color:#6B6B6B;font-style:italic;line-height:1.5}
+.opp-fx-new{font-size:15.5px;color:#111;line-height:1.5;background:#F3FAF5;border-left:3px solid #1E7A3D;padding:8px 12px;border-radius:6px}
+.opp-fx-why{font-size:14.5px;color:#555;line-height:1.5}
+.opp-fx .dash-link{align-self:flex-start;font-size:14px;margin-top:2px}
+#oppFixesOut:empty{display:none}
 .opp-stage{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .opp-now{font-size:16.5px;color:#333}
 .opp-log{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 14px;padding:18px 20px;border:1px solid #ECEAE5;border-radius:14px;background:#FAFAF8}
@@ -3721,7 +3731,10 @@ async function dashShowOpportunity(id, row){
       html += '<div class="opp-fixes">' + V.fixes.map(function(f){
         return '<div class="opp-fix"><span class="opp-fix-t">' + escapeHtml(f.requirement) + '</span>' + (f.note ? '<span class="opp-fix-n">' + escapeHtml(f.note) + '</span>' : '') + '</div>';
       }).join('') + '</div>';
-      html += '<div class="dash-actions"><button class="dash-btn" onclick="dashOppResume()">Fix these in a resume review</button></div>';
+      var stored = row.posting && row.posting.fixes && Array.isArray(row.posting.fixes.items) ? row.posting.fixes : null;
+      html += '<div id="oppFixesOut">' + (stored ? renderOppFixes(stored) : '') + '</div>'
+        + '<div class="opp-fix-actions"><button class="dash-btn primary" id="oppFixBtn" onclick="dashOppFixes()">' + (stored ? 'Write them again' : 'Show me how to fix these') + '</button>'
+        + '<button class="dash-link" onclick="dashOppResume()">or run a full resume review against this posting</button></div>';
     }
     if(V.caveat) html += '<div class="dash-text">' + escapeHtml(V.caveat) + '</div>';
     var vs = oppVsTarget(row, DASH_PROFILE);
@@ -3869,6 +3882,69 @@ async function dashRemoveOpportunity(id){
   var r = await window.supabaseClient.from('career_opportunities').delete().eq('id', id);
   if(r.error){ console.error('remove opportunity', r.error); return; }
   dashShowOpportunities();
+}
+
+// The fixes themselves: for each requirement the verdict lists, the line
+// on the resume that relates and a rewrite that makes it visible. Written
+// and checked server-side (api/opportunity-fixes.js); a rewrite that uses
+// anything the resume does not state never reaches the page.
+var OPP_FIX_URL = '/api/opportunity-fixes';
+function renderOppFixes(fx){
+  var items = (fx && fx.items) || [];
+  if(!items.length) return '';
+  return '<div class="opp-fixlist">' + items.map(function(f, i){
+    var body;
+    if(f.rewrite){
+      body = '<div class="opp-fx-l">On your resume now</div><div class="opp-fx-cur">\u201c' + escapeHtml(f.current_line) + '\u201d</div>'
+        + '<div class="opp-fx-l">Change it to</div><div class="opp-fx-new" id="oppFx' + i + '">' + escapeHtml(f.rewrite) + '</div>'
+        + (f.what_changed ? '<div class="opp-fx-why">' + escapeHtml(f.what_changed) + '</div>' : '')
+        + '<button class="dash-link" onclick="copyOppFix(' + i + ', this)">Copy the rewrite</button>';
+    } else {
+      body = '<div class="opp-fx-why">' + escapeHtml(f.honest_gap || 'Nothing on your resume to build on for this one.') + '</div>';
+    }
+    return '<div class="opp-fx"><div class="opp-fx-t">' + escapeHtml(f.requirement) + '</div>' + body + '</div>';
+  }).join('') + '</div>'
+    + '<div class="dash-muted">Written from the resume in your review on ' + dashDate(fx.resume_date) + '. Each rewrite uses only what that resume already says; anything that needed a fact it does not state was thrown out.</div>';
+}
+function copyOppFix(i, btn){
+  var el = document.getElementById('oppFx' + i);
+  if(!el) return;
+  var done = function(){ if(btn){ btn.textContent = 'Copied'; setTimeout(function(){ btn.textContent = 'Copy the rewrite'; }, 1600); } };
+  try{ navigator.clipboard.writeText(el.textContent).then(done, function(){}); }catch(e){}
+}
+async function dashOppFixes(){
+  if(!OPP_CURRENT) return;
+  var o = OPP_CURRENT;
+  var btn = document.getElementById('oppFixBtn'), out = document.getElementById('oppFixesOut');
+  if(!btn || !out) return;
+  var token = await getAuthTokenIfSignedIn();
+  if(!token) return;
+  btn.disabled = true; btn.textContent = 'Writing the fixes...';
+  try{
+    var res = await fetch(OPP_FIX_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ opportunityId: o.id }) });
+    var data = await res.json().catch(function(){ return {}; });
+    btn.disabled = false;
+    if(!res.ok){
+      btn.textContent = 'Show me how to fix these';
+      if(data.error === 'upgrade_required'){ openPricingModal(); return; }
+      out.innerHTML = '<div class="dash-text">Could not write the fixes just now. Try again in a moment.</div>';
+      console.error('opportunity fixes', data);
+      return;
+    }
+    if(data.reason === 'no_resume'){
+      btn.textContent = 'Show me how to fix these';
+      out.innerHTML = '<div class="dash-text">Ezzy has no resume on file to rewrite. Run a resume review once and the fixes can be written from it.</div>';
+      return;
+    }
+    var fx = { items: data.fixes || [], resume_date: data.resume_date, generated_at: data.generated_at };
+    o.posting = Object.assign({}, o.posting || {}, { fixes: fx });
+    out.innerHTML = renderOppFixes(fx);
+    btn.textContent = 'Write them again';
+  }catch(e){
+    btn.disabled = false; btn.textContent = 'Show me how to fix these';
+    out.innerHTML = '<div class="dash-text">Could not reach Ezzy. Check your connection and try again.</div>';
+    console.error('opportunity fixes', e);
+  }
 }
 
 // Prep shortcuts carry the role (and company) in, so nothing is re-typed.
