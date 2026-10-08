@@ -98,7 +98,9 @@ export default async function handler(req, res) {
       mode: priceInfo.mode,
       customer_email: user.email,
       client_reference_id: user.id,
-      success_url: origin + '/?checkout=success',
+      // The plan rides along so the page knows what to wait for and what to
+      // say: a one-time review is not a subscription.
+      success_url: origin + '/?checkout=success&plan=' + encodeURIComponent(plan),
       cancel_url: origin + '/?checkout=cancel',
       line_items: [{ quantity: 1, price_data: priceData }],
       // Top-level session metadata covers one-time payments

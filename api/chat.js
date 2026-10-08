@@ -1475,6 +1475,17 @@ export default async function handler(req, res) {
       return res.status(response.status).json(data);
     }
 
+    // An upstream error is JSON, not an event stream. Send it as a 502 so
+    // the client shows something instead of waiting on text deltas that
+    // never come. Not the upstream status itself: a 401/429 from Anthropic
+    // would be mistaken for this proxy's own signup and free-limit gates.
+    if (!response.ok) {
+      const errData = await response.json().catch(function () { return {}; });
+      const up = (errData && errData.error) || {};
+      console.error('[chat] upstream error', response.status, up.type, up.message);
+      return res.status(502).json({ error: 'upstream_error', upstream: { status: response.status, type: up.type || null, message: up.message || null } });
+    }
+
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
@@ -1490,6 +1501,11 @@ export default async function handler(req, res) {
     }
     res.end();
   } catch (err) {
+    if (res.headersSent) {
+      // Already mid-stream: the status is gone, so say it in-band and close.
+      try { res.write('data: ' + JSON.stringify({ type: 'error', error: { type: 'proxy_error', message: err.message } }) + '\n\n'); } catch (e) {}
+      return res.end();
+    }
     res.status(500).json({ error: 'Proxy error', detail: err.message });
   }
 }

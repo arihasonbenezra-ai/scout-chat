@@ -179,8 +179,17 @@ export default async function handler(req, res) {
     var targets = fixTargets(opp);
     if (!targets.length) return res.status(200).json({ fixes: [], reason: 'nothing_to_fix' });
 
-    var resumes = await restRows(token, 'conversations?user_id=eq.' + user.id + '&mode=eq.resume&resume_text=not.is.null&select=resume_text,updated_at&order=updated_at.desc&limit=1');
-    var resumeText = (resumes[0] && resumes[0].resume_text) || '';
+    // The profile carries the latest resume from any entry point (onboarding
+    // or a review); the review row is the fallback for accounts from before
+    // the profile column existed.
+    var sources = await Promise.all([
+      restRows(token, 'career_profile?user_id=eq.' + user.id + '&select=resume_text,resume_updated_at'),
+      restRows(token, 'conversations?user_id=eq.' + user.id + '&mode=eq.resume&resume_text=not.is.null&select=resume_text,updated_at&order=updated_at.desc&limit=1')
+    ]);
+    var onProfile = sources[0][0] && sources[0][0].resume_text ? { text: sources[0][0].resume_text, when: sources[0][0].resume_updated_at } : null;
+    var onReview = sources[1][0] && sources[1][0].resume_text ? { text: sources[1][0].resume_text, when: sources[1][0].updated_at } : null;
+    var resume = onProfile || onReview || { text: '', when: null };
+    var resumeText = resume.text;
     if (resumeText.trim().length < 200) return res.status(200).json({ fixes: [], reason: 'no_resume' });
 
     var userContent = [
@@ -265,7 +274,7 @@ export default async function handler(req, res) {
     });
     if (dropped) console.log('[opp-fixes] dropped after retry', dropped);
 
-    var saved = { items: fixes, resume_date: resumes[0].updated_at, generated_at: new Date().toISOString() };
+    var saved = { items: fixes, resume_date: resume.when, generated_at: new Date().toISOString() };
     try {
       await fetch(SUPABASE_URL + '/rest/v1/career_opportunities?id=eq.' + oppId + '&user_id=eq.' + user.id, {
         method: 'PATCH',

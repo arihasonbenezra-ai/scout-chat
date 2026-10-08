@@ -1453,6 +1453,7 @@ function streamBotReply(messages,afterDone){
     setBubbleText(bubbleNode,fullSoFar);
   },function(gatedBySignup){
     isSending=false;updateSendBtnState();
+    hideTyping();
     if(gatedBySignup){
       // No real reply happened - stash the retry and skip afterDone
       // entirely rather than firing it with an empty reply, which would
@@ -1460,6 +1461,10 @@ function streamBotReply(messages,afterDone){
       pendingGatedRetry={messages:messages,afterDone:afterDone};
       return;
     }
+    // Errored or gated: callClaudeStream already told the user. Never hand
+    // an empty reply to afterDone - callers push it into convoHistory, and
+    // an empty assistant turn makes every later send fail too.
+    if(!fullText) return;
     if(afterDone)afterDone(fullText);
   });
 }
@@ -1495,9 +1500,16 @@ async function callClaudeStream(messages,onChunk,onDone){
       if(onDone)onDone();
       return;
     }
+    if(!res.ok){
+      var errBody=await res.json().catch(function(){return {};});
+      hideTyping();
+      addMsg('bot',streamErrorMessage(errBody));
+      if(onDone)onDone();
+      return;
+    }
     var reader=res.body.getReader();
     var decoder=new TextDecoder();
-    var fullText='';var buffer='';
+    var fullText='';var buffer='';var streamError=null;
     while(true){
       var chunk=await reader.read();
       if(chunk.done)break;
@@ -1512,6 +1524,7 @@ async function callClaudeStream(messages,onChunk,onDone){
         try{
           var json=JSON.parse(data);
           if(json.type==='ezzy_guard'){ console.warn('[ezzy-guard]', JSON.stringify(json.guard)); continue; }
+          if(json.type==='error'){ streamError=json; continue; }
           if(json.type==='content_block_delta'&&json.delta&&json.delta.text){
             fullText+=json.delta.text;
             onChunk(json.delta.text,fullText);
@@ -1519,12 +1532,29 @@ async function callClaudeStream(messages,onChunk,onDone){
         }catch(e){}
       }
     }
+    if(streamError||!fullText){
+      // Either the API sent an in-band error event, or the stream closed
+      // without a single text delta. Both leave the typing dots up forever
+      // unless we say something here.
+      console.warn('[chat] stream ended without a reply', streamError||'(no deltas)');
+      hideTyping();
+      addMsg('bot',streamErrorMessage(streamError));
+    }
     if(onDone)onDone();
   }catch(e){
     hideTyping();
     addMsg('bot','Sorry, something went wrong. Please try again.');
     if(onDone)onDone();
   }
+}
+
+function streamErrorMessage(body){
+  // body is either the proxy's {error:'upstream_error', upstream:{type}} or
+  // an in-band Anthropic event {type:'error', error:{type}}.
+  var inner=(body&&body.upstream)||(body&&body.error);
+  var kind=(inner&&typeof inner==='object'?inner.type:inner)||'';
+  if(/overloaded|rate_limit/.test(String(kind))) return 'I\'m overloaded right now. Give it a few seconds and send that again.';
+  return 'Sorry, something went wrong on my end. Please send that again.';
 }
 
 function appendDownloadButton(){
@@ -2357,6 +2387,7 @@ async function updateAuthUI(user){
     var navHome = document.getElementById('navHome');
     if(navHome) navHome.classList.add('show');
     if(isCareerPlan() && !MODE && emptyState && emptyState.style.display !== 'none') showDashboard();
+    settleCheckout(user.id);
   } else {
     signInBtn.style.display = 'inline-flex';
     userMenu.style.display = 'none';
@@ -2938,9 +2969,43 @@ var BRAIN_PROFILE = null;
 window._plan = null;
 async function loadPlan(uid){
   try{
-    var r = await window.supabaseClient.from('subscriptions').select('plan,status,current_period_end').eq('user_id', uid).maybeSingle();
+    var r = await window.supabaseClient.from('subscriptions').select('plan,status,current_period_end,resume_review_credits').eq('user_id', uid).maybeSingle();
     window._plan = r.data || null;
   }catch(e){ window._plan = null; }
+}
+// Back from Stripe. The webhook that writes the subscription row lands a
+// few seconds after the redirect, so the plan loaded at boot is still the
+// old one. Poll until the row shows what was bought (or give up quietly),
+// then redraw whatever the plan gates: the account menu, the locked
+// dashboard preview, and the Career home.
+var PENDING_CHECKOUT = null;
+async function settleCheckout(uid){
+  var pc = PENDING_CHECKOUT; if(!pc) return;
+  PENDING_CHECKOUT = null;
+  var plan = pc.plan;
+  var landed = function(){
+    var p = window._plan;
+    if(plan === 'resume_review') return !!(p && p.resume_review_credits > 0);
+    return planActive() && p.plan === plan;
+  };
+  var tries = 0;
+  while(!landed() && tries < 15){
+    await new Promise(function(r){ setTimeout(r, 2000); });
+    await loadPlan(uid);
+    tries++;
+  }
+  var ok = landed();
+  console.log('[checkout] plan', plan, ok ? 'active after ' + tries + ' polls' : 'not visible after ' + tries + ' polls');
+  var msg;
+  if(plan === 'resume_review') msg = ok ? 'Your resume review is paid for. Start it whenever you\u2019re ready.' : 'Payment received. Your review unlocks in a minute; refresh if it hasn\u2019t.';
+  else if(plan === 'job_search') msg = ok ? 'Job Search is unlocked for 90 days.' : 'Payment received. Job Search unlocks in a minute; refresh if it hasn\u2019t.';
+  else msg = ok ? 'Welcome to the Career plan.' : 'Payment received. Your plan activates in a minute; refresh if it hasn\u2019t.';
+  showSimpleToast(msg);
+  if(!ok) return;
+  closePricingModal();
+  renderPlanMenuItem();
+  if(DASH_ON) loadDashboard();
+  else if(isCareerPlan() && !MODE) showDashboard();
 }
 function planActive(){
   var p = window._plan;
@@ -3220,12 +3285,12 @@ async function loadDashboard(){
 function renderDashboard(body, d){
   var p = d.profile, latest = d.latest;
   var html = '';
+  // Career plan: stories, opportunities, Check my fit. Until it is for sale
+  // those sections are simply not shown; nothing on this page points at a
+  // plan that cannot be bought. The target, scores and sessions are the
+  // person's own on every plan.
   var locked = !isCareerPlan();
-  // In the locked preview, anything that edits or writes goes to the plans.
-  var EDIT = locked ? 'openPricingModal()' : 'dashEditTarget()';
-  if(locked){
-    html += '<div class="dash-lock"><div><div class="dash-lock-t">This is your Career view</div><div class="dash-lock-s">Everything here is already yours: your target, what Ezzy knows, your scores. The Career plan makes it your home, keeps your stories and opportunities, and adds role matching.</div></div><button class="dash-btn primary" onclick="openPricingModal()">See the Career plan</button></div>';
-  }
+  var EDIT = 'dashEditTarget()';
 
   // Greeting + primary actions
   var sub = latest && latest.overall != null
@@ -3233,7 +3298,7 @@ function renderDashboard(body, d){
     : (p.target_role_title ? 'Run a Practice set to get your first scorecard.' : 'Start by telling Ezzy what you\u2019re going for, or paste your resume.');
   html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div>'
     + '<div class="dash-actions"><button class="dash-btn primary" onclick="dashPractice()">Practice' + (latest ? ' again' : '') + '</button>'
-    + (locked ? '' : '<button class="dash-btn" onclick="dashResume()">Resume review</button>')
+    + '<button class="dash-btn" onclick="dashResume()">Resume review</button>'
     + '<button class="dash-btn" onclick="dashPostingEntry()">' + (locked ? 'Paste a job posting' : 'Add an opportunity') + '</button></div></div>';
 
   html += '<div class="dash-grid">';
@@ -3339,8 +3404,8 @@ function renderDashboard(body, d){
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
   if(rsLow && d.resumeScore.overall != null && d.resumeScore.overall < 8) next.push({t:'Resume: ' + rsLow.dimension.toLowerCase() + ' scored ' + rsLow.score + '/5', s:(rsLow.improvement || 'Fix it, then run the review again to see the score move.').slice(0,120), fn:'dashResume()'});
-  if(!d.opps.length) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
-  if(!d.stories.length) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
+  if(!d.opps.length && !locked) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
+  if(!d.stories.length && !locked) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
   html += '<div class="dash-card"><div class="dash-label">Do next</div>' + next.slice(0,3).map(function(n){
     return '<button class="dash-next' + (n.hot?' hot':'') + '" onclick="' + n.fn + '"><div class="dash-next-t">' + escapeHtml(n.t) + '</div><div class="dash-next-s">' + escapeHtml(n.s) + '</div></button>';
@@ -3355,7 +3420,7 @@ function renderDashboard(body, d){
         : roleAskTitle())
     + '</div></div>';
 
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
+  html += '<div class="dash-card' + (locked ? ' span3' : '') + '"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
   if(d.past.length){
     html += d.past.map(dashSessionRow).join('');
   } else {
@@ -3363,6 +3428,7 @@ function renderDashboard(body, d){
   }
   html += '</div>';
 
+  if(!locked){
   // Story bank
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Story bank</div>' + (d.stories.length ? '' : '<span class="dash-tag coral">Next up</span>') + '</div>';
   if(d.stories.length){
@@ -3384,6 +3450,7 @@ function renderDashboard(body, d){
   }
   html += '</div>';
 
+  }
   html += '</div>'; // grid
   html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
@@ -3534,7 +3601,7 @@ function dashEditTarget(){
 // shown at this stage. "Check my fit" reads the full posting and runs the
 // real match, which lands as an Opportunity with a verdict.
 var ROLE_SKIP = /^(senior|sr|staff|principal|lead|junior|jr|associate|intern|head|director|vp|chief|manager of|ii|iii|iv|of|and|the|for|to|in|at|a|an)$/;
-var DASH_ROLES = null; // { key, ranked }
+var DASH_ROLES = null; // { key, summary, rows: { '<loc>|<level>': ranked } }
 // Seeing the roles is free for every signed-in user; they are the
 // companies' own public listings. What the Career plan adds is Ezzy's work
 // on top: the fit check, the verdict, the fixes.
@@ -3615,42 +3682,88 @@ function roleInTargetLocation(l, p){
   }
   return '';
 }
+function roleHead(p){ var toks = roleTokens(p.target_role_title); return toks.length ? toks[toks.length - 1] : ''; }
+function roleKey(p){ return roleTokens(p.target_role_title).join(' ') + '|' + (p.target_level || '') + '|' + (p.target_work_type || '') + '|' + (p.target_locations || []).join(','); }
+// Everything matching the head word, counted on the server (migration
+// 0030): the filter chips, every place and level that appears. One call per
+// target; the rows come per filter from dashFetchRoles, so the 400-row cap
+// applies within a place, not across the country.
+async function roleSummary(p){
+  var head = roleHead(p);
+  if(!head || !window.supabaseClient) return null;
+  var key = roleKey(p);
+  if(DASH_ROLES && DASH_ROLES.key === key && DASH_ROLES.summary) return DASH_ROLES.summary;
+  var r = await window.supabaseClient.rpc('role_summary', { q: head, places: roleTargetPlaces(p) });
+  if(r.error){ console.error('roles summary', r.error); return null; }
+  var s = r.data || {};
+  var summary = { all: s.all || 0, remote: s.remote || 0, mine: s.mine || 0, places: {}, levels: s.levels || {} };
+  // A posting can list several places; count it under each.
+  (s.places || []).forEach(function(x){ rolePlaces({ location: x.location }).forEach(function(pl){ summary.places[pl] = (summary.places[pl] || 0) + (x.n || 0); }); });
+  DASH_ROLES = { key: key, summary: summary, rows: {} };
+  return summary;
+}
+// The rows for the current filter: the newest 400 in that place, remote, or
+// level. Roles with no post date sort by when Ezzy first saw them.
 async function dashFetchRoles(p, oppUrls){
+  var head = roleHead(p);
+  if(!head || !window.supabaseClient) return [];
   var toks = roleTokens(p.target_role_title);
-  if(!toks.length || !window.supabaseClient) return [];
-  var key = toks.join(' ') + '|' + (p.target_level || '') + '|' + (p.target_work_type || '') + '|' + (p.target_locations || []).join(',');
-  if(DASH_ROLES && DASH_ROLES.key === key) return DASH_ROLES.ranked;
-  // Search on the core word of the title; the rest is ranked here.
-  var head = toks[toks.length - 1];
-  var r = await window.supabaseClient.from('job_listings')
-    .select('id,company,title,location,remote,url,posted_at,level,family')
-    .eq('active', true).textSearch('title_tsv', head, { type: 'websearch' })
-    .order('posted_at', { ascending: false, nullsFirst: false }).limit(400);
+  var key = roleKey(p);
+  if(!DASH_ROLES || DASH_ROLES.key !== key) DASH_ROLES = { key: key, summary: null, rows: {} };
+  var loc = ROLE_FILTER.loc || 'all', lvl = ROLE_FILTER.level || '';
+  var fkey = loc + '|' + lvl;
+  if(DASH_ROLES.rows[fkey]) return DASH_ROLES.rows[fkey];
+  var clean = function(s){ return String(s).replace(/[,()"\\*%]/g, ' ').replace(/\s+/g, ' ').trim(); };
+  var build = function(orderCol){
+    var q = window.supabaseClient.from('job_listings')
+      .select('id,company,title,location,remote,url,posted_at,first_seen_at,level,family')
+      .eq('active', true).textSearch('title_tsv', head, { type: 'websearch' });
+    if(loc === 'remote') q = q.eq('remote', true);
+    else if(loc === 'mine'){
+      var want = roleTargetPlaces(p).map(clean).filter(Boolean);
+      if(want.length) q = q.or(want.map(function(w){ return 'location.ilike.*' + w + '*'; }).join(','));
+    }
+    else if(loc.indexOf('city:') === 0){ var city = clean(loc.slice(5)); if(city) q = q.ilike('location', '%' + city + '%'); }
+    if(lvl) q = q.eq('level', lvl);
+    return q.order(orderCol, { ascending: false, nullsFirst: false }).limit(400);
+  };
+  var r = await build('shown_at');
+  if(r.error && /shown_at/.test(r.error.message || '')) r = await build('posted_at'); // migration 0030 not applied yet
   if(r.error){ console.error('roles', r.error); return []; }
   var have = {}; (oppUrls || []).forEach(function(u){ if(u) have[u] = true; });
   var ranked = (r.data || []).filter(function(l){ return !have[l.url]; })
     .map(function(l){ return rankRole(l, p, toks); }).filter(Boolean)
-    .sort(function(a, b){ return b.score - a.score || (new Date(b.l.posted_at || 0) - new Date(a.l.posted_at || 0)); });
-  DASH_ROLES = { key: key, ranked: ranked };
+    .sort(function(a, b){ return b.score - a.score || (new Date(b.l.posted_at || b.l.first_seen_at || 0) - new Date(a.l.posted_at || a.l.first_seen_at || 0)); });
+  DASH_ROLES.rows[fkey] = ranked;
   return ranked;
+}
+// How long the role has been open. Feeds without a post date (Rippling)
+// only tell us when Ezzy first saw it, so that reads as a floor.
+function roleAge(l){
+  var iso = l.posted_at || l.first_seen_at;
+  if(!iso) return '';
+  var days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if(isNaN(days) || days < 0) return '';
+  if(l.posted_at) return days === 0 ? 'Posted today' : 'Open ' + days + (days === 1 ? ' day' : ' days');
+  return days === 0 ? 'Listed today' : 'Listed ' + days + '+ days';
 }
 function dashRoleRow(x){
   var l = x.l;
-  var sub = [l.location, l.posted_at ? 'Posted ' + dashDate(l.posted_at) : ''].filter(Boolean).map(escapeHtml).join(' · ');
+  var sub = [l.location, roleAge(l)].filter(Boolean).map(escapeHtml).join(' · ');
   return '<div class="role-row"><div class="role-main"><div class="dash-row-t">' + escapeHtml(l.title) + ' <span class="role-co">· ' + escapeHtml(l.company) + '</span></div>'
     + (sub ? '<div class="dash-row-s">' + sub + '</div>' : '')
     + '<div class="dash-chips" style="margin-top:6px">' + x.why.map(function(w){ return '<span class="dash-chip">' + escapeHtml(w) + '</span>'; }).join('') + '</div></div>'
-    + '<div class="role-actions"><button class="dash-btn" onclick="dashCheckFit(\'' + l.id + '\', this)">Check my fit</button>'
+    + '<div class="role-actions">' + (isCareerPlan() ? '<button class="dash-btn" onclick="dashCheckFit(\'' + l.id + '\', this)">Check my fit</button>' : '')
     + '<a class="dash-link" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener">View posting ↗</a></div></div>';
 }
 // What the person is looking at: their own locations, remote, everywhere,
 // or one named place; and optionally one level. Remembered between visits.
 var ROLE_FILTER = (function(){ try{ return JSON.parse(localStorage.getItem('ezzyRoleFilter') || 'null') || {}; }catch(e){ return {}; } })();
-var ROLE_VIEW = null; // { ranked, p, where: 'card' | 'list' }
-function roleFilterDefault(ranked, p){
+var ROLE_VIEW = null; // { ranked, summary, p, oppUrls, where: 'card' | 'list', loading }
+function roleFilterDefault(summary, p){
   if(ROLE_FILTER.loc) return;
   // Start where they said they want to work, when there is anything there.
-  ROLE_FILTER.loc = ranked.some(function(x){ return x.here; }) ? 'mine' : 'all';
+  ROLE_FILTER.loc = summary && summary.mine > 0 ? 'mine' : 'all';
 }
 function applyRoleFilter(ranked){
   var loc = ROLE_FILTER.loc || 'all', lvl = ROLE_FILTER.level || '';
@@ -3666,27 +3779,38 @@ function setRoleFilter(key, val){
   ROLE_FILTER[key] = val;
   try{ localStorage.setItem('ezzyRoleFilter', JSON.stringify(ROLE_FILTER)); }catch(e){}
   if(!ROLE_VIEW) return;
-  if(ROLE_VIEW.where === 'list') renderRolesList(); else renderRolesCard();
+  var v = ROLE_VIEW;
+  var want = (ROLE_FILTER.loc || 'all') + '|' + (ROLE_FILTER.level || '');
+  var render = function(){ if(v.where === 'list') renderRolesList(); else renderRolesCard(); };
+  v.loading = true; render();
+  dashFetchRoles(v.p, v.oppUrls).then(function(ranked){
+    if(ROLE_VIEW !== v || (ROLE_FILTER.loc || 'all') + '|' + (ROLE_FILTER.level || '') !== want) return; // they clicked again
+    v.ranked = ranked; v.loading = false; render();
+  }, function(e){ console.error('roles', e); if(ROLE_VIEW === v){ v.loading = false; render(); } });
 }
 function roleFilterBar(full){
-  var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
+  var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p, s = ROLE_VIEW.summary;
   var mine = (p.target_locations || []).filter(function(x){ return !/^remote/i.test(String(x).trim()); }).join(' / ');
-  var n = function(test){ return ranked.filter(test).length; };
+  // Counts come from the server summary; from the loaded rows when there is none.
+  var n = function(k, test){ return s ? s[k] : ranked.filter(test).length; };
   var loc = ROLE_FILTER.loc || 'all';
   var chip = function(val, label, count){
     return '<button class="role-chip' + (loc === val ? ' on' : '') + '" onclick="setRoleFilter(\'loc\',\'' + val + '\')">' + escapeHtml(label) + ' <span>' + count + '</span></button>';
   };
   var html = '<div class="role-filters">';
-  if(mine) html += chip('mine', mine, n(function(x){ return x.here; }));
-  html += chip('remote', 'Remote', n(function(x){ return x.l.remote; })) + chip('all', 'Everywhere', ranked.length);
+  if(mine) html += chip('mine', mine, n('mine', function(x){ return x.here; }));
+  html += chip('remote', 'Remote', n('remote', function(x){ return x.l.remote; })) + chip('all', 'Everywhere', n('all', function(){ return true; }));
   if(full){
     // Every place that appears, most roles first.
-    var counts = {};
-    ranked.forEach(function(x){ rolePlaces(x.l).forEach(function(pl){ counts[pl] = (counts[pl] || 0) + 1; }); });
-    var places = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a] || a.localeCompare(b); }).slice(0, 40);
+    var counts = s ? s.places : {};
+    if(!s) ranked.forEach(function(x){ rolePlaces(x.l).forEach(function(pl){ counts[pl] = (counts[pl] || 0) + 1; }); });
+    var places = Object.keys(counts).sort(function(a, b){ return counts[b] - counts[a] || a.localeCompare(b); }).slice(0, 60);
+    var cur = loc.indexOf('city:') === 0 ? loc.slice(5) : '';
+    if(cur && places.indexOf(cur) === -1) places.unshift(cur);
     html += '<select class="dash-field role-sel" onchange="setRoleFilter(\'loc\', this.value || \'all\')"><option value="">Pick a place</option>'
-      + places.map(function(pl){ var v = 'city:' + pl; return '<option value="' + escapeHtml(v) + '"' + (loc === v ? ' selected' : '') + '>' + escapeHtml(pl) + ' (' + counts[pl] + ')</option>'; }).join('') + '</select>';
-    var levels = {}; ranked.forEach(function(x){ if(x.l.level) levels[x.l.level] = (levels[x.l.level] || 0) + 1; });
+      + places.map(function(pl){ var v = 'city:' + pl; return '<option value="' + escapeHtml(v) + '"' + (loc === v ? ' selected' : '') + '>' + escapeHtml(pl) + (counts[pl] ? ' (' + counts[pl] + ')' : '') + '</option>'; }).join('') + '</select>';
+    var levels = s ? s.levels : {};
+    if(!s) ranked.forEach(function(x){ if(x.l.level) levels[x.l.level] = (levels[x.l.level] || 0) + 1; });
     var order = ['entry','mid','senior','staff','principal','manager','director','vp','exec'].filter(function(k){ return levels[k]; });
     if(order.length) html += '<select class="dash-field role-sel" onchange="setRoleFilter(\'level\', this.value)"><option value="">Any level</option>'
       + order.map(function(k){ return '<option value="' + k + '"' + (ROLE_FILTER.level === k ? ' selected' : '') + '>' + k.charAt(0).toUpperCase() + k.slice(1) + ' (' + levels[k] + ')</option>'; }).join('') + '</select>';
@@ -3696,41 +3820,46 @@ function roleFilterBar(full){
 function roleFilterEmpty(){
   return '<div class="dash-empty"><div class="dash-empty-t">Nothing under this filter</div><div class="dash-empty-s">There are open roles elsewhere.</div><button class="dash-btn" onclick="ROLE_FILTER.level=\'\';setRoleFilter(\'loc\',\'all\')">Show everywhere</button></div>';
 }
+function roleTotal(){ return ROLE_VIEW.summary ? ROLE_VIEW.summary.all : ROLE_VIEW.ranked.length; }
+function roleRows(shown, max){
+  if(ROLE_VIEW.loading) return '<div class="dash-muted">Loading...</div>';
+  return shown.length ? shown.slice(0, max).map(dashRoleRow).join('') : roleFilterEmpty();
+}
 function renderRolesCard(){
   var box = document.getElementById('dashRoles');
   if(!box || !ROLE_VIEW) return;
   var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
-  var shown = applyRoleFilter(ranked);
-  box.innerHTML = roleFilterBar(false)
-    + (shown.length ? shown.slice(0, 5).map(dashRoleRow).join('') : roleFilterEmpty())
-    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target; Check my fit reads the full posting and gives a verdict.</div>'
+  var shown = applyRoleFilter(ranked), total = roleTotal();
+  box.innerHTML = roleFilterBar(false) + roleRows(shown, 5)
+    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target' + (isCareerPlan() ? '; Check my fit reads the full posting and gives a verdict' : '') + '.</div>'
     + ROLE_SOURCE_NOTE;
-  var all = document.getElementById('dashRolesAll'); if(all) all.style.display = ranked.length > 5 ? '' : 'none';
+  var all = document.getElementById('dashRolesAll'); if(all) all.style.display = total > 5 ? '' : 'none';
 }
 function renderRolesList(){
   var body = document.getElementById('dashBody');
   if(!body || !ROLE_VIEW) return;
   var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
-  var shown = applyRoleFilter(ranked);
-  var inner = roleFilterBar(true) + (shown.length ? shown.slice(0, 80).map(dashRoleRow).join('') : roleFilterEmpty()) + ROLE_SOURCE_NOTE;
-  body.innerHTML = dashView('Roles for you', shown.length + ' of ' + ranked.length + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + (shown.length > 80 ? ', best 80 shown' : '') + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
+  var shown = applyRoleFilter(ranked), total = roleTotal();
+  var inner = roleFilterBar(true) + roleRows(shown, 80) + ROLE_SOURCE_NOTE;
+  var note = shown.length > 80 ? ', best 80 shown' : ((ROLE_FILTER.loc || 'all') === 'all' && total > ranked.length ? ', newest ' + ranked.length + ' loaded; pick a place to see every role there' : '');
+  body.innerHTML = dashView('Roles for you', shown.length + ' of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + note + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
 }
 async function dashLoadRoles(d){
   var box = document.getElementById('dashRoles');
   if(!box) return;
   var p = roleProfile(d.profile);
-  var ranked = [];
-  try{ ranked = await dashFetchRoles(p, (d.opps || []).map(function(o){ return o.url; })); }
+  var oppUrls = (d.opps || []).map(function(o){ return o.url; });
+  var summary = null, ranked = [];
+  try{ summary = await roleSummary(p); roleFilterDefault(summary, p); ranked = await dashFetchRoles(p, oppUrls); }
   catch(e){ console.error('roles', e); }
   box = document.getElementById('dashRoles'); // the page may have re-rendered while we waited
   if(!box) return;
-  if(!ranked.length){
+  if(!(summary ? summary.all : ranked.length)){
     box.innerHTML = '<div class="dash-empty"><div class="dash-empty-t">No open ' + escapeHtml(p.target_role_title) + ' roles right now</div><div class="dash-empty-s">Nothing with that title is open at the companies Ezzy follows today. The list refreshes every night; a broader title will also widen it.</div></div>'
       + (ROLE_QUERY ? roleAskTitle() : '');
     return;
   }
-  ROLE_VIEW = { ranked: ranked, p: p, where: 'card' };
-  roleFilterDefault(ranked, p);
+  ROLE_VIEW = { ranked: ranked, summary: summary, p: p, oppUrls: oppUrls, where: 'card' };
   renderRolesCard();
 }
 async function dashShowRoles(){
@@ -3741,10 +3870,9 @@ async function dashShowRoles(){
   var p = roleProfile(DASH_PROFILE || {});
   body.innerHTML = dashView('Roles for you', 'Open roles matched to your target.', 'My Career', 'loadDashboard()', '<div class="dash-loading">Loading...</div>');
   if(!p.target_role_title){ loadDashboard(); return; }
-  var ranked = [];
-  try{ ranked = await dashFetchRoles(p, []); }catch(e){ console.error('roles', e); }
-  ROLE_VIEW = { ranked: ranked, p: p, where: 'list' };
-  roleFilterDefault(ranked, p);
+  var summary = null, ranked = [];
+  try{ summary = await roleSummary(p); roleFilterDefault(summary, p); ranked = await dashFetchRoles(p, []); }catch(e){ console.error('roles', e); }
+  ROLE_VIEW = { ranked: ranked, summary: summary, p: p, oppUrls: [], where: 'list' };
   renderRolesList();
   body.parentNode.scrollTop = 0;
 }
@@ -3959,6 +4087,18 @@ async function dashShowOpportunities(){
   body.parentNode.scrollTop = 0;
 }
 
+// For an opportunity from Roles for you: the date the company's board last
+// listed it, when it no longer does; '' while it is still up or unknown.
+async function oppPostingClosed(row){
+  if(!row || row.source !== 'job_feed' || !row.external_id || !window.supabaseClient) return '';
+  var k = String(row.external_id).split(':');
+  if(k.length < 3) return '';
+  try{
+    var r = await window.supabaseClient.from('job_listings').select('active,last_seen_at')
+      .eq('ats', k[0]).eq('slug', k[1]).eq('external_id', k.slice(2).join(':')).maybeSingle();
+    return r.data && r.data.active === false ? (r.data.last_seen_at || '') : '';
+  }catch(e){ console.error('posting state', e); return ''; }
+}
 async function dashShowOpportunity(id, row){
   OPP_RETURN = null;
   if(!DASH_ON) showDashboard(true);
@@ -3996,6 +4136,11 @@ async function dashShowOpportunity(id, row){
 
   var html = '<div class="dash-chips">' + oppFacts(row).map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
     + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>';
+  // A role that came from the feed: say so when the company has since
+  // taken the posting down. The opportunity itself stays; a closed posting
+  // is not a rejection, so the stage is left to the person.
+  var closed = await oppPostingClosed(row);
+  if(closed) html += '<div class="dash-warn" style="margin:4px 0 10px">This posting came down on ' + escapeHtml(dashDate(closed)) + '. The company no longer lists it.</div>';
 
   // Verdict: apply, apply with these fixes, or skip. Computed from the
   // match above; the fit number stays as the working underneath it.
@@ -4186,7 +4331,7 @@ function renderOppFixes(fx){
     + '<div class="dash-muted">' + (function(){
         var n = items.filter(function(f){ return !!f.rewrite; }).length;
         return (n ? n + ' of ' + items.length + (items.length === 1 ? ' has' : ' have') + ' a rewrite you can paste in. ' : 'No rewrites this time. ')
-          + 'Written from the resume in your review on ' + dashDate(fx.resume_date) + ', using only what that resume already says.';
+          + 'Written from the resume you gave me' + (fx.resume_date ? ' on ' + dashDate(fx.resume_date) : '') + ', using only what that resume already says.';
       })() + '</div>';
 }
 // What the button offers next, given what is already on the page.
@@ -4291,21 +4436,26 @@ async function dashOppResume(){
   if(last){
     resumeDropDismissed = true;
     var dz = document.getElementById('dropZone'); if(dz) dz.classList.remove('active');
-    addMsg('bot', 'Reviewing the resume from your last review (' + dashDate(last.when) + ') against ' + posting + '. To use a different resume, click Start a new review when this one finishes.');
+    addMsg('bot', 'Reviewing the resume you gave me' + (last.when ? ' on ' + dashDate(last.when) : '') + ' against ' + posting + '. To use a different resume, click Start a new review when this one finishes.');
     handleSendText(last.text);
   } else {
     addMsg('bot', 'I have ' + posting + '. Drop or paste your resume and I\u2019ll review it against that.');
   }
 }
-// The most recent resume the person gave a review, if any.
+// The most recent resume Ezzy has seen, if any: the profile copy (written
+// by extraction from onboarding or a review) first, then the last review's
+// row for accounts from before the profile carried one.
 async function latestResumeOnFile(){
   try{
     var sessionRes = await window.supabaseClient.auth.getSession();
     var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
     if(!uid) return null;
+    var usable = function(text){ return text && text.trim().length >= 200; };
+    var p = await window.supabaseClient.from('career_profile').select('resume_text,resume_updated_at').eq('user_id', uid).maybeSingle();
+    if(p.data && usable(p.data.resume_text)) return { text: p.data.resume_text, when: p.data.resume_updated_at };
     var r = await window.supabaseClient.from('conversations').select('resume_text,updated_at').eq('user_id', uid).eq('mode', 'resume').not('resume_text', 'is', null).order('updated_at', {ascending:false}).limit(1);
     var row = r.data && r.data[0];
-    return row && row.resume_text && row.resume_text.trim().length >= 200 ? { text: row.resume_text, when: row.updated_at } : null;
+    return row && usable(row.resume_text) ? { text: row.resume_text, when: row.updated_at } : null;
   }catch(e){ console.error('latest resume', e); return null; }
 }
 
@@ -4696,13 +4846,16 @@ function showSimpleToast(message){
   var params = new URLSearchParams(window.location.search);
   var checkoutResult = params.get('checkout');
   if(checkoutResult==='success'){
-    showSimpleToast('You\'re subscribed! This can take a few seconds to activate.');
+    // Older success links have no plan; Career is what the modal mostly sells.
+    PENDING_CHECKOUT = { plan: params.get('plan') || 'career' };
+    showSimpleToast('Payment received. Setting up your account...');
   } else if(checkoutResult==='cancel'){
     showSimpleToast('Checkout canceled - you were not charged.');
   }
   if(checkoutResult){
     var url = new URL(window.location.href);
     url.searchParams.delete('checkout');
+    url.searchParams.delete('plan');
     window.history.replaceState({}, '', url.toString());
   }
 })();

@@ -245,7 +245,10 @@ export default async function handler(req, res) {
     ]);
     var profile = evidence[0][0] || null;
     var claims = evidence[1] || [];
-    var resumeText = (evidence[2][0] && evidence[2][0].resume_text) || '';
+    // The profile carries the latest resume from any entry point (onboarding
+    // or a review); the review row is the fallback for accounts from before
+    // the profile column existed.
+    var resumeText = (profile && profile.resume_text) || (evidence[2][0] && evidence[2][0].resume_text) || '';
     var hasEvidence = !!(resumeText || claims.length);
 
     // 3. Grade each requirement, then score here.

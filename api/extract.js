@@ -134,6 +134,24 @@ export default async function handler(req, res) {
     var jdText = typeof body.jdText === 'string' ? body.jdText.slice(0, 20000) : '';
     if (!resumeText) return res.status(400).json({ error: 'resumeText required' });
 
+    // Keep the resume itself on the profile before anything else can fail:
+    // the opportunity verdict, the written fixes and the review shortcut all
+    // read it from here, whichever door it came in through (onboarding or a
+    // review). A resume shorter than this is a fragment, not a resume.
+    if (resumeText.trim().length >= 200) {
+      var stamp = new Date().toISOString();
+      await fetch(SUPABASE_URL + '/rest/v1/career_profile?on_conflict=user_id', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: 'Bearer ' + token,
+          Prefer: 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify([{ user_id: user.id, resume_text: resumeText, resume_updated_at: stamp, updated_at: stamp }])
+      }).catch(function (e) { console.error('[extract] resume_text write failed', e && e.message); });
+    }
+
     var userMsg = 'Resume:\n\n' + resumeText + (jdText ? '\n\n---\n\nTarget job description:\n\n' + jdText : '');
 
     const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {

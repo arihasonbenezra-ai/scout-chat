@@ -4,8 +4,24 @@
     {
       "name": "static",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8791"],
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8791"
+      ],
       "port": 8791
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8792",
+        "--directory",
+        "/Users/aribenezra/code/ezzy-landing"
+      ],
+      "port": 8792
     }
   ]
 }
