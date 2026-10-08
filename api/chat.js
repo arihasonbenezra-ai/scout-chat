@@ -66,7 +66,7 @@ const RESUME_SYSTEM_FREE = [
 // Free tier still gets real JD-matched feedback (same core prompt) - what
 // it doesn't get is the structured gap-analysis checklist, Career Brain
 // personalization/saving, or unlimited use. See FREE_RESUME_REVIEW_LIMIT.
-const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want in-depth feedback and a gap analysis against the job you want? Upgrade for a full, recruiter-built resume review."';
+const RESUME_UPSELL_LINE = '\n\nEnd your response with exactly this line, verbatim: "Want in-depth feedback and a gap analysis against the job you want? Upgrade for a full resume review."';
 
 // Applied to every prep mode. Prompt rules alone are not the guard - see
 // checkGrounding() below, which enforces (1) and (2) server-side.

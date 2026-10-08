@@ -701,7 +701,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
   <div class="modal-overlay" id="modalOverlay">
     <div class="modal">
       <p class="modal-title" id="modalTitle">Switch mode?</p>
-      <p class="modal-desc" id="modalDesc">This will start a new conversation. Your current session won't be saved.</p>
+      <p class="modal-desc" id="modalDesc">This will start a new conversation. Your current one is saved and picks up where you left off when you come back.</p>
       <div class="modal-actions">
         <button class="modal-btn modal-btn-cancel" onclick="cancelModeSwitch()">Cancel</button>
         <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn" onclick="confirmModeSwitch()">Switch mode</button>
@@ -1007,7 +1007,7 @@ function requestModeSwitch(modeId,modeTitle){
   }
   pendingModeSwitch={id:modeId,title:modeTitle};
   document.getElementById('modalTitle').textContent='Switch to '+modeTitle+'?';
-  document.getElementById('modalDesc').textContent='This will start a new conversation. Your current session won\'t be saved.';
+  document.getElementById('modalDesc').textContent='This will start a new conversation. Your current one is saved and picks up where you left off when you come back.';
   document.getElementById('modalConfirmBtn').textContent='Switch mode';
   modalOverlay.classList.add('show');
 }
@@ -1396,11 +1396,11 @@ function showUpgradeGateMessage(errorCode, detail){
   hideTyping();
   if(errorCode === 'prep_mode_requires_job_search'){
     var modeLabel = FREE_MODE_LABEL[detail && detail.mode] || 'This mode';
-    addMsg('bot',modeLabel+' is part of Job Search. Sign up for in-depth interview prep and a full, recruiter-built resume review with gap analysis - not just general pointers.');
+    addMsg('bot',modeLabel+' is part of Job Search. Sign up for in-depth interview prep and a full resume review with gap analysis against the job you want - not just general pointers.');
   } else if(errorCode === 'free_prep_limit_reached'){
-    addMsg('bot','You\'ve used your free practice session. Sign up for in-depth, unlimited interview prep - Practice, STAR, and Mock Interview - plus real resume feedback built by recruiters and hiring managers.');
+    addMsg('bot','You\'ve used your free practice session. Sign up for in-depth, unlimited interview prep - Practice, STAR, and Mock Interview - plus a full resume review with gap analysis against the job you want.');
   } else if(errorCode === 'free_resume_limit_reached'){
-    addMsg('bot','You\'ve used your free resume review. Sign up for an in-depth breakdown and gap analysis against the job you want - real resume feedback built by recruiters and hiring managers, not just general pointers.');
+    addMsg('bot','You\'ve used your free resume review. Sign up for an in-depth breakdown and gap analysis against the job you want - specific rewrites grounded in your resume, not just general pointers.');
   } else if(errorCode === 'research_requires_job_search'){
     addMsg('bot','Company Research is part of Job Search. Upgrade to unlock it.');
   } else {
@@ -2227,7 +2227,7 @@ async function handleAuthSubmit(e){
   var submitBtn = document.getElementById('authSubmitBtn');
   
   if(!email || !password){
-    showAuthError('Please fin email and password.');
+    showAuthError('Please fill in email and password.');
     return;
   }
   if(!isSignin && password.length < 6){
@@ -2253,6 +2253,15 @@ async function handleAuthSubmit(e){
         options: { data: { name: name || '' } }
       });
       if(result.error) throw result.error;
+      // With email confirmation on, Supabase answers a signup for an address
+      // that already has an account with a user, no session and an empty
+      // identities list, and sends no mail. Say so instead of "check your email".
+      if(result.data.user && Array.isArray(result.data.user.identities) && result.data.user.identities.length===0){
+        showAuthError('You already have an account with this email. Sign in instead.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Sign Up';
+        return;
+      }
       // If email confirmation is required, user.session will be null
       if(result.data.user && !result.data.session){
         showAuthError('Check your email to confirm your account.');
