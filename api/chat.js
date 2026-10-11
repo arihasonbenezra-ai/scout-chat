@@ -266,11 +266,18 @@ function prepProgress(messages, mode) {
   return { asked: Math.min(asked, size), size: size, wrapped: wrapped };
 }
 
-function prepProgressInstruction(p) {
+function prepProgressInstruction(p, avoid) {
   if (!p) return '';
   if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and the summary and scorecard were already given. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the restart icon.';
   if (p.asked >= p.size) return '\n\nSession state: the candidate has now answered question ' + p.size + ' of ' + p.size + ', the last one. Give feedback on this answer, then a 3-4 sentence overall summary of the set. Do NOT give a numeric score (a scorecard is computed separately and appended). Do NOT ask another question, and do NOT say "next" or offer to move on - there is nothing after this. If something is missing from this last answer, say what it is, but frame it as advice for their real interview.';
-  if (p.asked === 0) return '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
+  if (p.asked === 0) {
+    var line = '\n\nSession state: no question has been asked yet. Your first question is "Question 1 of ' + p.size + '".';
+    // A restart before any answer gets a genuinely different opener, not
+    // the same competency reworded (first stranger on the site did exactly
+    // this and got the stakeholder question twice).
+    if (avoid) line += ' The candidate restarted the previous set before answering; it opened with: "' + avoid.replace(/"/g, "'") + '". Open with a DIFFERENT competency this time, not a rephrasing of that question.';
+    return line;
+  }
   return '\n\nSession state: you have asked ' + p.asked + ' of ' + p.size + ' questions so far. When you move on, the next one is "Question ' + (p.asked + 1) + ' of ' + p.size + '". Never restart the numbering.';
 }
 
@@ -698,6 +705,19 @@ function isPrepAnswerTurn(mode, messages) {
   if (!last || last.role !== 'user') return false;
   var text = typeof last.content === 'string' ? last.content : sessionText([last]);
   return text.trim().length >= 30; // a real answer, not "ok" / "next"
+}
+
+// Shared shape check with the client (index.html companyNameProblem): the
+// whole input is a greeting / filler, ends in a question mark, has no
+// letters or digits, or runs longer than a name. Keep the two in sync.
+var GREETING_RE = /^(hi+|hello+|hey+|heya|yo|sup|hola|howdy|thanks|thank you|ok|okay|test|testing)([\s,!.]+(there|ezzy|everyone|all|you))*[\s!.,]*$/i;
+function companyNameProblem(name) {
+  var s = String(name || '').trim();
+  if (!s || !/[a-z0-9]/i.test(s)) return 'company name required';
+  if (GREETING_RE.test(s)) return 'that is a greeting, not a company name';
+  if (/\?\s*$/.test(s)) return 'that is a question, not a company name';
+  if (s.split(/\s+/).length > 6) return 'company name is too long';
+  return null;
 }
 
 function researchSystemPrompt(role, company) {
@@ -1272,6 +1292,7 @@ export default async function handler(req, res) {
     var mode = body.mode;
     var role = typeof body.role === 'string' ? body.role.slice(0, 120) : null;
     var company = typeof body.company === 'string' ? body.company.slice(0, 120) : null;
+    var avoid = typeof body.avoid === 'string' ? body.avoid.slice(0, 500).trim() : '';
     var messages = Array.isArray(body.messages) ? body.messages : null;
     var isStreaming = body.stream === true;
 
@@ -1280,6 +1301,12 @@ export default async function handler(req, res) {
     }
     if (!messages || !messages.length) {
       return res.status(400).json({ error: 'messages required' });
+    }
+    // A research brief is a web search about whatever string arrives as the
+    // company. "hi there" is not a company; refuse before spending the
+    // search (and before the brief for a non-company gets cached).
+    if (mode === 'research' && messages.length === 1 && companyNameProblem(company)) {
+      return res.status(400).json({ error: 'company_required', message: companyNameProblem(company) });
     }
 
     var authHeader = req.headers && (req.headers.authorization || req.headers.Authorization);
@@ -1399,7 +1426,7 @@ export default async function handler(req, res) {
       stream: isStreaming
     };
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
-      anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode));
+      anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode), avoid);
     }
 
     if (mode === 'resume') {

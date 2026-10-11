@@ -972,6 +972,7 @@ async function startMode(modeId,modeTitle){
   inputEl.placeholder='Type your answer...';
   showTyping();
   streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
+    window._avoidQuestion = '';
     convoHistory.push({role:'assistant',content:reply});
     saveMessage('assistant', reply);
   });
@@ -1178,6 +1179,24 @@ function currentModeKey(){
 
 function handleSend(){handleSendText(inputEl.value);}
 
+// Mirrors companyNameProblem in api/chat.js (the server refuses too).
+var COMPANY_ASK='I need a company name to build the brief. Which company are you interviewing with? Just the name, like "Stripe" or "Mayo Clinic".';
+var GREETING_RE=/^(hi+|hello+|hey+|heya|yo|sup|hola|howdy|thanks|thank you|ok|okay|test|testing)([\s,!.]+(there|ezzy|everyone|all|you))*[\s!.,]*$/i;
+function companyNameProblem(name){
+  var s=String(name||'').trim();
+  if(!s||!/[a-z0-9]/i.test(s)) return 'empty';
+  if(GREETING_RE.test(s)) return 'greeting';
+  if(/\?\s*$/.test(s)) return 'question';
+  if(s.split(/\s+/).length>6) return 'too long';
+  return null;
+}
+function researchAskAgain(){
+  RESEARCH_STAGE='awaiting_company'; window.RESEARCH_STAGE='awaiting_company';
+  RESEARCH_COMPANY=''; window.RESEARCH_COMPANY='';
+  hideTyping();
+  addMsg('bot',COMPANY_ASK);
+}
+
 function handleSendText(text){
   text=text.trim();if(!text)return;
   inputEl.value='';
@@ -1186,6 +1205,7 @@ function handleSendText(text){
   if(MODE==='research'){
     addMsg('user',text);
     if(RESEARCH_STAGE==='awaiting_company'){
+      if(companyNameProblem(text)){ addMsg('bot',COMPANY_ASK); return; }
       RESEARCH_COMPANY=text;
       window.RESEARCH_COMPANY=text;
       RESEARCH_STAGE='generating_brief';
@@ -1194,8 +1214,16 @@ function handleSendText(text){
       showTyping(['Ezzy is researching '+text+'...','Pulling together your brief...','Almost done...']);
       var researchPrompt='I\'m interviewing for a '+ROLE+' role at '+text+'. Generate a research brief tailored to that interview, using web search to pull current information.';
       convoHistory=[{role:'user',content:researchPrompt}];
-      callClaudeWithSearch(convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply, ok){
         hideTyping();
+        if(!ok){
+          // No brief landed: stay on the company question instead of
+          // pretending there is a brief to follow up on.
+          addMsg('bot',reply);
+          convoHistory=[];
+          researchAskAgain();
+          return;
+        }
         addMsg('bot',reply);
         convoHistory.push({role:'assistant',content:reply});
         RESEARCH_STAGE='conversational';
@@ -1206,9 +1234,10 @@ function handleSendText(text){
       convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
       showTyping(['Ezzy is researching '+RESEARCH_COMPANY+'...','Searching the web...','Almost done...']);
-      callClaudeWithSearch(convoHistory,function(reply){
+      callClaudeWithSearch(convoHistory,function(reply, ok){
         hideTyping();
         addMsg('bot',reply);
+        if(!ok){ convoHistory.pop(); return; } // the question never got an answer; drop it from the history sent next time
         convoHistory.push({role:'assistant',content:reply});
         saveMessage('assistant', reply);
       });
@@ -1420,24 +1449,33 @@ async function callClaudeWithSearch(messages,cb){
       company:window.RESEARCH_COMPANY||RESEARCH_COMPANY,
       messages:messages
     })});
+    if(res.status===400){
+      var badBody=await res.json().catch(function(){return {};});
+      if(badBody.error==='company_required'){ researchAskAgain(); return; }
+    }
     if(res.status===403){
       var gateBody=await res.json().catch(function(){return {};});
+      hideTyping();
+      if(RESEARCH_STAGE==='generating_brief'){ RESEARCH_STAGE='awaiting_company'; window.RESEARCH_STAGE='awaiting_company'; }
       showUpgradeGateMessage(gateBody.error, gateBody);
       return;
     }
     if(res.status===429){
       var searchLimitBody=await res.json().catch(function(){return {};});
+      hideTyping();
+      if(RESEARCH_STAGE==='generating_brief'){ RESEARCH_STAGE='awaiting_company'; window.RESEARCH_STAGE='awaiting_company'; }
       if(searchLimitBody.error==='anon_global_limit_reached') showAnonGlobalLimitMessage();
       else showAnonLimitMessage();
       return;
     }
+    if(!res.ok){cb('Sorry, I could not generate a brief. Please try again.', false);return;}
     var data=await res.json();
-    if(!data.content){cb('Sorry, I could not generate a brief. Please try again.');return;}
+    if(!data.content){cb('Sorry, I could not generate a brief. Please try again.', false);return;}
     var textBlocks=data.content.filter(function(b){return b.type==='text';});
     var text=textBlocks.map(function(b){return b.text;}).join('\n\n');
-    if(!text){cb('Sorry, I could not generate a brief. Please try again.');return;}
-    cb(text);
-  }catch(e){cb('Sorry, something went wrong. Please try again.');}
+    if(!text){cb('Sorry, I could not generate a brief. Please try again.', false);return;}
+    cb(text, true);
+  }catch(e){cb('Sorry, something went wrong. Please try again.', false);}
 }
 
 // Set when a call gets stopped by the signup-required gate, so signing up
@@ -1479,6 +1517,7 @@ async function callClaudeStream(messages,onChunk,onDone){
       role:ROLE,
       messages:messages,
       conversationId: window._currentConversationId || null,
+      avoid: (messages.length===1 && messages[0].content==='Start the session now.' && window._avoidQuestion) ? window._avoidQuestion : null,
       stream:true
     })});
     if(res.status===401){
@@ -1694,6 +1733,9 @@ function startOverAvailable(){
   var modeId = TRAINER_MODE || window.TRAINER_MODE;
   if(!(modeId==='practice'||modeId==='star'||modeId==='mock')) return false;
   var m = window._prepMeta || {};
+  // Free until the first answer: restarting on question 1 is someone
+  // looking for a different opener, not dodging a hard question.
+  if ((m.answer_count || 0) === 0) return true;
   return (m.restart_count || 0) === 0 || (m.answer_count || 0) >= (PREP_SET_SIZE[modeId] || 5);
 }
 function refreshStartOverRow(){
@@ -1716,10 +1758,15 @@ async function startNewPrepSession(){
         query = window.ROLE ? query.eq('role', window.ROLE) : query.is('role', null);
         var existing = await query.maybeSingle();
         var row = existing.data;
+        var answered = !!(row && (row.answer_count || 0) > 0);
         if(row && row.id){
           var used = (row.restart_count || 0) >= 1;
           var completed = (row.answer_count || 0) >= required;
-          if(used && !completed){ console.warn('[start-over] row says restart used, set unfinished', row); refreshStartOverRow(); return; }
+          if(used && answered && !completed){ console.warn('[start-over] row says restart used, set unfinished', row); refreshStartOverRow(); return; }
+          // Remember the opener so the new set starts somewhere else.
+          var firstQ = null;
+          for(var qi=0; qi<convoHistory.length; qi++){ if(convoHistory[qi].role==='assistant'){ firstQ=convoHistory[qi].content; break; } }
+          window._avoidQuestion = (!answered && firstQ) ? String(firstQ).slice(0,500) : '';
           // Delete the conversation row (cascades to its messages - deleting
           // messages directly can be refused by RLS and then the old
           // session silently comes back on restore), then recreate it with
@@ -1730,12 +1777,15 @@ async function startNewPrepSession(){
           if(arch.error){ console.error('Start over: could not archive session', arch.error); showSimpleToast('Could not start over. Try again.'); return; }
         }
         var hadLive = !!(row && row.id);
+        // A restart only counts once an answer was given; before that the
+        // old row's count carries over unchanged.
+        var nextRestart = hadLive ? (answered ? 1 : (row.restart_count || 0)) : 0;
         var ins = await window.supabaseClient.from('conversations').insert({
-          user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: hadLive ? 1 : 0, answer_count: 0
+          user_id: uid, mode: modeId, role: window.ROLE || null, restart_count: nextRestart, answer_count: 0
         });
         if(ins.error) console.error('[start-over] could not record restart', ins.error);
         else console.log('[start-over] ' + (hadLive ? 'archived old session, ' : '') + 'new row created');
-        window._prepMeta = { restart_count: hadLive ? 1 : 0, answer_count: 0 };
+        window._prepMeta = { restart_count: nextRestart, answer_count: 0 };
       }
     }catch(e){ console.error('Could not clear previous session:', e); }
   }
@@ -2612,6 +2662,12 @@ async function handleOnboardingSubmit(e){
 
 window._currentConversationId = null;
 
+// "generating_brief" is an in-flight state, never a saved one: if the tab
+// closes mid-search the row must come back asking for the company again.
+function persistedResearchStage(){
+  var s = window.RESEARCH_STAGE || null;
+  return s === 'generating_brief' ? 'awaiting_company' : s;
+}
 async function ensureConversation(){
   if(!window.supabaseClient) return null;
   var session = await window.supabaseClient.auth.getSession();
@@ -2648,7 +2704,7 @@ async function ensureConversation(){
     jd_text: window.JD_TEXT || null,
     resume_stage: window.RESUME_STAGE || null,
     research_company: window.RESEARCH_COMPANY || null,
-    research_stage: window.RESEARCH_STAGE || null
+    research_stage: persistedResearchStage()
   };
   
   var created = await window.supabaseClient
@@ -2689,7 +2745,7 @@ async function saveMessage(role, content){
     jd_text: window.JD_TEXT || null,
     resume_stage: window.RESUME_STAGE || null,
     research_company: window.RESEARCH_COMPANY || null,
-    research_stage: window.RESEARCH_STAGE || null,
+    research_stage: persistedResearchStage(),
     updated_at: new Date().toISOString()
   };
   // Prep modes: how many answers the candidate has given in this set
@@ -2759,9 +2815,12 @@ async function loadConversationForMode(modeId){
     window.RESUME_STAGE = convo.resume_stage || 'awaiting_resume';
     window.resumeDropDismissed = (window.RESUME_STAGE !== 'awaiting_resume');
   }
+  var researchHalfStarted = false;
   if(modeId === 'research'){
-    window.RESEARCH_COMPANY = convo.research_company || '';
-    window.RESEARCH_STAGE = convo.research_stage || 'conversational';
+    var savedStage = convo.research_stage || 'conversational';
+    if(savedStage === 'generating_brief' || savedStage === 'awaiting_company'){ savedStage = 'awaiting_company'; researchHalfStarted = true; }
+    window.RESEARCH_COMPANY = researchHalfStarted ? '' : (convo.research_company || '');
+    window.RESEARCH_STAGE = savedStage;
     if(typeof RESEARCH_COMPANY !== 'undefined') RESEARCH_COMPANY = window.RESEARCH_COMPANY;
     if(typeof RESEARCH_STAGE !== 'undefined') RESEARCH_STAGE = window.RESEARCH_STAGE;
   }
@@ -2775,6 +2834,12 @@ async function loadConversationForMode(modeId){
     addMsgWithoutSave(displayRole, m.content);
     convoHistory.push({role: m.role, content: m.content});
   });
+  if(researchHalfStarted){
+    // The brief never landed (tab closed mid-search, or the company was
+    // not a company). Nothing to follow up on: ask for the company again.
+    convoHistory = [];
+    addMsgWithoutSave('bot', COMPANY_ASK);
+  }
 
   // Restoring a completed review skips handleSendText entirely, so the
   // buttons that normally follow a reply never got a chance to appear -
@@ -3487,7 +3552,7 @@ function dashSessionHasContent(r){
   if(r.archived_at) return true;
   if(r.mode==='practice'||r.mode==='star'||r.mode==='mock') return (r.answer_count||0) > 0;
   if(r.mode==='resume') return r.resume_stage === 'feedback_given';
-  if(r.mode==='research') return !!r.research_stage && r.research_stage !== 'awaiting_company';
+  if(r.mode==='research') return !!r.research_stage && r.research_stage !== 'awaiting_company' && r.research_stage !== 'generating_brief';
   return false;
 }
 function dashSessionRow(r){
