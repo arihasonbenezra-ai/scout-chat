@@ -134,6 +134,12 @@ button,input,textarea{font-family:inherit}
 .send-btn:hover:not(:disabled){background:var(--coral-dark)}
 .send-btn:active:not(:disabled){transform:scale(.95)}
 .send-btn:disabled{background:var(--coral-mid);cursor:not-allowed}
+.mic-btn{display:none;width:42px;height:42px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;color:var(--dim);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s,border-color .15s}
+.mic-btn.on{display:flex}
+.mic-btn:hover{color:var(--black);border-color:var(--black)}
+.mic-btn.listening{background:var(--coral);border-color:var(--coral);color:var(--white);animation:micPulse 1.4s ease-in-out infinite}
+.mic-btn:disabled{opacity:.5;cursor:not-allowed}
+@keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(242,107,94,.45)}50%{box-shadow:0 0 0 7px rgba(242,107,94,0)}}
 
 /* Mode switch modal */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:center;justify-content:center;padding:24px}
@@ -183,6 +189,7 @@ button,input,textarea{font-family:inherit}
   .input-inner{gap:8px}
   .input-area textarea{font-size:16px;height:42px}
   .send-btn{width:42px;height:42px;flex-shrink:0}
+  .mic-btn{width:42px;height:42px}
   .header{padding:12px 16px}
   .brand-name{font-size:16px}
   .role-label{display:none}
@@ -696,6 +703,9 @@ a.dash-chip{text-decoration:none;color:#C2493C}
   <div class="input-area">
     <div class="input-inner">
       <textarea id="input" placeholder="Pick a role to begin..." disabled rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend();}"></textarea>
+      <button class="mic-btn" id="micBtn" type="button" title="Speak your answer" aria-label="Speak your answer" aria-pressed="false" onclick="voiceToggle()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
+      </button>
       <button class="send-btn" id="sendBtn" disabled onclick="handleSend()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
@@ -779,6 +789,102 @@ var sendBtn=document.getElementById('sendBtn');
 var isSending=false;
 function updateSendBtnState(){ sendBtn.disabled = isSending || !inputEl.value.trim(); }
 inputEl.addEventListener('input', updateSendBtnState);
+
+// --- Voice input (Practice only) -------------------------------------------
+// Browser speech recognition, no audio leaves the device. Fillers (um, uh,
+// you know) are stripped from the text so the answer reads cleanly, and the
+// count of what was stripped goes to the server with the answer so the
+// feedback can cite a real number. Run-on sentences are left alone: the
+// candidate can edit before sending.
+var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+var micBtn = document.getElementById('micBtn');
+var VOICE = { rec: null, listening: false, base: '', finals: [], restarts: 0 };
+var VOICE_META = null; // {fillers, words} for the answer in the textarea, if spoken
+var FILLER_RE = /\b(?:u+m+|u+h+|e+r+m*|a+h+|h+m+|m+h*m+|you know|like like)\b[,.]?\s*/gi;
+function stripFillers(raw){
+  var count = 0;
+  var out = String(raw).replace(FILLER_RE, function(){ count++; return ''; });
+  return { text: out.replace(/\s+/g,' ').trim(), count: count };
+}
+function shapeChunk(text){
+  if(!text) return '';
+  var t = text.charAt(0).toUpperCase() + text.slice(1);
+  if(!/[.!?]$/.test(t)) t += '.';
+  return t;
+}
+function voiceSupported(){ return !!SpeechRec && (location.protocol === 'https:' || location.hostname === 'localhost'); }
+function syncMicBtn(){
+  if(!micBtn) return;
+  var show = voiceSupported() && MODE === 'trainer';
+  micBtn.classList.toggle('on', show);
+  micBtn.disabled = inputEl.disabled;
+  if(!show && VOICE.listening) voiceStop();
+}
+function voiceRender(interim){
+  var finalsText = VOICE.finals.map(function(f){ return f.text; }).filter(Boolean).join(' ');
+  var v = VOICE.base ? VOICE.base + (finalsText ? ' ' + finalsText : '') : finalsText;
+  if(interim) v += (v ? ' ' : '') + interim;
+  inputEl.value = v;
+  updateSendBtnState();
+  var words = 0, fillers = 0;
+  VOICE.finals.forEach(function(f){ words += f.words; fillers += f.count; });
+  VOICE_META = { fillers: fillers, words: words };
+}
+function voiceStart(){
+  if(!voiceSupported() || VOICE.listening) return;
+  var rec = new SpeechRec();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = navigator.language || 'en-US';
+  VOICE.rec = rec; VOICE.listening = true; VOICE.restarts = 0;
+  VOICE.base = inputEl.value.trim(); VOICE.finals = [];
+  micBtn.classList.add('listening'); micBtn.setAttribute('aria-pressed','true'); micBtn.title = 'Stop listening';
+  inputEl.placeholder = 'Listening... tap the mic again when you\'re done.';
+  rec.onresult = function(e){
+    var interim = '';
+    for(var i = e.resultIndex; i < e.results.length; i++){
+      var raw = e.results[i][0].transcript.trim();
+      if(!raw) continue;
+      if(e.results[i].isFinal){
+        var sf = stripFillers(raw);
+        VOICE.finals.push({ text: shapeChunk(sf.text), count: sf.count, words: raw.split(/\s+/).length });
+      } else interim += (interim ? ' ' : '') + raw;
+    }
+    voiceRender(interim);
+  };
+  rec.onerror = function(e){
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      voiceStop();
+      addMsg('bot','I can\'t reach your microphone. Allow it for this site in your browser and try the mic again, or just type.');
+    } else if(e.error === 'no-speech'){ /* onend restarts */ }
+    else if(e.error !== 'aborted'){ console.warn('speech error', e.error); }
+  };
+  rec.onend = function(){
+    // Chrome ends a continuous session on its own after a pause or ~60s;
+    // keep going until the candidate taps stop.
+    if(VOICE.listening && VOICE.rec === rec && VOICE.restarts < 20){
+      VOICE.restarts++;
+      try{ rec.start(); return; }catch(err){}
+    }
+    if(VOICE.rec === rec) voiceStop();
+  };
+  try{ rec.start(); }catch(err){ voiceStop(); }
+}
+function voiceStop(){
+  var rec = VOICE.rec;
+  VOICE.listening = false; VOICE.rec = null;
+  if(rec){ rec.onend = null; try{ rec.stop(); }catch(err){} }
+  if(micBtn){ micBtn.classList.remove('listening'); micBtn.setAttribute('aria-pressed','false'); micBtn.title = 'Speak your answer'; }
+  if(MODE === 'trainer') inputEl.placeholder = 'Type your answer...';
+  voiceRender('');
+  if(inputEl.value.trim()) inputEl.focus();
+}
+function voiceToggle(){ if(VOICE.listening) voiceStop(); else voiceStart(); }
+// Clearing the box by hand drops the spoken stats with it.
+inputEl.addEventListener('input', function(){ if(!inputEl.value.trim() && !VOICE.listening) VOICE_META = null; });
+// The input is enabled/disabled and re-labelled at every mode change; the
+// mic follows it rather than being wired into each of those places.
+if(window.MutationObserver) new MutationObserver(syncMicBtn).observe(inputEl, { attributes: true, attributeFilter: ['disabled','placeholder'] });
 var emptyState=document.getElementById('emptyState');
 var modePill=document.getElementById('modePill');
 var modePopover=document.getElementById('modePopover');
@@ -833,6 +939,7 @@ var inputArea=document.querySelector('.input-area');
 // something" instead of "pick one of these".
 function setInputAreaVisible(visible){
   if(inputArea) inputArea.style.display = visible ? '' : 'none';
+  if(typeof syncMicBtn === 'function') syncMicBtn();
 }
 setInputAreaVisible(false);
 
@@ -952,7 +1059,7 @@ async function startMode(modeId,modeTitle){
     }
   } catch(e){ console.error('Restore error:', e); }
   
-  if(restored) return;
+  if(restored){ syncMicBtn(); return; }
   
   if(modeId==='resume'){
     MODE='resume';
@@ -974,6 +1081,7 @@ async function startMode(modeId,modeTitle){
   MODE='trainer';
   inputEl.disabled=false;
   inputEl.placeholder='Type your answer...';
+  syncMicBtn();
   showTyping();
   streamBotReply([{role:'user',content:'Start the session now.'}],function(reply){
     window._avoidQuestion = '';
@@ -1203,6 +1311,9 @@ function researchAskAgain(){
 
 function handleSendText(text){
   text=text.trim();if(!text)return;
+  if(VOICE.listening) voiceStop();
+  var spoken = (MODE==='trainer' && VOICE_META && VOICE_META.words > 0) ? VOICE_META : null;
+  VOICE_META = null;
   inputEl.value='';
   updateSendBtnState();
 
@@ -1307,6 +1418,7 @@ function handleSendText(text){
     addMsg('user',text);
     convoHistory.push({role:'user',content:text});
       saveMessage('user', text);
+    window._pendingVoice = spoken; // read once by callClaudeStream
     isSending=true;updateSendBtnState();showTyping();
     streamBotReply(convoHistory.slice(),function(reply){
       convoHistory.push({role:'assistant',content:reply});
@@ -1522,8 +1634,10 @@ async function callClaudeStream(messages,onChunk,onDone){
       messages:messages,
       conversationId: window._currentConversationId || null,
       avoid: (messages.length===1 && messages[0].content==='Start the session now.' && window._avoidQuestion) ? window._avoidQuestion : null,
+      voice: window._pendingVoice || null,
       stream:true
     })});
+    window._pendingVoice = null;
     if(res.status===401){
       showSignupRequiredMessage();
       if(onDone)onDone(true);

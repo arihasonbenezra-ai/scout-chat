@@ -699,6 +699,29 @@ async function saveResumeScorecard(userId, conversationId, role, card) {
   } catch (e) { console.error('[resume-scorecard] save failed', e && e.message); }
 }
 
+// --- Spoken answers ------------------------------------------------------
+// The client transcribes a spoken answer in the browser, strips filler
+// words from the text, and sends how many it stripped. That count is the
+// only thing known about delivery, so the note says exactly when to use it
+// and forbids inventing anything else about how the answer sounded.
+function voiceStats(v) {
+  if (!v || typeof v !== 'object') return null;
+  var words = Math.floor(Number(v.words)), fillers = Math.floor(Number(v.fillers));
+  if (!(words > 0 && words <= 5000) || !(fillers >= 0 && fillers <= words)) return null;
+  return { words: words, fillers: fillers };
+}
+function voiceDeliveryNote(v) {
+  var note = '\n\nDelivery: the candidate spoke this answer aloud and it was transcribed. They said ' + v.words + ' words including ' + v.fillers + ' filler words (um, uh, you know). The fillers were removed from the text you see, so do not look for them there.';
+  if (v.fillers >= 5 || (v.fillers >= 3 && v.fillers / v.words >= 0.04)) {
+    note += ' That is a lot for an interview answer. Add ONE sentence to the feedback giving the exact count (' + v.fillers + ') and one concrete fix: a silent pause where the sound would go. Do not invent anything else about how it sounded - the count is all you know.';
+  } else if (v.fillers === 0 && v.words >= 40) {
+    note += ' No fillers in a spoken answer of that length deserves one short sentence of credit. Say nothing else about delivery - the count is all you know.';
+  } else {
+    note += ' That is a normal amount. Do not mention delivery or filler words.';
+  }
+  return note;
+}
+
 function isPrepAnswerTurn(mode, messages) {
   if (!PREP_MODES[mode] || !messages || messages.length < 2) return false;
   var last = messages[messages.length - 1];
@@ -1293,6 +1316,7 @@ export default async function handler(req, res) {
     var role = typeof body.role === 'string' ? body.role.slice(0, 120) : null;
     var company = typeof body.company === 'string' ? body.company.slice(0, 120) : null;
     var avoid = typeof body.avoid === 'string' ? body.avoid.slice(0, 500).trim() : '';
+    var voice = voiceStats(body.voice);
     var messages = Array.isArray(body.messages) ? body.messages : null;
     var isStreaming = body.stream === true;
 
@@ -1427,6 +1451,9 @@ export default async function handler(req, res) {
     };
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode), avoid);
+    }
+    if (PREP_MODES[mode] && voice && isPrepAnswerTurn(mode, messages)) {
+      anthropicBody.system += voiceDeliveryNote(voice);
     }
 
     if (mode === 'resume') {
