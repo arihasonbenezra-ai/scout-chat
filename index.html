@@ -3965,23 +3965,29 @@ var ROLE_VIEW = null; // { ranked, summary, p, oppUrls, where: 'card' | 'list', 
 // Roles older than ROLE_RECENT_DAYS are a click away, not the first thing
 // seen. Per visit on purpose: a long-open req reads as "nobody is hiring".
 var ROLE_SHOW_OLDER = false;
-function toggleOlderRoles(){
-  ROLE_SHOW_OLDER = !ROLE_SHOW_OLDER;
+// Older roles rank lowest, so merging them into the capped list would put
+// them past the cut and the link would appear to do nothing. They get
+// their own section on the full list; from the card, the link opens it.
+function showOlderRoles(on){
+  ROLE_SHOW_OLDER = on;
   if(!ROLE_VIEW) return;
-  if(ROLE_VIEW.where === 'list') renderRolesList(); else renderRolesCard();
+  if(ROLE_VIEW.where === 'list') renderRolesList(); else dashShowRoles();
 }
-// The rows that pass the place/level filter, split into what is shown and
-// how many older ones are behind the link.
+// The rows that pass the place/level filter: recent ones shown, older
+// ones behind the link.
 function roleSplit(ranked){
   var all = applyRoleFilter(ranked);
-  var older = all.filter(function(x){ return !x.recent; }).length;
-  return { shown: ROLE_SHOW_OLDER ? all : all.filter(function(x){ return x.recent; }), older: older, all: all };
+  return { shown: all.filter(function(x){ return x.recent; }), older: all.filter(function(x){ return !x.recent; }), all: all };
 }
-function roleOlderLink(sp){
-  if(!sp.older || ROLE_VIEW.loading) return '';
-  var n = sp.older + ' older ' + (sp.older === 1 ? 'role' : 'roles');
-  return '<div style="margin-top:8px"><button class="dash-link" onclick="toggleOlderRoles()">' + (ROLE_SHOW_OLDER ? 'Hide ' + n : 'Show ' + n) + '</button>'
-    + (ROLE_SHOW_OLDER ? '' : ' <span class="dash-muted">posted over ' + ROLE_RECENT_DAYS + ' days ago</span>') + '</div>';
+function roleOlderSection(sp){
+  if(!sp.older.length || ROLE_VIEW.loading) return '';
+  var n = sp.older.length + ' older ' + (sp.older.length === 1 ? 'role' : 'roles');
+  if(!ROLE_SHOW_OLDER || ROLE_VIEW.where === 'card'){
+    return '<div style="margin-top:8px"><button class="dash-link" onclick="showOlderRoles(true)">Show ' + n + '</button> <span class="dash-muted">posted over ' + ROLE_RECENT_DAYS + ' days ago</span></div>';
+  }
+  return '<div class="dash-label" style="margin-top:18px">Open more than ' + ROLE_RECENT_DAYS + ' days</div><div class="dash-muted" style="margin:2px 0 8px">Usually an evergreen or hard-to-fill role. Still worth a look; expect a slower process.</div>'
+    + sp.older.slice(0, 80).map(dashRoleRow).join('')
+    + '<div style="margin-top:8px"><button class="dash-link" onclick="showOlderRoles(false)">Hide ' + n + '</button></div>';
 }
 function roleFilterDefault(summary, p){
   if(ROLE_FILTER.loc) return;
@@ -4041,21 +4047,22 @@ function roleFilterBar(full){
   return html + '</div>';
 }
 function roleFilterEmpty(older){
-  if(older) return '<div class="dash-empty"><div class="dash-empty-t">Nothing recent under this filter</div><div class="dash-empty-s">' + older + (older === 1 ? ' role has' : ' roles have') + ' been open for more than ' + ROLE_RECENT_DAYS + ' days.</div><button class="dash-btn" onclick="toggleOlderRoles()">Show older roles</button></div>';
+  if(older && ROLE_SHOW_OLDER && ROLE_VIEW.where === 'list') return ''; // the older section follows
+  if(older) return '<div class="dash-empty"><div class="dash-empty-t">Nothing recent under this filter</div><div class="dash-empty-s">' + older + (older === 1 ? ' role has' : ' roles have') + ' been open for more than ' + ROLE_RECENT_DAYS + ' days.</div><button class="dash-btn" onclick="showOlderRoles(true)">Show older roles</button></div>';
   return '<div class="dash-empty"><div class="dash-empty-t">Nothing under this filter</div><div class="dash-empty-s">There are open roles elsewhere.</div><button class="dash-btn" onclick="ROLE_FILTER.level=\'\';setRoleFilter(\'loc\',\'all\')">Show everywhere</button></div>';
 }
 function roleTotal(){ return ROLE_VIEW.summary ? ROLE_VIEW.summary.all : ROLE_VIEW.ranked.length; }
 function roleRows(sp, max){
   if(ROLE_VIEW.loading) return '<div class="dash-muted">Loading...</div>';
-  return sp.shown.length ? sp.shown.slice(0, max).map(dashRoleRow).join('') : roleFilterEmpty(sp.older);
+  return sp.shown.length ? sp.shown.slice(0, max).map(dashRoleRow).join('') : roleFilterEmpty(sp.older.length);
 }
 function renderRolesCard(){
   var box = document.getElementById('dashRoles');
   if(!box || !ROLE_VIEW) return;
   var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
   var sp = roleSplit(ranked), shown = sp.shown, total = roleTotal();
-  box.innerHTML = roleFilterBar(false) + roleRows(sp, 5) + roleOlderLink(sp)
-    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + (ROLE_SHOW_OLDER ? '' : ' recent') + ' of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target' + (isCareerPlan() ? '; Check my fit reads the full posting and gives a verdict' : '') + '.</div>'
+  box.innerHTML = roleFilterBar(false) + roleRows(sp, 5) + roleOlderSection(sp)
+    + '<div class="dash-muted" style="margin-top:4px">' + shown.length + ' recent of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”. Matched on the title and your target' + (isCareerPlan() ? '; Check my fit reads the full posting and gives a verdict' : '') + '.</div>'
     + ROLE_SOURCE_NOTE;
   var all = document.getElementById('dashRolesAll'); if(all) all.style.display = total > 5 ? '' : 'none';
 }
@@ -4064,9 +4071,9 @@ function renderRolesList(){
   if(!body || !ROLE_VIEW) return;
   var ranked = ROLE_VIEW.ranked, p = ROLE_VIEW.p;
   var sp = roleSplit(ranked), shown = sp.shown, total = roleTotal();
-  var inner = roleFilterBar(true) + roleRows(sp, 80) + roleOlderLink(sp) + ROLE_SOURCE_NOTE;
+  var inner = roleFilterBar(true) + roleRows(sp, 80) + roleOlderSection(sp) + ROLE_SOURCE_NOTE;
   var note = shown.length > 80 ? ', best 80 shown' : ((ROLE_FILTER.loc || 'all') === 'all' && total > ranked.length ? ', newest ' + ranked.length + ' loaded; pick a place to see every role there' : '');
-  body.innerHTML = dashView('Roles for you', shown.length + (ROLE_SHOW_OLDER ? '' : ' recent') + ' of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + note + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
+  body.innerHTML = dashView('Roles for you', shown.length + ' recent of ' + total + ' open roles matching “' + escapeHtml(p.target_role_title) + '”' + note + '. Refreshed nightly from each company’s own job board.', 'My Career', 'loadDashboard()', inner);
 }
 async function dashLoadRoles(d){
   var box = document.getElementById('dashRoles');
