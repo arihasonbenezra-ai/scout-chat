@@ -317,19 +317,21 @@ button,input,textarea{font-family:inherit}
 /* My Career dashboard (signed-in home) */
 .dash{display:none;flex:1;overflow-y:auto;background:#F7F6F3}
 .dash.show{display:block}
-.dash-inner{max-width:1480px;margin:0 auto;padding:40px 48px 64px;display:flex;flex-direction:column;gap:28px}
+.dash-inner{max-width:1480px;margin:0 auto;padding:48px 48px 80px;display:flex;flex-direction:column;gap:40px}
 .dash-top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;flex-wrap:wrap}
 .dash-h1{margin:0;font-size:38px;font-weight:700;letter-spacing:-.02em}
-.dash-sub{font-size:17px;color:#555;margin-top:6px;line-height:1.5}
+.dash-sub{font-size:17px;color:#555;margin-top:10px;line-height:1.55}
 .dash-actions{display:flex;gap:10px;flex-wrap:wrap}
 .dash-btn{padding:13px 22px;border-radius:999px;font-size:16px;font-weight:600;cursor:pointer;border:1px solid #C9C6C0;background:#fff;color:#111;font-family:inherit}
 .dash-btn.primary{background:#111;color:#fff;border-color:#111}
 .dash-btn:hover{border-color:#111}
-.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
-.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:26px 28px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:32px 34px;display:flex;flex-direction:column;gap:22px;min-width:0}
 .dash-card.dark{background:#111;color:#fff;border-color:#111}
 .dash-card.span2{grid-column:span 2}
 .dash-card.span3{grid-column:1 / -1}
+.dash-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dash-quick{display:flex;gap:18px;flex-wrap:wrap;padding-top:4px}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
 .role-row:last-of-type{margin-bottom:0}
 .role-main{min-width:0;flex:1}
@@ -355,7 +357,7 @@ button,input,textarea{font-family:inherit}
 .dash-title{font-size:26px;font-weight:700;letter-spacing:-.01em;line-height:1.25}
 .dash-text{font-size:16.5px;color:#333;line-height:1.55}
 .dash-card.dark .dash-text{color:#DDDDDD}
-.dash-chips{display:flex;flex-wrap:wrap;gap:6px}
+.dash-chips{display:flex;flex-wrap:wrap;gap:8px}
 .dash-chip{font-size:14.5px;padding:6px 13px;border-radius:999px;background:#F3F1EC;color:#333}
 .dash-chip.more{cursor:pointer;border:none;font-family:inherit}
 .dash-chip{display:inline-flex;align-items:center;gap:6px}
@@ -377,7 +379,7 @@ button,input,textarea{font-family:inherit}
 .dash-bars{display:flex;gap:6px;align-items:flex-end;height:44px;margin-top:auto}
 .dash-bar{width:18px;border-radius:3px;background:#4A4A4A}
 .dash-bar.now{background:#F26B5E}
-.dash-dims{display:flex;flex-direction:column;gap:12px}
+.dash-dims{display:flex;flex-direction:column;gap:18px}
 .dash-dim{display:grid;grid-template-columns:220px 130px minmax(0,1fr);gap:16px;align-items:center}
 .dash-dim-name{font-size:16.5px;font-weight:600}
 .dash-meter{display:flex;align-items:center;gap:8px}
@@ -386,7 +388,7 @@ button,input,textarea{font-family:inherit}
 .dash-meter-fill.low{background:#F26B5E}
 .dash-meter-n{font-size:15px;color:#555}
 .dash-dim-note{font-size:15px;color:#555;line-height:1.45}
-.dash-next{display:flex;flex-direction:column;gap:4px;padding:16px 18px;border-radius:12px;background:#F3F1EC;color:#111;cursor:pointer;border:none;text-align:left;font-family:inherit;width:100%}
+.dash-next{display:flex;flex-direction:column;gap:5px;padding:18px 20px;border-radius:12px;background:#F3F1EC;color:#111;cursor:pointer;border:none;text-align:left;font-family:inherit;width:100%}
 .dash-next.hot{background:#FCEAE6}
 .dash-next:hover{outline:1px solid #C9C6C0}
 .dash-next-t{font-size:16.5px;font-weight:600}
@@ -506,7 +508,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .nav-back.show{display:inline-block}
 .nav-back:hover{background:#FBE3DD}
 @media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
+@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
 .sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
 .sess-msg.bot{background:var(--coral-pale);color:#111;margin-right:24px}
@@ -3488,12 +3490,14 @@ function renderDashboard(body, d){
   var sub = latest && latest.overall != null
     ? 'Your latest set scored ' + latest.overall + ' out of 10. The next one is aimed at your two lowest marks.'
     : (p.target_role_title ? 'Run a Practice set to get your first scorecard.' : 'Start by telling Ezzy what you\u2019re going for, or paste your resume.');
-  html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div>'
-    + '<div class="dash-actions"><button class="dash-btn primary" onclick="dashPractice()">Practice' + (latest ? ' again' : '') + '</button>'
-    + '<button class="dash-btn" onclick="dashResume()">Resume review</button>'
-    + '<button class="dash-btn" onclick="dashPostingEntry()">' + (locked ? 'Paste a job posting' : 'Add an opportunity') + '</button></div></div>';
+  html += '<div class="dash-top"><div><h1 class="dash-h1">' + dashGreeting(d.name) + '</h1><div class="dash-sub">' + sub + '</div></div></div>';
 
-  html += '<div class="dash-grid">';
+  // Cards show up as they get data. A new person sees the target and what
+  // to do next, nothing else; the rest of the page fills in as they use Ezzy.
+  var hasKnown = !!(d.claims.length || p.current_role_title || d.resumeScore);
+  var hasRoles = !!roleProfile(p).target_role_title;
+  var fresh = !latest && !hasKnown && !d.past.length && !d.stories.length && !d.opps.length;
+  html += '<div class="dash-grid' + (fresh ? ' two' : '') + '">';
 
   // Target
   html += '<div class="dash-card" id="dashTargetCard"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="' + EDIT + '">Edit</button></div>';
@@ -3519,14 +3523,13 @@ function renderDashboard(body, d){
   html += '</div>';
 
   // Readiness
+  if(latest){
   html += '<div class="dash-card dark"><div class="dash-label">Interview readiness</div>';
-  if(latest && latest.overall != null){
+  if(latest.overall != null){
     html += '<div class="dash-big"><div class="dash-big-n">' + latest.overall + '</div><div class="dash-big-d">/ 10</div></div>'
       + '<div class="dash-text">From your ' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + ' set on ' + dashDate(latest.created_at) + '. Computed from ' + latest.scored_dims + ' of ' + latest.total_dims + ' rubric dimensions, every score tied to your own words.</div>';
-  } else if(latest){
-    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">Not rated yet</div></div><div class="dash-text">Your last set didn\u2019t have enough verifiable evidence to score. Fuller answers fix that.</div>';
   } else {
-    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">No score yet</div></div><div class="dash-text">Finish a five-question Practice set and the score appears here, computed from your answers.</div>';
+    html += '<div class="dash-big"><div class="dash-big-n" style="font-size:28px">Not rated yet</div></div><div class="dash-text">Your last set didn\u2019t have enough verifiable evidence to score. Fuller answers fix that.</div>';
   }
   var hist = d.scores.slice(0,4).reverse();
   html += '<div class="dash-bars">';
@@ -3535,10 +3538,12 @@ function renderDashboard(body, d){
     if(i < 4 - hist.length || !sc || sc.overall == null) html += '<div class="dash-bar" style="height:6px"></div>';
     else html += '<div class="dash-bar' + (i===3?' now':'') + '" style="height:' + Math.max(6, Math.round(sc.overall/10*32)+6) + 'px" title="' + sc.overall + '/10"></div>';
   }
-  html += '</div><div class="dash-muted">' + (d.scores.length ? d.scores.length + (d.scores.length===1?' rated set':' rated sets') + ' so far. The bars fill in as you complete more.' : 'The bars fill in as you complete sets.') + '</div></div>';
+  html += '</div></div>';
+  }
 
   // What Ezzy knows
-  var skills = d.claims.filter(function(c){ return c.claim_type==='skill'; });
+  var rsLow = dashResumeLow(d.resumeScore);
+  if(hasKnown){
   html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">What Ezzy knows</div>' + (d.claims.length ? '<button class="dash-link" id="dashClaimsToggle" onclick="toggleDashClaims()">See all</button>' : '') + '</div>';
   if(d.claims.length || p.current_role_title){
     // Two separate facts, kept separate: the current role (and its industry),
@@ -3549,10 +3554,8 @@ function renderDashboard(body, d){
     else if(line2) html += '<div class="dash-text">' + line2 + '</div>';
     DASH_CLAIMS = d.claims;
     html += '<div class="dash-chips" id="dashClaims">' + dashClaimChips(false) + '</div>';
-    html += '<div class="dash-muted">See all shows where each item came from. ' + (isCareerPlan() ? 'Remove anything that\u2019s wrong or add a skill Ezzy missed.' : '') + '</div>';
   }
   // Latest resume score, from the review's rubric pass. Not readiness.
-  var rsLow = dashResumeLow(d.resumeScore);
   if(d.resumeScore){
     var rs = d.resumeScore;
     var rsCls = rs.overall == null ? 'dash-nr' : rs.overall >= 7 ? 'dash-score' : rs.overall >= 4 ? 'dash-score mid' : 'dash-score low';
@@ -3560,17 +3563,15 @@ function renderDashboard(body, d){
       + '<span class="dash-row-s">' + (rs.overall == null ? 'Your last review on ' + dashDate(rs.created_at) + ' had too few verifiable lines to score.' : 'From your review on ' + dashDate(rs.created_at) + '.' + (rsLow ? ' Weakest area: ' + escapeHtml(rsLow.dimension.toLowerCase()) + '.' : '')) + '</span>'
       + (rs.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + rs.conversation_id + '\',\'Resume Review\')">Open review</button>' : '') + '</div>';
   }
-  if(!(d.claims.length || p.current_role_title)){
-    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing yet</div><div class="dash-empty-s">Do a Resume Review and Ezzy pulls your skills and experience from it, each with the line it came from.</div><button class="dash-btn" onclick="dashResume()">Review my resume</button></div>';
-  }
   html += '</div>';
+  }
 
-  // Latest scorecard (span 2)
-  html += '<div class="dash-card span2"><div class="dash-card-head"><div><div class="dash-label">Latest scorecard</div>';
-  if(latest) html += '<div class="dash-row-s">' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + (latest.role ? ' \u00b7 ' + escapeHtml(latest.role) : '') + ' \u00b7 ' + escapeHtml(latest.family) + ' rubric \u00b7 ' + dashDate(latest.created_at) + '</div>';
-  html += '</div>' + (latest && latest.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + latest.conversation_id + '\',\'' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + '\')">Open session</button>' : '') + '</div>';
+  // Latest scorecard (span 2), only once there is one.
   var lowNames = [];
   if(latest && Array.isArray(latest.dimensions) && latest.dimensions.length){
+  html += '<div class="dash-card span2"><div class="dash-card-head"><div><div class="dash-label">Latest scorecard</div>';
+  html += '<div class="dash-row-s">' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + (latest.role ? ' \u00b7 ' + escapeHtml(latest.role) : '') + ' \u00b7 ' + escapeHtml(latest.family) + ' rubric \u00b7 ' + dashDate(latest.created_at) + '</div>';
+  html += '</div>' + (latest.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + latest.conversation_id + '\',\'' + escapeHtml(SESSION_MODE_LABELS[latest.mode]||latest.mode) + '\')">Open session</button>' : '') + '</div>';
     var scored = latest.dimensions.filter(function(x){ return x.score != null; }).slice().sort(function(a,b){ return a.score - b.score; });
     lowNames = scored.slice(0,2).map(function(x){ return x.dimension; });
     html += '<div class="dash-dims">' + latest.dimensions.map(function(x){
@@ -3581,16 +3582,12 @@ function renderDashboard(body, d){
       var note = x.score == null ? 'Not enough verified evidence in your answers.' : escapeHtml(x.improvement || '');
       return '<div class="dash-dim"><div class="dash-dim-name">' + escapeHtml(x.dimension) + '</div>' + meter + '<div class="dash-dim-note">' + note + '</div></div>';
     }).join('') + '</div>';
-    html += '<div class="dash-muted" style="border-top:1px solid #EEECE7;padding-top:10px">' + (latest.overall != null ? 'Weighted overall ' + latest.overall + '. ' : '') + 'Coral bars are your two lowest marks.</div>';
-  } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">No scorecard yet</div><div class="dash-empty-s">After five Practice answers you get a score per rubric dimension, each backed by a quote from what you said, and the overall is computed from those. Nothing guessed.</div><button class="dash-btn" onclick="dashPractice()">Start a Practice set</button></div>';
-  }
+    html += '<div class="dash-muted" style="border-top:1px solid #EEECE7;padding-top:10px">Coral bars are your two lowest marks.</div>';
   html += '</div>';
+  }
 
   // Do next (rule-based, from the data on this page)
   var next = [];
-  // No target yet: that comes first, since prep and matching point at it.
-  if(!p.target_role_title) next.push({hot:true, t:'Set your target role', s:'So matching and prep point at the right thing.', fn:EDIT});
   var staleOpp = (d.opps || []).filter(oppStale).sort(function(a,b){ return new Date(a.updated_at) - new Date(b.updated_at); })[0];
   if(staleOpp && !locked) next.push({hot:!next.length, t:'Any news from ' + (staleOpp.company || staleOpp.role_title) + '?', s:(OPP_STAGE_LABEL[staleOpp.stage] || staleOpp.stage) + ' since ' + dashDate(staleOpp.updated_at) + ', nothing logged after. Record what happened, even if it is nothing yet.', fn:'dashShowOpportunity(\'' + staleOpp.id + '\')'});
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
@@ -3599,52 +3596,54 @@ function renderDashboard(body, d){
   if(!d.opps.length && !locked) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
   if(!d.stories.length && !locked) next.push({t:'Build a story with STAR Coaching', s:'Stories you work through get saved for the real interview.', fn:'dashStar()'});
   if(!d.claims.length) next.push({t:'Review your resume', s:'Ezzy learns your skills and experience from it.', fn:'dashResume()'});
-  html += '<div class="dash-card"><div class="dash-label">Do next</div>' + next.slice(0,3).map(function(n){
+  var shown = next.slice(0,3);
+  var shownFns = shown.map(function(n){ return n.fn; });
+  var quick = [
+    {t:'Practice' + (latest ? ' again' : ''), fn:'dashPractice()'},
+    {t:'Resume review', fn:'dashResume()'},
+    {t:(locked ? 'Paste a job posting' : 'Add an opportunity'), fn:'dashPostingEntry()'}
+  ].filter(function(a){ return shownFns.indexOf(a.fn) === -1; });
+  html += '<div class="dash-card"><div class="dash-label">Do next</div>' + shown.map(function(n){
     return '<button class="dash-next' + (n.hot?' hot':'') + '" onclick="' + n.fn + '"><div class="dash-next-t">' + escapeHtml(n.t) + '</div><div class="dash-next-s">' + escapeHtml(n.s) + '</div></button>';
-  }).join('') + '<div class="dash-muted">Each of these comes from something on this page, not a generic checklist.</div></div>';
+  }).join('') + (quick.length ? '<div class="dash-quick">' + quick.map(function(a){
+    return '<button class="dash-link" onclick="' + a.fn + '">' + escapeHtml(a.t) + '</button>';
+  }).join('') + '</div>' : '') + '</div>';
 
-  // Past sessions
   // Roles for you: open roles at companies Ezzy follows, matched on the
   // target title. Filled in after the page renders (dashLoadRoles).
+  if(hasRoles){
   html += '<div class="dash-card span3"><div class="dash-card-head"><div class="dash-label">Roles for you</div><button class="dash-link" id="dashRolesAll" style="display:none" onclick="dashShowRoles()">See all</button></div>'
-    + '<div id="dashRoles">' + (roleProfile(p).target_role_title
-        ? '<div class="dash-muted">Looking for open ' + escapeHtml(roleProfile(p).target_role_title) + ' roles...</div>'
-        : roleAskTitle())
-    + '</div></div>';
-
-  html += '<div class="dash-card' + (locked ? ' span3' : '') + '"><div class="dash-card-head"><div class="dash-label">Sessions</div>' + (d.past.length ? '<button class="dash-link" onclick="dashShowSessions()">All</button>' : '') + '</div>';
-  if(d.past.length){
-    html += d.past.map(dashSessionRow).join('');
-  } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Reviews, practice sets, and research briefs land here. Live ones pick up where you left off.</div></div>';
+    + '<div id="dashRoles"><div class="dash-muted">Looking for open ' + escapeHtml(roleProfile(p).target_role_title) + ' roles...</div></div></div>';
   }
+
+  // Past sessions
+  if(d.past.length){
+  html += '<div class="dash-card' + (locked ? ' span3' : '') + '"><div class="dash-card-head"><div class="dash-label">Sessions</div><button class="dash-link" onclick="dashShowSessions()">All</button></div>';
+  html += d.past.map(dashSessionRow).join('');
   html += '</div>';
+  }
 
   if(!locked){
   // Story bank
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Story bank</div>' + (d.stories.length ? '' : '<span class="dash-tag coral">Next up</span>') + '</div>';
   if(d.stories.length){
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Story bank</div></div>';
     html += d.stories.map(function(st){
       return '<div class="dash-empty" style="border-style:solid"><div class="dash-empty-t">' + (st.status==='draft'?'Draft: ':'') + escapeHtml(st.title) + '</div><div class="dash-empty-s">' + (st.competencies && st.competencies.length ? 'Tagged: ' + escapeHtml(st.competencies.join(', ')) + '. ' : '') + (st.result ? '' : 'Missing: the result.') + '</div></div>';
     }).join('');
-  } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">No stories saved yet</div><div class="dash-empty-s">STAR sessions will save the stories you work through as drafts for you to confirm. Prep then pulls the right one by competency.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashStar()') + '">' + (locked ? 'Career plan' : 'Start STAR Coaching') + '</button></div>';
-  }
   html += '</div>';
+  }
 
   // Opportunities
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div>' + (d.opps.length ? '<button class="dash-link" onclick="dashShowOpportunities()">All</button>' : '') + '</div>';
   if(d.opps.length){
-    html += d.opps.slice(0,3).map(dashOppRow).join('');
-    if(!locked) html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
-  } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">Nothing tracked yet</div><div class="dash-empty-s">Paste a posting and it lands here with a fit score and the reason. Then log where it goes: applied, interview, offer.</div><button class="dash-btn" onclick="' + (locked ? 'openPricingModal()' : 'dashAddOpportunity()') + '">' + (locked ? 'Career plan' : 'Paste a posting') + '</button></div>';
-  }
+  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div><button class="dash-link" onclick="dashShowOpportunities()">All</button></div>';
+  html += d.opps.slice(0,3).map(dashOppRow).join('');
+  html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
   html += '</div>';
+  }
 
   }
   html += '</div>'; // grid
-  html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
+  html += '<div class="dash-foot">' + (fresh ? 'Your readiness score, scorecards, sessions and matched roles appear here as you use Ezzy. ' : '') + 'Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
   if(roleProfile(p).target_role_title) dashLoadRoles(d);
 }
