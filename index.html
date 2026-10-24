@@ -190,9 +190,21 @@ button,input,textarea{font-family:inherit}
   .input-area textarea{font-size:16px;height:42px}
   .send-btn{width:42px;height:42px;flex-shrink:0}
   .mic-btn{width:42px;height:42px}
-  .header{padding:12px 16px}
+  .header{padding:10px 12px;gap:8px}
+  .header-left,.header-right{min-width:0}
+  .header-left{flex:1;gap:6px}
+  .brand{gap:8px;flex-shrink:0}
+  .brand svg{width:40px;height:40px}
   .brand-name{font-size:16px}
-  .role-label{display:none}
+  .role-label,.dot-sep{display:none!important}
+  .mode-pill{white-space:nowrap;padding:6px 10px;flex-shrink:0}
+  .mode-popover{top:40px}
+  .nav-home{margin-left:4px;padding:7px 10px;font-size:13px;white-space:nowrap;flex-shrink:0}
+  .nav-back{margin-left:4px;padding:7px 10px;font-size:13px;max-width:150px;flex-shrink:1}
+  .start-over-btn{flex-shrink:0}
+  .header-signin-btn{white-space:nowrap;padding:8px 14px;flex-shrink:0}
+  .header-user-name{display:none}
+  .header-user-btn{padding:4px}
   .msg-bot h1,.msg-bot h2{font-size:16px}
   .msg-bot{font-size:15px;line-height:1.6;padding:14px 16px}
   .msg-bot-row{max-width:100%}
@@ -508,6 +520,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .nav-back.show{display:inline-block}
 .nav-back:hover{background:#FBE3DD}
 @media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:420px){.brand-name{display:none}}
 @media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
 .sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
