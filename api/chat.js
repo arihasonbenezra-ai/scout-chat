@@ -529,6 +529,10 @@ function candidateAnswersText(messages) {
   }).filter(function (t) { return t.trim().length >= 30; }).join('\n---\n');
 }
 
+// Praise is not a change. An empty cell is honest; "already excellent" is filler.
+var PRAISE_RE = /^(already|this is|that's|this was)\s+(excellent|great|strong|perfect|solid|good)\b|^(excellent|perfect)\b|no change (needed|required)|nothing to (change|improve)|keep (doing|it up)/i;
+function noPraise(imp) { imp = String(imp || '').trim(); return PRAISE_RE.test(imp) ? '' : imp; }
+
 function computeOverall(dims) {
   var num = 0, den = 0, scored = 0;
   dims.forEach(function (d) {
@@ -563,6 +567,9 @@ async function buildScorecard(messages, role, mode) {
   var answers = candidateAnswersText(messages);
   if (!answers) return null;
   var sys = 'You are scoring a candidate\'s interview practice answers against a fixed rubric. For EACH rubric dimension, pick the score (1-5) whose anchor best matches the answers, copy one exact quote from the candidate\'s answers that justifies it (verbatim - it will be checked mechanically and discarded if it does not match), and give one improvement. Score every dimension. If the answers give you nothing for a dimension, score it 1 and quote the closest thing they said.\n\nRubric:\n' + rubricToText(rubric);
+  // How to read an anchor: it describes handling and outcome, not the
+  // presence of a topic. Pushback that is merely mentioned is not a 5.
+  sys += ' Scores grade how the candidate handled the situation and what came of it, never whether a topic was mentioned. A 5 is met only when the handling and its outcome are both in the answer. Pushback, failure, or a mistake told honestly is good material, but if the candidate does not show what they did about it and what changed, score it 3 at most. The improvement must always name one concrete change to the answer. Never write praise such as "already excellent" or "no change needed"; when the answer is strong, name the next level: a number, what they would do differently, or what the other person said after.';
   var r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
@@ -583,7 +590,7 @@ async function buildScorecard(messages, role, mode) {
     var n = normText(quote);
     var verified = n.length >= 6 && src.indexOf(n) !== -1;
     var score = got && verified && typeof got.score === 'number' ? Math.max(1, Math.min(5, Math.round(got.score))) : null;
-    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: got ? String(got.improvement || '') : '' };
+    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: noPraise(got ? String(got.improvement || '') : '') };
   });
   var overallInfo = computeOverall(dims);
   return { family: family, dims: dims, overall: overallInfo.overall, scored: overallInfo.scored, markdown: renderScorecard(family, dims, overallInfo) };
@@ -707,7 +714,7 @@ async function buildResumeScorecard(resumeText, jdText) {
     var n = normText(quote);
     var verified = n.length >= 6 && src.indexOf(n) !== -1;
     var score = got && verified && typeof got.score === 'number' ? Math.max(1, Math.min(5, Math.round(got.score))) : null;
-    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: got ? String(got.improvement || '') : '' };
+    return { dimension: d.dimension, weight: d.weight, score: score, evidence_quote: quote, verified: verified, improvement: noPraise(got ? String(got.improvement || '') : '') };
   });
   var overallInfo = computeOverall(dims);
   return { dims: dims, overall: overallInfo.overall, scored: overallInfo.scored, hasPosting: hasPosting, markdown: renderResumeScorecard(dims, overallInfo, hasPosting) };

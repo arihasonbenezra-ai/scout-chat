@@ -8,3 +8,4 @@ node_modules
 *.bak.*
 __pycache__
 scout-proxy/
+supabase/.temp/
