@@ -1553,7 +1553,7 @@ function resumeGatedRetryIfAny(){
   }
 }
 
-var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview'};
+var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview', decide:'Is it for me?' };
 
 function showUpgradeGateMessage(errorCode, detail){
   hideTyping();
@@ -1651,6 +1651,7 @@ async function callClaudeStream(messages,onChunk,onDone){
       role:ROLE,
       messages:messages,
       conversationId: window._currentConversationId || null,
+      opportunityId: currentModeKey() === 'decide' ? (window._decideOpportunityId || null) : null,
       avoid: (messages.length===1 && messages[0].content==='Start the session now.' && window._avoidQuestion) ? window._avoidQuestion : null,
       voice: window._pendingVoice || null,
       stream:true
@@ -2853,6 +2854,7 @@ async function ensureConversation(){
     research_company: window.RESEARCH_COMPANY || null,
     research_stage: persistedResearchStage()
   };
+  if(mode === 'decide' && window._decideOpportunityId) insertData.opportunity_id = window._decideOpportunityId;
   
   var created = await window.supabaseClient
     .from('conversations')
@@ -2955,6 +2957,7 @@ async function loadConversationForMode(modeId){
   window.ROLE = convo.role || window.ROLE;
   window._currentConversationId = convo.id;
   window._prepMeta = { restart_count: convo.restart_count || 0, answer_count: convo.answer_count || 0 };
+  if(modeId === 'decide' && convo.opportunity_id) window._decideOpportunityId = convo.opportunity_id;
   
   if(modeId === 'resume'){
     window.RESUME_TEXT = convo.resume_text || '';
@@ -3540,6 +3543,11 @@ function renderDashboard(body, d){
       + chips.map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
       + (comp ? '<span class="dash-chip">' + escapeHtml(comp) + '</span>' : '<span class="dash-chip" style="color:#8A8A8A">Add comp range</span>')
       + '</div>';
+    var w = p.wants || {};
+    if(w.optimizing || w.musts || w.cold) html += '<div class="dash-text" style="font-size:15px;color:#555">' + [
+      w.optimizing ? 'This move is for: ' + escapeHtml(w.optimizing) : '',
+      w.musts ? 'Non-negotiable: ' + escapeHtml(w.musts) : '',
+      w.cold ? 'Leaves you cold: ' + escapeHtml(w.cold) : ''].filter(Boolean).join('<br>') + '</div>';
     var confirmed = p.target_source==='stated' || p.target_source==='discovered';
     html += confirmed
       ? '<div class="dash-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Confirmed by you</div>'
@@ -3682,7 +3690,7 @@ function renderDashboard(body, d){
 }
 
 // --- Past sessions (archived conversations, read-only) ------------------
-var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview', resume:'Resume Review', research:'Company Research' };
+var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview', resume:'Resume Review', research:'Company Research', decide:'Is it for me?' };
 
 function recordReadinessScore(reply){
   if(!window.supabaseClient || !window._currentConversationId || !reply) return;
@@ -4485,6 +4493,9 @@ async function dashShowOpportunity(id, row){
   }
   html += '</div>';
 
+  // Is it for you? The other half of fit, from what they said they want.
+  html += '<div class="dash-label">Is it for you?</div><div id="oppWants">' + oppWantsHtml(row, null) + '</div>';
+
   // Requirements
   if(reqs.length){
     var icon = { matched:'✓', partial:'~', missing:'✕' };
@@ -4534,6 +4545,7 @@ async function dashShowOpportunity(id, row){
 
   body.innerHTML = dashView(escapeHtml(row.role_title) + (row.company ? ' <span style="color:#8A8A8A;font-weight:500">at ' + escapeHtml(row.company) + '</span>' : ''), 'Added ' + dashDate(row.created_at) + '.', 'Opportunities', 'dashShowOpportunities()', html);
   dashFillRatings(body);
+  dashOppWantsLoad(row);
   body.parentNode.scrollTop = 0;
 }
 
@@ -4708,6 +4720,81 @@ function dashOppOpenBrief(){
   else dashOppResearch();
 }
 function dashOppPractice(){ if(!OPP_CURRENT) return; oppReturnHere(); dashStartMode(OPP_CURRENT.role_title, 'practice', 'Practice Q&A'); }
+
+// --- Is it for you? --------------------------------------------------------
+// The other half of fit: the posting read against what the person said
+// they want (profile.wants). Computed by api/opportunity-wants and kept on
+// the opportunity (posting.wants) so it shows without another call.
+var OPP_WANTS_URL = '/api/opportunity-wants';
+function wantsSet(p){ var w = (p && p.wants) || {}; return !!(w.pull || w.cold || w.musts || w.optimizing); }
+async function dashGoEditTarget(){ if(!DASH_ON) showDashboard(true); await loadDashboard(); dashEditTarget(); }
+function oppWantsHtml(row, state){
+  var W = row.posting && row.posting.wants;
+  if(!wantsSet(DASH_PROFILE)) return '<div class="dash-empty"><div class="dash-empty-t">Ezzy doesn\u2019t know what you want yet</div><div class="dash-empty-s">Say what pulls you in, what leaves you cold, and what this move is for. Every posting then gets read against it, in your words.</div><button class="dash-btn" onclick="dashGoEditTarget()">Tell Ezzy what you want</button></div>';
+  if(state === 'loading') return '<div class="dash-muted">Reading the posting against what you want...</div>';
+  if(state && state.error) return '<div class="dash-text">' + escapeHtml(state.error) + '</div><button class="dash-link" onclick="dashOppWantsRun(true)">Try again</button>';
+  if(!W || !Array.isArray(W.items)) return '<button class="dash-btn" onclick="dashOppWantsRun(true)">Read it against what you want</button>';
+  var V = W.stance || {}; var cls = { pursue:'v-apply', test:'v-fix', pass:'v-skip' }[V.key] || '';
+  var group = function(key, title){
+    var items = W.items.filter(function(i){ return i.bucket === key; });
+    if(!items.length) return '';
+    return '<div class="opp-sub">' + title + '</div><div class="opp-fixes">' + items.map(function(i){
+      return '<div class="opp-fix"><span class="opp-fix-t">\u201c' + escapeHtml(i.your_words) + '\u201d</span>'
+        + '<span class="opp-fix-n">' + escapeHtml(i.note) + (i.source_quote ? ' <span style="color:#8A8A8A">Posting: \u201c' + escapeHtml(i.source_quote) + '\u201d</span>' : '') + '</span>'
+        + (i.question ? '<span class="opp-fix-n"><strong>Ask:</strong> ' + escapeHtml(i.question) + '</span>' : '') + '</div>';
+    }).join('') + '</div>';
+  };
+  return '<div class="opp-fit ' + cls + '"><div class="opp-verdict">' + escapeHtml(V.title || '') + '</div><div class="dash-text">' + escapeHtml(V.why || '') + '</div>'
+    + group('rubs', 'Rubs against what you said') + group('fits', 'Fits what you said') + group('unknown', 'Worth asking')
+    + '<div class="opp-fix-actions"><button class="dash-btn primary" onclick="dashOppDecide()">Talk it through</button><button class="dash-link" onclick="dashOppWantsRun(true)">Read it again</button></div>'
+    + '<div class="dash-muted">Read from your own words and the posting' + (W.used_brief ? ' and your research brief' : '') + '.' + (W.dropped ? ' ' + W.dropped + (W.dropped === 1 ? ' line was' : ' lines were') + ' dropped for quoting words that are in neither.' : '') + '</div></div>';
+}
+function dashOppWantsLoad(row){
+  var W = row.posting && row.posting.wants;
+  if(wantsSet(DASH_PROFILE) && !(W && Array.isArray(W.items))) dashOppWantsRun(false);
+}
+async function dashOppWantsRun(force){
+  var row = OPP_CURRENT; var box = document.getElementById('oppWants'); if(!row || !box) return;
+  if(!isCareerPlan()){ openPricingModal(); return; }
+  box.innerHTML = oppWantsHtml(row, 'loading');
+  try{
+    var token = await getAuthTokenIfSignedIn(); if(!token) return;
+    var res = await fetch(OPP_WANTS_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ opportunityId: row.id }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok){
+      if(data.error === 'upgrade_required'){ openPricingModal(); box.innerHTML = oppWantsHtml(row, { error: 'Part of the Career plan.' }); return; }
+      if(data.error === 'wants_required'){ box.innerHTML = oppWantsHtml(row, null); return; }
+      box.innerHTML = oppWantsHtml(row, { error: 'Could not read it just now' + (data.detail ? ': ' + data.detail : '') + '.' }); return;
+    }
+    row.posting = Object.assign({}, row.posting || {}, { wants: data.wants });
+    if(OPP_CURRENT && OPP_CURRENT.id === row.id) OPP_CURRENT.posting = row.posting;
+    box.innerHTML = oppWantsHtml(row, null);
+  }catch(e){ box.innerHTML = oppWantsHtml(row, { error: 'Could not read it just now.' }); }
+}
+// Talk it through: a bounded conversation about this one opportunity that
+// ends in a stance. Lives in chat as the 'decide' mode, tied to the
+// opportunity so coming back restores the right one.
+async function dashOppDecide(){
+  if(!OPP_CURRENT) return;
+  var o = OPP_CURRENT;
+  if(!isCareerPlan()){ openPricingModal(); return; }
+  oppReturnHere();
+  hideDashboard();
+  ROLE = o.role_title; window.ROLE = o.role_title;
+  enterAppShell(o.role_title);
+  inputEl.disabled = false;
+  inputEl.placeholder = 'Type your answer...';
+  window._decideOpportunityId = o.id;
+  try{
+    var sessionRes = await window.supabaseClient.auth.getSession();
+    var uid = sessionRes.data && sessionRes.data.session && sessionRes.data.session.user.id;
+    if(uid){
+      await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() })
+        .eq('user_id', uid).eq('mode', 'decide').eq('role', o.role_title).is('archived_at', null).or('opportunity_id.is.null,opportunity_id.neq.' + o.id);
+    }
+  }catch(e){ console.error('archive other decide', e); }
+  await startMode('decide', 'Is it for me?');
+}
 async function dashOppResearch(){
   if(!OPP_CURRENT || !OPP_CURRENT.company) return;
   var o = OPP_CURRENT;
@@ -4975,6 +5062,7 @@ function selectHtml(id, options, value){
 
 function renderTargetBlock(p, noTitle){
   p = p || {};
+  var w = p.wants || {};
   var comp = function(v){ if(!v) return ''; if(v > 10000000) v = v/1000; return Math.round(v/1000); };
   var hint;
   if(!p.target_role_title) hint = 'Tell Ezzy what you’re going for. Matching and prep are pointed at this.';
@@ -4990,6 +5078,11 @@ function renderTargetBlock(p, noTitle){
     + '<div class="brain-field"><label>Comp max ($)</label><input id="tgtCompMax" type="number" min="0" step="5" placeholder="e.g. 200000" value="'+(comp(p.target_comp_max) ? comp(p.target_comp_max)*1000 : '')+'"/></div></div>'
     + '<div class="brain-target-row"><div class="brain-field"><label>Location(s)</label><input id="tgtLoc" type="text" placeholder="e.g. NYC, Remote US" value="'+escapeHtml((p.target_locations||[]).join(', '))+'"/></div>'
     + '<div class="brain-field"><label>Timeline</label>'+selectHtml('tgtTimeline', TARGET_TIMELINE, p.target_timeline)+'</div></div>'
+    + '<div class="brain-group-title">What you want from the next one</div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>What pulls you in</label><input id="wantPull" type="text" maxlength="240" placeholder="e.g. developer tools, climate, something I would use myself" value="'+escapeHtml(w.pull||'')+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>What leaves you cold</label><input id="wantCold" type="text" maxlength="240" placeholder="e.g. medical supply, ad tech, anything I could not explain to a friend" value="'+escapeHtml(w.cold||'')+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>Non-negotiables</label><input id="wantMusts" type="text" maxlength="240" placeholder="e.g. remote, equity, a manager I would learn from" value="'+escapeHtml(w.musts||'')+'"/></div></div>'
+    + '<div class="brain-target-row"><div class="brain-field"><label>This move is for</label><input id="wantFor" type="text" maxlength="240" placeholder="e.g. a title bump, a mission I can pitch, more pace" value="'+escapeHtml(w.optimizing||'')+'"/></div></div>'
     + '<div class="brain-target-foot"><div class="brain-target-hint" id="tgtHint">'+hint+'</div><button class="brain-save" id="tgtSave" onclick="saveTarget()">Save</button></div>'
     + '</div>';
 }
@@ -5019,6 +5112,9 @@ async function saveTarget(){
     target_set_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   };
+  var wv = function(id){ var el = document.getElementById(id); return el ? el.value.trim().slice(0,240) : ''; };
+  var wants = { pull: wv('wantPull'), cold: wv('wantCold'), musts: wv('wantMusts'), optimizing: wv('wantFor') };
+  if(wants.pull || wants.cold || wants.musts || wants.optimizing || (BRAIN_PROFILE && BRAIN_PROFILE.wants)){ row.wants = wants; row.wants_updated_at = new Date().toISOString(); }
   btn.disabled = true; hint.textContent = 'Saving...';
   var res = await window.supabaseClient.from('career_profile').upsert(row, {onConflict:'user_id'});
   btn.disabled = false;

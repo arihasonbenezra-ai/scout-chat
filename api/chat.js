@@ -19,7 +19,8 @@ const MODEL_BY_MODE = {
   star: 'claude-haiku-4-5',
   mock: 'claude-sonnet-4-5',
   resume: 'claude-sonnet-4-5',
-  research: 'claude-sonnet-4-5'
+  research: 'claude-sonnet-4-5',
+  decide: 'claude-haiku-4-5'
 };
 
 // Full, specialized breakdown - entitled/credited reviews only. Free
@@ -214,9 +215,11 @@ async function callOnce(anthropicBody) {
 
 // Runs a prep turn non-streamed, verifies it, retries once with a
 // corrective instruction, then strips as a last resort.
-async function groundedPrepReply(anthropicBody, messages, mode) {
-  var source = sessionText(messages);
-  var requireQuote = mode !== 'mock'; // mock stays in character between questions
+async function groundedPrepReply(anthropicBody, messages, mode, extraSource) {
+  // extraSource: text the model may also quote as the candidate's (what
+  // they want) or as the company's (the posting), beyond this session.
+  var source = sessionText(messages) + (extraSource ? '\n' + extraSource : '');
+  var requireQuote = mode !== 'mock' && mode !== 'decide'; // mock stays in character between questions; decide is a conversation
   var progress = prepProgress(messages, mode);
   anthropicBody = Object.assign({}, anthropicBody, { system: anthropicBody.system + prepProgressInstruction(progress) });
   var first = await callOnce(anthropicBody);
@@ -260,7 +263,7 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
 // an open question, cuts from there and invites them to add it.
 var NEXT_Q_RE = /\n\s*(?:-{3,}\s*\n\s*)?(?:\*\*)?\s*(?:question\s+\d+\s*(?:of|\/)\s*\d+|next question)\b/i;
 function holdNextQuestion(reply, mode, progress) {
-  if (mode === 'mock') return reply;
+  if (mode === 'mock' || mode === 'decide') return reply;
   if (progress && progress.asked >= progress.size) return reply;
   var m = reply.match(NEXT_Q_RE);
   if (!m) return reply;
@@ -853,7 +856,65 @@ function researchSystemPrompt(role, company) {
   ].join('\n');
 }
 
-function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText) {
+// --- Is it for me? -------------------------------------------------------
+// A short, bounded talk about one opportunity: what the candidate said
+// they want, the posting, the brief if there is one, and Ezzy's read of
+// the three against each other. Ends in a stance in their own terms.
+var WANT_LABELS = { pull: 'What pulls me in', cold: 'What leaves me cold', musts: 'Non-negotiables', optimizing: 'This move is for' };
+function wantsToText(w) {
+  w = w || {};
+  return ['pull', 'cold', 'musts', 'optimizing'].filter(function (k) { return w[k] && String(w[k]).trim(); })
+    .map(function (k) { return WANT_LABELS[k] + ': ' + String(w[k]).trim(); }).join('\n');
+}
+async function fetchDecideContext(token, userId, opportunityId) {
+  if (typeof opportunityId !== 'string' || !/^[0-9a-f-]{16,}$/i.test(opportunityId)) return null;
+  var H = { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } };
+  var get = function (path) { return fetch(SUPABASE_URL + '/rest/v1/' + path, H).then(function (r) { return r.ok ? r.json() : []; }, function () { return []; }); };
+  var rows = await Promise.all([
+    get('career_opportunities?id=eq.' + opportunityId + '&user_id=eq.' + userId + '&select=id,company,role_title,jd_text,posting'),
+    get('career_profile?user_id=eq.' + userId + '&select=wants')
+  ]);
+  var opp = rows[0][0];
+  if (!opp) return null;
+  var wants = (rows[1][0] && rows[1][0].wants) || {};
+  var brief = opp.company ? await fetchCachedResearchAny(normalizeKey(opp.company)) : '';
+  var jd = String(opp.jd_text || '').slice(0, 8000);
+  var read = opp.posting && opp.posting.wants && Array.isArray(opp.posting.wants.items) ? opp.posting.wants : null;
+  return { opp: opp, wantsText: wantsToText(wants), jd: jd, brief: brief ? brief.slice(0, 5000) : '', read: read,
+    sourceText: wantsToText(wants) + '\n' + jd + (brief ? '\n' + brief : '') };
+}
+async function fetchCachedResearchAny(companyKey) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/company_research_cache?company_key=eq.' + encodeURIComponent(companyKey) + '&select=brief&order=created_at.desc&limit=1',
+      { headers: { apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY } });
+    if (!res.ok) return '';
+    var rows = await res.json();
+    return rows && rows[0] ? rows[0].brief : '';
+  } catch (e) { return ''; }
+}
+function decideSystemPrompt(ctx, role) {
+  var o = ctx.opp;
+  var parts = [
+    'You are Ezzy, a recruiter helping a candidate decide whether to pursue one specific role: ' + o.role_title + (o.company ? ' at ' + o.company : '') + '.',
+    'This is a short, bounded conversation: at most six exchanges, one question at a time. Open by naming the tension in one or two sentences, in their words and the posting\'s words, then ask the one question that matters most. Do not list everything.',
+    'Ground every sentence. Quote the candidate only with words they wrote, here or in what they want. Say things about the company only from the posting and brief below; when the text does not say, say so and treat it as a question for the interview. Never invent a fact about the company. Do not flatter.',
+    'When it is clear, and no later than the sixth exchange, finish with a line that starts with "Stance:" followed by exactly one of: pursue, pursue with a test, pass. Then one sentence why, in their own terms. If the stance is "pursue with a test", give the exact question to ask the interviewer.',
+    /recruit|talent|sourc/i.test(String(role || o.role_title)) ? 'They would be pitching this company to candidates every day. If the mission bores them, candidates will hear it. Say that plainly if it applies.' : '',
+    'Plain prose. No headers, no bullet lists, no bold.',
+    '',
+    'What the candidate wants from the next role:', ctx.wantsText || '(nothing stated)',
+    '',
+    'The posting:', ctx.jd || '(none)',
+    ctx.brief ? '\nResearch brief on the company:\n' + ctx.brief : '',
+    ctx.read ? '\nEzzy\'s read of the posting against what they want (' + ctx.read.stance.title + '):\n' + ctx.read.items.map(function (i) {
+      return '- ' + i.bucket + ': "' + i.your_words + '"' + (i.source_quote ? ' vs "' + i.source_quote + '"' : '') + (i.question ? ' - ask: ' + i.question : '');
+    }).join('\n') : ''
+  ];
+  return parts.filter(function (p) { return p !== ''; }).join('\n');
+}
+
+function systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText, decideCtx) {
+  if (mode === 'decide') return decideSystemPrompt(decideCtx, role);
   if (mode === 'resume') {
     var resumeBase = resumeUnlocked ? RESUME_SYSTEM : RESUME_SYSTEM_FREE;
     // Role is optional for resume review ("just resume review" sends none);
@@ -1414,7 +1475,7 @@ export default async function handler(req, res) {
     // also means no Anthropic cost is spent on anyone who abandons before
     // signing up, and closes the old anon-then-signup double-dip at the
     // source rather than needing the carry-over functions below to catch it.
-    if (!user && (mode === 'practice' || mode === 'resume')) {
+    if (!user && (mode === 'practice' || mode === 'resume' || mode === 'decide')) {
       return res.status(401).json({ error: 'signup_required' });
     }
 
@@ -1439,7 +1500,7 @@ export default async function handler(req, res) {
     if (mode === 'research' && !entitled) {
       return res.status(403).json({ error: 'research_requires_job_search' });
     }
-    if ((mode === 'star' || mode === 'mock') && !entitled) {
+    if ((mode === 'star' || mode === 'mock' || mode === 'decide') && !entitled) {
       return res.status(403).json({ error: 'prep_mode_requires_job_search', mode: mode });
     }
 
@@ -1497,6 +1558,14 @@ export default async function handler(req, res) {
     // conversation when one exists and is still fresh - skips the
     // Anthropic call (web search + Sonnet) entirely. Follow-up questions
     // (messages.length > 1) always go live.
+    // Is it for me?: one opportunity, what the candidate wants, the posting
+    // and the brief. Without them there is nothing grounded to talk about.
+    var decideCtx = null;
+    if (mode === 'decide') {
+      decideCtx = await fetchDecideContext(token, user.id, body.opportunityId);
+      if (!decideCtx) return res.status(400).json({ error: 'opportunity_required' });
+    }
+
     var researchCacheKeys = null;
     if (mode === 'research' && messages.length === 1) {
       researchCacheKeys = { companyKey: normalizeKey(company), roleKey: normalizeKey(role) };
@@ -1512,8 +1581,8 @@ export default async function handler(req, res) {
 
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
-      max_tokens: mode === 'research' ? 4000 : (mode === 'resume' ? 2500 : 1000),
-      system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText),
+      max_tokens: mode === 'research' ? 4000 : (mode === 'resume' ? 2500 : (mode === 'decide' ? 700 : 1000)),
+      system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText, decideCtx),
       messages: messages,
       stream: isStreaming
     };
@@ -1547,6 +1616,15 @@ export default async function handler(req, res) {
         if (isStreaming) return writeAsStream(res, gr.text, gr.guard);
         return res.status(200).json({ content: [{ type: 'text', text: gr.text }], guard: gr.guard, usage: (gr.data && gr.data.usage) || {} });
       }
+    }
+
+    if (mode === 'decide') {
+      var turns = messages.filter(function (m) { return m.role === 'assistant'; }).length;
+      if (turns >= 5) anthropicBody.system += '\n\nThis is the last exchange. Give the Stance line now, whatever is still open.';
+      var dr = await groundedPrepReply(anthropicBody, messages, mode, decideCtx.sourceText);
+      if (!dr.ok) return res.status(dr.status || 502).json(dr.data || { error: 'Reply failed' });
+      if (isStreaming) return writeAsStream(res, dr.text, dr.guard);
+      return res.status(200).json({ content: [{ type: 'text', text: dr.text }], guard: dr.guard, usage: (dr.data && dr.data.usage) || {} });
     }
 
     if (isPrepAnswerTurn(mode, messages)) {
