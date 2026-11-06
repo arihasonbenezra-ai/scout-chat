@@ -86,12 +86,15 @@ function siteFor(url) {
   return null;
 }
 
-async function search(company) {
+async function search(company, hint) {
+  // The hint (where the posting lives, the role, the location) is what
+  // tells a search "Harvey" means the legal AI company, not the retailer.
+  var ask = 'Company: ' + company + (hint ? '\nContext, to pick the right company if the name is ambiguous: ' + hint : '');
   var body = {
     model: 'claude-haiku-4-5',
     max_tokens: 400,
     system: SYSTEM,
-    messages: [{ role: 'user', content: 'Company: ' + company }],
+    messages: [{ role: 'user', content: ask }],
     tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }]
   };
   var content = [];
@@ -168,6 +171,7 @@ export default async function handler(req, res) {
     var q = {};
     try { q = Object.fromEntries(new URL(req.url, 'https://app.meetezzy.com').searchParams); } catch (e) {}
     var company = String(q.company || (req.query && req.query.company) || '').trim().slice(0, 120);
+    var hint = String(q.hint || (req.query && req.query.hint) || '').trim().slice(0, 240);
     var key = normalizeKey(company);
     if (!key) return res.status(400).json({ error: 'company required' });
 
@@ -176,7 +180,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ company: cached.company, ratings: cached.ratings || [], checked_at: cached.checked_at, cached: true });
     }
 
-    var sr = await search(company);
+    var sr = await search(company, hint);
     if (!sr.ok) {
       // Serve a stale row over nothing when the search itself failed.
       if (cached) return res.status(200).json({ company: cached.company, ratings: cached.ratings || [], checked_at: cached.checked_at, cached: true, stale: true });

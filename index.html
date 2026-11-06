@@ -4280,14 +4280,24 @@ function oppStale(o){ return !!(o && OPP_ACTIVE[o.stage] && oppDaysQuiet(o) >= 7
 function dashOppRow(o){
   var bits = [OPP_STAGE_LABEL[o.stage] || o.stage].concat(oppFacts(o).slice(0,2));
   bits.push(dashDate(o.updated_at));
-  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + (oppStale(o) ? ' <span class="dash-tag coral">Any news?</span>' : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div>' + (o.company ? '<div class="opp-rating" data-company="' + escapeHtml(o.company) + '"></div>' : '') + '</div>' + oppFitLabel(o) + '</button>';
+  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + (oppStale(o) ? ' <span class="dash-tag coral">Any news?</span>' : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div>' + (o.company ? '<div class="opp-rating" data-company="' + escapeHtml(o.company) + '" data-hint="' + escapeHtml(oppRatingHint(o)) + '"></div>' : '') + '</div>' + oppFitLabel(o) + '</button>';
 }
 
 // Employer ratings (Glassdoor, Indeed, Blind) for the companies on the
 // page. One request per company; the server keeps each for 30 days and
 // only returns a number it found in the cited page text.
 var RATINGS_CACHE = {};
-async function fetchCompanyRatings(company){
+// What a search needs to tell this company from a namesake: where the
+// posting lives, the role, the location.
+function oppRatingHint(o){
+  var bits = [];
+  try{ if(o.url) bits.push('job posting at ' + new URL(o.url).hostname.replace(/^www\./,'') + new URL(o.url).pathname.split('/').slice(0,2).join('/')); }catch(e){}
+  if(o.role_title) bits.push('hiring a ' + o.role_title);
+  var m = o.posting || {};
+  if(m.location) bits.push('in ' + m.location);
+  return bits.join(', ').slice(0, 240);
+}
+async function fetchCompanyRatings(company, hint){
   var k = company.toLowerCase().trim();
   if(RATINGS_CACHE[k]) return RATINGS_CACHE[k];
   RATINGS_CACHE[k] = (async function(){
@@ -4295,7 +4305,7 @@ async function fetchCompanyRatings(company){
       var sr = await window.supabaseClient.auth.getSession();
       var token = sr.data && sr.data.session && sr.data.session.access_token;
       if(!token) return [];
-      var res = await fetch('/api/company-ratings?company=' + encodeURIComponent(company), { headers:{ 'Authorization':'Bearer ' + token } });
+      var res = await fetch('/api/company-ratings?company=' + encodeURIComponent(company) + (hint ? '&hint=' + encodeURIComponent(hint) : ''), { headers:{ 'Authorization':'Bearer ' + token } });
       if(!res.ok) return [];
       var data = await res.json();
       return Array.isArray(data.ratings) ? data.ratings : [];
@@ -4308,7 +4318,7 @@ function dashFillRatings(root){
   if(!root || !window.supabaseClient) return;
   var slots = [].slice.call(root.querySelectorAll('.opp-rating[data-company]'));
   slots.forEach(function(el){
-    fetchCompanyRatings(el.getAttribute('data-company')).then(function(ratings){
+    fetchCompanyRatings(el.getAttribute('data-company'), el.getAttribute('data-hint') || '').then(function(ratings){
       var inRow = el.tagName === 'DIV' && !!el.closest('button');
       if(!ratings.length){ if(!inRow) el.innerHTML = '<span class="dash-muted" style="margin:0">No employer rating that search could verify for ' + escapeHtml(el.getAttribute('data-company')) + '.</span>'; return; }
       if(inRow) el.textContent = ratings.map(ratingText).join(' \u00b7 ');
@@ -4436,7 +4446,7 @@ async function dashShowOpportunity(id, row){
 
   var html = '<div class="dash-chips">' + oppFacts(row).map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
     + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>'
-    + (row.company ? '<div class="dash-chips opp-rating" data-company="' + escapeHtml(row.company) + '"></div>' : '');
+    + (row.company ? '<div class="dash-chips opp-rating" data-company="' + escapeHtml(row.company) + '" data-hint="' + escapeHtml(oppRatingHint(row)) + '"></div>' : '');
   // A role that came from the feed: say so when the company has since
   // taken the posting down. The opportunity itself stays; a closed posting
   // is not a rejection, so the stage is left to the person.
