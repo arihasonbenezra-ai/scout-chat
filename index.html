@@ -551,7 +551,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 
 /* Pricing */
 .pricing-panel{background:rgba(255,255,255,0.94);backdrop-filter:blur(28px) saturate(160%);-webkit-backdrop-filter:blur(28px) saturate(160%);border:1px solid rgba(255,255,255,0.6);border-radius:18px;max-width:840px;width:94%;max-height:88vh;overflow-y:auto;box-shadow:0 24px 70px rgba(0,0,0,0.22),inset 0 1px 0 rgba(255,255,255,0.9)}
-.pricing-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:4px 24px 8px;align-items:start}
+.pricing-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:4px 24px 8px;align-items:start}
 .pricing-card{border:1px solid #ECECEC;border-radius:14px;padding:18px 15px;display:flex;flex-direction:column;gap:9px;background:#fff}
 .pricing-card-tagline{font-size:11.5px;color:#888;min-height:30px;line-height:1.4}
 .pricing-card-name{font-size:14px;font-weight:700}
@@ -565,7 +565,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .pricing-card-btn:disabled{background:#E6E4E1;color:#999;cursor:not-allowed}
 .pricing-card-disabled{opacity:0.6}
 .pricing-card-soon{flex:1;display:flex;align-items:center;justify-content:center;font-size:12px;color:#999;font-style:italic;min-height:60px}
-/* Job Search is the core offer - featured by elevation/border, not by price rank */
+/* Career is the core offer - featured by elevation/border, not by price rank */
 .pricing-card-hero{border:1.5px solid #F26B5E;box-shadow:0 4px 4px rgba(242,107,94,0.06),0 16px 32px -14px rgba(242,107,94,0.32);transform:translateY(-8px);padding:22px 17px;position:relative}
 .pricing-card-hero .pricing-card-name{color:#F26B5E}
 .pricing-card-hero .pricing-card-list li::before{background:#F26B5E}
@@ -1567,13 +1567,13 @@ function showUpgradeGateMessage(errorCode, detail){
   hideTyping();
   if(errorCode === 'prep_mode_requires_job_search'){
     var modeLabel = FREE_MODE_LABEL[detail && detail.mode] || 'This mode';
-    addMsg('bot',modeLabel+' is part of Job Search. Sign up for in-depth interview prep and a full resume review with gap analysis against the job you want - not just general pointers.');
+    addMsg('bot',modeLabel+' is part of the Career plan. It unlocks in-depth interview prep, full resume reviews against the job you want, roles matched to you, and a recruiter to talk any opportunity through with.');
   } else if(errorCode === 'free_prep_limit_reached'){
     addMsg('bot','You\'ve used your free practice session. Sign up for in-depth, unlimited interview prep - Practice, STAR, and Mock Interview - plus a full resume review with gap analysis against the job you want.');
   } else if(errorCode === 'free_resume_limit_reached'){
     addMsg('bot','You\'ve used your free resume review. Sign up for an in-depth breakdown and gap analysis against the job you want - specific rewrites grounded in your resume, not just general pointers.');
   } else if(errorCode === 'research_requires_job_search'){
-    addMsg('bot','Company Research is part of Job Search. Upgrade to unlock it.');
+    addMsg('bot','Company Research is part of the Career plan. Upgrade to unlock it.');
   } else {
     addMsg('bot','Upgrade to unlock this.');
   }
@@ -2746,26 +2746,19 @@ function onAuthSuccess(user){
         <button class="pricing-card-btn" onclick="startCheckout('resume_review')">Buy a Review</button>
       </div>
       <div class="pricing-card pricing-card-hero">
-        <span class="pricing-hero-badge">Core offer</span>
-        <div class="pricing-card-name">Job Search</div>
-        <div class="pricing-card-tagline">Full support while you're searching.</div>
-        <div class="pricing-card-price">$49.99<span>/ 90 days</span></div>
-        <ul class="pricing-card-list">
-          <li>Resume reviews</li>
-          <li>Interview prep</li>
-          <li>Mock interviews</li>
-          <li>Company research</li>
-          <li>Job-specific coaching</li>
-          <li>Career Brain</li>
-        </ul>
-        <button class="pricing-card-btn" onclick="startCheckout('job_search')">Start Job Search</button>
-      </div>
-      <div class="pricing-card pricing-card-disabled">
+        <span class="pricing-hero-badge">Everything</span>
         <div class="pricing-card-name">Career</div>
-        <div class="pricing-card-tagline">Keep Ezzy on after you're hired.</div>
+        <div class="pricing-card-tagline">The whole search, with a recruiter in your corner.</div>
         <div class="pricing-card-price">$19.99<span>/ month</span></div>
-        <div class="pricing-card-soon">Coming soon</div>
-        <button class="pricing-card-btn" disabled>Coming soon</button>
+        <ul class="pricing-card-list">
+          <li>Unlimited practice and mock interviews</li>
+          <li>Full resume reviews with a scorecard</li>
+          <li>Company research with employer ratings</li>
+          <li>Roles for you, with Check my fit</li>
+          <li>Talk through any opportunity</li>
+          <li>Your story bank and opportunity tracker</li>
+        </ul>
+        <button class="pricing-card-btn" onclick="startCheckout('career')">Start Career</button>
       </div>
     </div>
     <p class="pricing-error" id="pricingError"></p>
