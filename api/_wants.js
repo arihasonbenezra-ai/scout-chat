@@ -1,10 +1,10 @@
-// Is it for you? The posting (and the research brief when there is one)
+// Is it for you? Served through api/opportunity (action: 'wants') because
+// the deployment is at its function cap; this file is a helper, not a
+// function of its own. The posting (and the research brief when there is one)
 // read against what the candidate said they want from the next role.
 // The model sorts their own statements into fits / rubs / can't tell,
 // quoting their words and the posting's words; the server keeps an item
 // only when both quotes are real, then works out the stance itself.
-export const config = { maxDuration: 60 };
-
 const SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_rVG6LNvp6Uzs7F6CxSgJlA_zVobq1hy';
 const ALLOWED_ORIGINS = ['https://app.meetezzy.com', 'https://meetezzy.com', 'https://scout-chat.vercel.app'];
@@ -42,30 +42,6 @@ const TOOL = {
   }
 };
 
-function corsOrigin(req) {
-  var origin = req.headers && (req.headers.origin || req.headers.Origin);
-  return ALLOWED_ORIGINS.indexOf(origin) !== -1 ? origin : ALLOWED_ORIGINS[0];
-}
-function authHeaders(token) { return { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token }; }
-async function getAuthedUser(token) {
-  if (!token) return null;
-  var res = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: authHeaders(token) });
-  if (!res.ok) return null;
-  var data = await res.json();
-  return data && data.id ? data : null;
-}
-async function restRows(token, path) {
-  try {
-    var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, { headers: authHeaders(token) });
-    if (!res.ok) return [];
-    return await res.json();
-  } catch (e) { return []; }
-}
-function hasCareerPlan(sub) {
-  if (!sub || sub.status !== 'active' || sub.plan !== 'career') return false;
-  if (sub.current_period_end && new Date(sub.current_period_end).getTime() < Date.now()) return false;
-  return true;
-}
 function normText(t) {
   return String(t || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[^a-z0-9$%'+.\-]+/g, ' ').trim();
 }
@@ -136,21 +112,9 @@ export function verify(items, wants, sourceNorm) {
   return { items: kept.slice(0, 8), dropped: dropped };
 }
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', corsOrigin(req));
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+// Called from api/opportunity after auth and the plan check.
+export async function handleWants(req, res, user, token, restRows, authHeaders) {
   try {
-    var authHeader = req.headers && (req.headers.authorization || req.headers.Authorization);
-    var token = authHeader && authHeader.indexOf('Bearer ') === 0 ? authHeader.slice(7) : null;
-    var user = await getAuthedUser(token);
-    if (!user) return res.status(401).json({ error: 'Sign in required' });
-    var subs = await restRows(token, 'subscriptions?user_id=eq.' + user.id + '&select=plan,status,current_period_end');
-    if (!hasCareerPlan(subs[0])) return res.status(403).json({ error: 'upgrade_required' });
-
     var body = req.body || {};
     var oppId = typeof body.opportunityId === 'string' && /^[0-9a-f-]{16,}$/i.test(body.opportunityId) ? body.opportunityId : '';
     if (!oppId) return res.status(400).json({ error: 'opportunityId required' });

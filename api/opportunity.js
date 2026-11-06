@@ -4,6 +4,7 @@
 // minute.
 export const config = { maxDuration: 60 };
 import { fetchDescription } from './_jobs.js';
+import { handleWants } from './_wants.js';
 
 // Opportunities: a pasted posting -> a career_opportunities row with a fit
 // score computed here, not by the model. The model does two bounded jobs:
@@ -208,6 +209,8 @@ export default async function handler(req, res) {
     if (!hasCareerPlan(subs[0])) return res.status(403).json({ error: 'upgrade_required' });
 
     var body = req.body || {};
+    // Is it for you? shares this function (deployment function cap).
+    if (body.action === 'wants') return handleWants(req, res, user, token, restRows, authHeaders);
     var jdText = typeof body.jdText === 'string' ? body.jdText.trim().slice(0, 20000) : '';
     var url = typeof body.url === 'string' ? body.url.trim().slice(0, 500) : '';
     if (!/^https?:\/\//i.test(url)) url = '';

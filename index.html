@@ -4725,7 +4725,7 @@ function dashOppPractice(){ if(!OPP_CURRENT) return; oppReturnHere(); dashStartM
 // The other half of fit: the posting read against what the person said
 // they want (profile.wants). Computed by api/opportunity-wants and kept on
 // the opportunity (posting.wants) so it shows without another call.
-var OPP_WANTS_URL = '/api/opportunity-wants';
+var OPP_WANTS_URL = '/api/opportunity'; // action: 'wants'
 function wantsSet(p){ var w = (p && p.wants) || {}; return !!(w.pull || w.cold || w.musts || w.optimizing); }
 async function dashGoEditTarget(){ if(!DASH_ON) showDashboard(true); await loadDashboard(); dashEditTarget(); }
 function oppWantsHtml(row, state){
@@ -4759,7 +4759,7 @@ async function dashOppWantsRun(force){
   box.innerHTML = oppWantsHtml(row, 'loading');
   try{
     var token = await getAuthTokenIfSignedIn(); if(!token) return;
-    var res = await fetch(OPP_WANTS_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ opportunityId: row.id }) });
+    var res = await fetch(OPP_WANTS_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ action: 'wants', opportunityId: row.id }) });
     var data = await res.json().catch(function(){ return {}; });
     if(!res.ok){
       if(data.error === 'upgrade_required'){ openPricingModal(); box.innerHTML = oppWantsHtml(row, { error: 'Part of the Career plan.' }); return; }
