@@ -881,7 +881,7 @@ async function fetchDecideContext(token, userId, opportunityId) {
   var brief = opp && opp.company ? await fetchCachedResearchAny(normalizeKey(opp.company)) : '';
   var jd = opp ? String(opp.jd_text || '').slice(0, 8000) : '';
   var read = opp && opp.posting && opp.posting.wants && Array.isArray(opp.posting.wants.items) ? opp.posting.wants : null;
-  return { opp: opp, wantsText: wantsToText(wants), profileText: profileText, jd: jd, brief: brief ? brief.slice(0, 5000) : '', read: read,
+  return { opp: opp, wants: wants, wantsText: wantsToText(wants), profileText: profileText, jd: jd, brief: brief ? brief.slice(0, 5000) : '', read: read,
     sourceText: wantsToText(wants) + '\n' + profileText + '\n' + jd + (brief ? '\n' + brief : '') };
 }
 async function fetchCachedResearchAny(companyKey) {
@@ -893,6 +893,44 @@ async function fetchCachedResearchAny(companyKey) {
     return rows && rows[0] ? rows[0].brief : '';
   } catch (e) { return ''; }
 }
+// What they just told us about what they want, in their own words. Found
+// by a small side call per turn, kept only when the words are verbatim in
+// their message and not already on the profile, and offered to them to
+// save; nothing is written without their tap.
+var LEARN_TOOL = {
+  name: 'note_preference',
+  description: 'Record one preference the candidate just stated about what they want or do not want from a role, if any.',
+  input_schema: { type: 'object', properties: {
+    found: { type: 'boolean' },
+    field: { type: 'string', enum: ['pull', 'cold', 'musts', 'optimizing'] },
+    words: { type: 'string', description: 'The candidate\'s own words for the thing itself, copied verbatim from their last message, 3-80 characters: a domain, a product, a condition, a goal. Not a whole sentence, not a paraphrase.' },
+    why: { type: 'string' }
+  }, required: ['found'] }
+};
+async function learnPreference(messages, wants) {
+  var last = messages[messages.length - 1];
+  if (!last || last.role !== 'user') return null;
+  var text = typeof last.content === 'string' ? last.content : sessionText([last]);
+  if (text.trim().length < 20 || /^start the session now\.?$/i.test(text.trim())) return null;
+  var sys = 'A candidate is talking through a job opportunity with a recruiter. Read only their last message and decide whether it states a preference about what they want or do not want from a role: a domain or product that pulls them in or leaves them cold, a non-negotiable, or what this move is for. Record at most one. For words, copy their own words for the thing itself, for example "medical supply", "remote", "a manager I would learn from"; never the whole sentence, never your paraphrase. A question, a fact about the company, or small talk is not a preference: found is false.';
+  var r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 200, system: sys, messages: [{ role: 'user', content: 'Their last message:\n\n' + text.slice(0, 2000) }], tools: [LEARN_TOOL], tool_choice: { type: 'tool', name: LEARN_TOOL.name } })
+  });
+  var data = await r.json();
+  var tu = r.ok && (data.content || []).find(function (b) { return b.type === 'tool_use'; });
+  var inp = tu && tu.input;
+  if (!inp || !inp.found || !inp.field || !inp.words) return null;
+  var words = String(inp.words).trim().replace(/^["\u201c']+|["\u201d'.]+$/g, '');
+  var nw = normText(words);
+  if (nw.length < 3 || words.length > 80 || normText(text).indexOf(nw) === -1) return null;
+  if (!WANT_LABELS[inp.field]) return null;
+  var existing = (wants && wants[inp.field]) || '';
+  if (existing && normText(existing).indexOf(nw) !== -1) return null;
+  return { field: inp.field, words: words };
+}
+
 function decideSystemPrompt(ctx, role) {
   var o = ctx.opp;
   var what = o ? 'one specific role: ' + o.role_title + (o.company ? ' at ' + o.company : '') : 'an opportunity they have in mind, which is not in Ezzy: a recruiter reached out, a friend mentioned it, a posting they saw';
@@ -1626,8 +1664,11 @@ export default async function handler(req, res) {
     if (mode === 'decide') {
       var turns = messages.filter(function (m) { return m.role === 'assistant'; }).length;
       if (turns >= (decideCtx.opp ? 5 : 7)) anthropicBody.system += '\n\nThis is the last exchange. Give the Stance line now, whatever is still open.';
+      var learnP = learnPreference(messages, decideCtx.wants).catch(function () { return null; });
       var dr = await groundedPrepReply(anthropicBody, messages, mode, decideCtx.sourceText);
       if (!dr.ok) return res.status(dr.status || 502).json(dr.data || { error: 'Reply failed' });
+      var learned = await learnP;
+      if (learned) dr.guard = Object.assign({}, dr.guard || {}, { learned: learned });
       if (isStreaming) return writeAsStream(res, dr.text, dr.guard);
       return res.status(200).json({ content: [{ type: 'text', text: dr.text }], guard: dr.guard, usage: (dr.data && dr.data.usage) || {} });
     }
