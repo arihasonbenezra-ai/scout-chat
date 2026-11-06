@@ -136,7 +136,7 @@ export async function handleWants(req, res, user, token, restRows, authHeaders) 
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1500, system: SYSTEM, messages: [{ role: 'user', content: userContent }], tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name } })
+      body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 1500, system: SYSTEM, messages: [{ role: 'user', content: userContent }], tools: [TOOL], tool_choice: { type: 'tool', name: TOOL.name } })
     });
     var data = await r.json();
     var tu = (data.content || []).find(function (b) { return b.type === 'tool_use'; });

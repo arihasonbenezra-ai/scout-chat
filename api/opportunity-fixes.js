@@ -210,7 +210,7 @@ export default async function handler(req, res) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5', max_tokens: 1500, system: system,
+          model: 'claude-haiku-5-5', max_tokens: 1500, system: system, output_config: { effort: 'high' },
           messages: [{ role: 'user', content: content }],
           tools: [FIX_TOOL], tool_choice: { type: 'tool', name: 'record_fixes' }
         })

@@ -185,6 +185,7 @@ async function anthropicToolCall(model, system, userContent, tool, maxTokens) {
     },
     body: JSON.stringify({
       model: model,
+      output_config: { effort: 'high' },
       max_tokens: maxTokens,
       system: system,
       messages: [{ role: 'user', content: userContent }],
@@ -232,7 +233,7 @@ export default async function handler(req, res) {
     }
 
     var reqOutput = await anthropicToolCall(
-      'claude-haiku-4-5', REQUIREMENTS_SYSTEM, 'Job description:\n\n' + jdText,
+      'claude-haiku-5-5', REQUIREMENTS_SYSTEM, 'Job description:\n\n' + jdText,
       REQUIREMENTS_TOOL, 1200
     );
     var requirements = (reqOutput && Array.isArray(reqOutput.requirements)) ? reqOutput.requirements.slice(0, 10) : [];
@@ -256,7 +257,7 @@ export default async function handler(req, res) {
       gapSystem += '\n\nEzzy knowledge base - general recruiting/resume-screening knowledge to inform your judgment (do not cite it in the notes, just use it to judge more like an experienced recruiter would):\n' + recruitingKnowledgeText;
     }
 
-    var gapOutput = await anthropicToolCall('claude-sonnet-4-5', gapSystem, userContent, GAP_TOOL, 1500);
+    var gapOutput = await anthropicToolCall('claude-haiku-5-5', gapSystem, userContent, GAP_TOOL, 1500);
     var gaps = (gapOutput && Array.isArray(gapOutput.gaps)) ? gapOutput.gaps : [];
 
     // Evidence notes are paraphrases, not quotes, so the one hard check that

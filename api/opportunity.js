@@ -155,6 +155,7 @@ async function anthropicToolCall(model, system, userContent, tool, maxTokens) {
     },
     body: JSON.stringify({
       model: model,
+      output_config: { effort: 'high' },
       max_tokens: maxTokens,
       system: system,
       messages: [{ role: 'user', content: userContent }],
@@ -247,7 +248,7 @@ export default async function handler(req, res) {
     ]);
 
     // 1. What the posting states.
-    var posting = await anthropicToolCall('claude-haiku-4-5', POSTING_SYSTEM, 'Job posting:\n\n' + jdText, POSTING_TOOL, 1500);
+    var posting = await anthropicToolCall('claude-haiku-5-5', POSTING_SYSTEM, 'Job posting:\n\n' + jdText, POSTING_TOOL, 1500);
     if (!posting || !posting.role_title) return res.status(502).json({ error: 'Could not read that posting', detail: anthropicToolCall.lastError || 'the posting read returned no title' });
     var requirements = Array.isArray(posting.requirements) ? posting.requirements.slice(0, 10) : [];
     var meta = {
@@ -286,7 +287,7 @@ export default async function handler(req, res) {
         'Most recent resume:',
         resumeText || '(none on file)'
       ].join('\n');
-      var gapOutput = await anthropicToolCall('claude-sonnet-4-5', GAP_SYSTEM, userContent, GAP_TOOL, 1500);
+      var gapOutput = await anthropicToolCall('claude-haiku-5-5', GAP_SYSTEM, userContent, GAP_TOOL, 1500);
       gaps = (gapOutput && Array.isArray(gapOutput.gaps)) ? gapOutput.gaps : [];
 
       var normT = function (t) { return String(t || '').toLowerCase().replace(/[‘’]/g, "'").replace(/[^a-z0-9$%'+.\-]+/g, ' ').trim(); };

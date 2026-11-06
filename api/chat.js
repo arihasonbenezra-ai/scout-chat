@@ -14,14 +14,32 @@ const ANON_MESSAGE_LIMIT = 8;
 // carefully-derived number.
 const GLOBAL_ANON_DAILY_LIMIT = 300;
 
+// Sonnet 4.5 retires 2026-11-30. Prose modes run on Sonnet 5.5; every
+// call that forces a tool (scorecards, grading, extraction) runs on Haiku
+// 5.5, which still accepts a forced tool_choice where Sonnet 5.5 does not.
 const MODEL_BY_MODE = {
-  practice: 'claude-haiku-4-5',
-  star: 'claude-haiku-4-5',
-  mock: 'claude-sonnet-4-5',
-  resume: 'claude-sonnet-4-5',
-  research: 'claude-sonnet-4-5',
-  decide: 'claude-haiku-4-5'
+  practice: 'claude-haiku-5-5',
+  star: 'claude-haiku-5-5',
+  mock: 'claude-sonnet-5-5',
+  resume: 'claude-sonnet-5-5',
+  research: 'claude-sonnet-5-5',
+  decide: 'claude-haiku-5-5'
 };
+// Effort per mode. Sonnet 5.5 defaults to high and Haiku 5.5 to medium;
+// chat gets low, knowledge work medium, the grounded feedback modes medium.
+const EFFORT_BY_MODE = { practice: 'medium', star: 'medium', mock: 'low', resume: 'medium', research: 'medium', decide: 'medium' };
+function isSonnet55(model) { return String(model || '').indexOf('claude-sonnet-5-5') === 0; }
+// Sonnet 5.5 can decline a request on a safety classifier; the server-side
+// fallback reruns it on another model inside the same call. Beta header
+// plus body field, Claude API only.
+function anthropicHeaders(model) {
+  var h = { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' };
+  if (isSonnet55(model)) h['anthropic-beta'] = 'server-side-fallback-2026-07-01';
+  return h;
+}
+function withFallback(body) {
+  return isSonnet55(body && body.model) ? Object.assign({}, body, { fallbacks: 'default' }) : body;
+}
 
 // Full, specialized breakdown - entitled/credited reviews only. Free
 // reviews use RESUME_SYSTEM_FREE below instead: same input, deliberately
@@ -204,8 +222,8 @@ function stripBadQuotes(reply, bad) {
 async function callOnce(anthropicBody) {
   var r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify(Object.assign({}, anthropicBody, { stream: false }))
+    headers: anthropicHeaders(anthropicBody.model),
+    body: JSON.stringify(withFallback(Object.assign({}, anthropicBody, { stream: false })))
   });
   var data = await r.json();
   if (!r.ok) return { ok: false, status: r.status, data: data };
@@ -613,7 +631,7 @@ async function buildScorecard(messages, role, mode) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5', max_tokens: 2000, system: sys,
+      model: 'claude-haiku-5-5', max_tokens: 2000, system: sys, output_config: { effort: 'high' },
       messages: [{ role: 'user', content: 'Target role: ' + (role || 'not stated') + '\n\nCandidate answers, in order:\n\n' + answers }],
       tools: [SCORE_TOOL], tool_choice: { type: 'tool', name: 'record_scores' }
     })
@@ -737,7 +755,7 @@ async function buildResumeScorecard(resumeText, jdText) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-5', max_tokens: 2000, system: sys,
+      model: 'claude-haiku-5-5', max_tokens: 2000, system: sys, output_config: { effort: 'high' },
       messages: [{ role: 'user', content: content }],
       tools: [SCORE_TOOL], tool_choice: { type: 'tool', name: 'record_scores' }
     })
@@ -916,7 +934,7 @@ async function learnPreference(messages, wants) {
   var r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 200, system: sys, messages: [{ role: 'user', content: 'Their last message:\n\n' + text.slice(0, 2000) }], tools: [LEARN_TOOL], tool_choice: { type: 'tool', name: LEARN_TOOL.name } })
+    body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 200, system: sys, messages: [{ role: 'user', content: 'Their last message:\n\n' + text.slice(0, 2000) }], tools: [LEARN_TOOL], tool_choice: { type: 'tool', name: LEARN_TOOL.name } })
   });
   var data = await r.json();
   var tu = r.ok && (data.content || []).find(function (b) { return b.type === 'tool_use'; });
@@ -1236,8 +1254,8 @@ async function callResearch(anthropicBody) {
   for (var i = 0; i < 3; i++) {
     var r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01' },
-      body: JSON.stringify(body)
+      headers: anthropicHeaders(body.model),
+      body: JSON.stringify(withFallback(body))
     });
     var data = await r.json();
     if (!r.ok) return { ok: false, status: r.status, data: data };
@@ -1624,6 +1642,7 @@ export default async function handler(req, res) {
 
     var anthropicBody = {
       model: MODEL_BY_MODE[mode],
+      output_config: { effort: EFFORT_BY_MODE[mode] || 'medium' },
       max_tokens: mode === 'research' ? 4000 : (mode === 'resume' ? 2500 : (mode === 'decide' ? 700 : 1000)),
       system: systemPromptFor(mode, role, company, knownClaimsText, resumeUnlocked, knowledgeText, decideCtx),
       messages: messages,
@@ -1690,7 +1709,7 @@ export default async function handler(req, res) {
     }
 
     if (mode === 'research') {
-      anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 10 }];
+      anthropicBody.tools = [{ type: isSonnet55(anthropicBody.model) ? 'web_search_20260209' : 'web_search_20250305', name: 'web_search', max_uses: 10 }];
       var rr = await callResearch(anthropicBody);
       if (!rr.ok) return res.status(rr.status || 502).json(rr.data || { error: 'Research failed' });
       var verified = verifyResearchBrief(rr.content);
@@ -1708,12 +1727,8 @@ export default async function handler(req, res) {
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify(anthropicBody)
+      headers: anthropicHeaders(anthropicBody.model),
+      body: JSON.stringify(withFallback(anthropicBody))
     });
 
     if (!isStreaming) {
