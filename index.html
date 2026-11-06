@@ -3521,7 +3521,7 @@ function renderDashboard(body, d){
 
   // Cards show up as they get data. A new person sees the target and what
   // to do next, nothing else; the rest of the page fills in as they use Ezzy.
-  var hasKnown = !!(d.claims.length || p.current_role_title || d.resumeScore);
+  var hasKnown = !!(d.claims.length || p.current_role_title || d.resumeScore || p.resume_text || p.resume_updated_at);
   var hasRoles = !!roleProfile(p).target_role_title;
   var fresh = !latest && !hasKnown && !d.past.length && !d.stories.length && !d.opps.length;
   html += '<div class="dash-grid' + (fresh ? ' two' : '') + '">';
@@ -3590,6 +3590,12 @@ function renderDashboard(body, d){
       + '<span class="dash-row-s">' + (rs.overall == null ? 'Your last review on ' + dashDate(rs.created_at) + ' had too few verifiable lines to score.' : 'From your review on ' + dashDate(rs.created_at) + '.' + (rsLow ? ' Weakest area: ' + escapeHtml(rsLow.dimension.toLowerCase()) + '.' : '')) + '</span>'
       + (rs.conversation_id ? '<button class="dash-link" onclick="dashShowSession(\'' + rs.conversation_id + '\',\'Resume Review\')">Open review</button>' : '') + '</div>';
   }
+  // The resume on file, and the way to swap it. Every review or
+  // onboarding drop replaces it; this is where that is said.
+  html += '<div class="dash-rs"><span class="dash-row-s">' + (p.resume_updated_at || p.resume_text
+      ? 'Resume on file' + (p.resume_updated_at ? ' from ' + dashDate(p.resume_updated_at) : '') + '.'
+      : 'No resume on file.') + '</span>'
+    + '<button class="dash-link" onclick="dashResume()">' + (p.resume_updated_at || p.resume_text ? 'Replace it' : 'Add one') + '</button></div>';
   html += '</div>';
   }
 
