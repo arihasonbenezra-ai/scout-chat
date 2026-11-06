@@ -4309,8 +4309,9 @@ function dashFillRatings(root){
   var slots = [].slice.call(root.querySelectorAll('.opp-rating[data-company]'));
   slots.forEach(function(el){
     fetchCompanyRatings(el.getAttribute('data-company')).then(function(ratings){
-      if(!ratings.length) return;
-      if(el.tagName === 'DIV' && el.closest('button')) el.textContent = ratings.map(ratingText).join(' \u00b7 ');
+      var inRow = el.tagName === 'DIV' && !!el.closest('button');
+      if(!ratings.length){ if(!inRow) el.innerHTML = '<span class="dash-muted" style="margin:0">No employer rating that search could verify for ' + escapeHtml(el.getAttribute('data-company')) + '.</span>'; return; }
+      if(inRow) el.textContent = ratings.map(ratingText).join(' \u00b7 ');
       else el.innerHTML = ratings.map(function(r){
         return '<a class="dash-chip" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' + escapeHtml(ratingText(r)) + ' \u2197</a>';
       }).join('') + '<span class="dash-muted" style="margin:0;align-self:center">Employer ratings found by search, each linked to the page it came from.</span>';

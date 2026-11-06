@@ -110,8 +110,11 @@ async function search(company) {
   return { ok: true, content: content };
 }
 
-// The check. A line survives only if the model's own citation for it is
-// from the named site and quotes a passage that contains the same rating.
+// The check. A line survives only if the model's own citation for it
+// quotes a passage that contains the same rating, and that citation is
+// either from the named site or from a page whose quoted passage names
+// the site (Glassdoor and Indeed block crawlers, so the index often holds
+// a third-party page quoting their number rather than the page itself).
 var LINE_RE = /(Glassdoor|Indeed|Blind)\s*:\s*(\d(?:\.\d)?)\s*out of 5(?:\s*from\s*([\d,]+)\s*reviews)?/gi;
 
 function verify(content) {
@@ -134,8 +137,10 @@ function verify(content) {
       if (found[site]) continue;
       for (var i = 0; i < cites.length; i++) {
         var c = cites[i];
-        if (siteFor(c.url) !== site) continue;
         var quoted = String(c.cited_text || '');
+        var fromSite = siteFor(c.url) === site;
+        var namesSite = new RegExp('\\b' + site + '\\b', 'i').test(quoted);
+        if (!fromSite && !namesSite) continue;
         if (quoted.indexOf(rating) === -1) continue;
         var countOk = count && (quoted.indexOf(count) !== -1 || quoted.indexOf(Number(count).toLocaleString('en-US')) !== -1);
         found[site] = { site: site, rating: Number(rating), count: countOk ? Number(count) : null, url: c.url, as_of: pageAge[c.url] || null };
