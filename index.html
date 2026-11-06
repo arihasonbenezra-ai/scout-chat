@@ -3615,7 +3615,6 @@ function renderDashboard(body, d){
       var note = x.score == null ? 'Not enough verified evidence in your answers.' : escapeHtml(x.improvement || '');
       return '<div class="dash-dim"><div class="dash-dim-name">' + escapeHtml(x.dimension) + '</div>' + meter + '<div class="dash-dim-note">' + note + '</div></div>';
     }).join('') + '</div>';
-    html += '<div class="dash-muted" style="border-top:1px solid #EEECE7;padding-top:10px">Coral bars are your two lowest marks.</div>';
   html += '</div>';
   }
 
