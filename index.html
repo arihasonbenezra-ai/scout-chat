@@ -644,6 +644,10 @@ a.dash-chip{text-decoration:none;color:#C2493C}
           <span class="mode-option-title">Company Research <span class="beta-tag">Beta</span></span>
           <span class="mode-option-sub">Get a brief on any company</span>
         </div>
+        <div class="mode-option" data-mode="decide" onclick="requestModeSwitch('decide','Talk through an opportunity')">
+          <span class="mode-option-title">Talk through an opportunity</span>
+          <span class="mode-option-sub">Not sure a role is for you? Decide it</span>
+        </div>
       </div>
     </div>
         <div class="header-right">
@@ -1131,6 +1135,8 @@ document.addEventListener('click',function(e){
 
 function requestModeSwitch(modeId,modeTitle){
   closeModePopover();
+  if(modeId==='decide') window._decideOpportunityId = null; // from the menu: no posting, just the person
+
   if(modeId===TRAINER_MODE)return;
   if(convoHistory.length===0){
     startMode(modeId,modeTitle);
@@ -1553,7 +1559,7 @@ function resumeGatedRetryIfAny(){
   }
 }
 
-var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview', decide:'Is it for me?' };
+var FREE_MODE_LABEL = {star:'STAR Coaching', mock:'Mock Interview', decide:'Talk through an opportunity' };
 
 function showUpgradeGateMessage(errorCode, detail){
   hideTyping();
@@ -3329,6 +3335,14 @@ function dashStartMode(role, modeId, title){
   startMode(modeId, title);
 }
 function dashPractice(){ dashStartMode(DASH_ROLE, 'practice', 'Practice Q&A'); }
+// Talk through an opportunity that may not be in Ezzy at all: a recruiter
+// reached out, a friend mentioned it. Starts from what they say.
+function dashDecide(){
+  if(!isCareerPlan()){ openPricingModal(); return; }
+  window._decideOpportunityId = null;
+  var role = DASH_ROLE || (DASH_PROFILE && DASH_PROFILE.current_role_title) || 'Your next role';
+  dashStartMode(role, 'decide', 'Talk through an opportunity');
+}
 function dashStar(){ dashStartMode(DASH_ROLE, 'star', 'STAR Coaching'); }
 // From the dashboard, Resume review means a new review. A review still in
 // progress is archived first (it stays in Sessions, read-only); the Live
@@ -3641,8 +3655,9 @@ function renderDashboard(body, d){
   var quick = [
     {t:'Practice' + (latest ? ' again' : ''), fn:'dashPractice()'},
     {t:'Resume review', fn:'dashResume()'},
-    {t:(locked ? 'Paste a job posting' : 'Add an opportunity'), fn:'dashPostingEntry()'}
-  ].filter(function(a){ return shownFns.indexOf(a.fn) === -1; });
+    {t:(locked ? 'Paste a job posting' : 'Add an opportunity'), fn:'dashPostingEntry()'},
+    {t:'Talk through an opportunity', fn:'dashDecide()'}
+  ].filter(function(a){ return shownFns.indexOf(a.fn) === -1 && !(locked && a.fn === 'dashDecide()'); });
   html += '<div class="dash-card"><div class="dash-label">Do next</div>' + shown.map(function(n){
     return '<button class="dash-next' + (n.hot?' hot':'') + '" onclick="' + n.fn + '"><div class="dash-next-t">' + escapeHtml(n.t) + '</div><div class="dash-next-s">' + escapeHtml(n.s) + '</div></button>';
   }).join('') + (quick.length ? '<div class="dash-quick">' + quick.map(function(a){
@@ -3690,7 +3705,7 @@ function renderDashboard(body, d){
 }
 
 // --- Past sessions (archived conversations, read-only) ------------------
-var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview', resume:'Resume Review', research:'Company Research', decide:'Is it for me?' };
+var SESSION_MODE_LABELS = { practice:'Practice Q&A', star:'STAR Coaching', mock:'Mock Interview', resume:'Resume Review', research:'Company Research', decide:'Talk it through' };
 
 function recordReadinessScore(reply){
   if(!window.supabaseClient || !window._currentConversationId || !reply) return;
@@ -4793,7 +4808,7 @@ async function dashOppDecide(){
         .eq('user_id', uid).eq('mode', 'decide').eq('role', o.role_title).is('archived_at', null).or('opportunity_id.is.null,opportunity_id.neq.' + o.id);
     }
   }catch(e){ console.error('archive other decide', e); }
-  await startMode('decide', 'Is it for me?');
+  await startMode('decide', 'Talk through an opportunity');
 }
 async function dashOppResearch(){
   if(!OPP_CURRENT || !OPP_CURRENT.company) return;

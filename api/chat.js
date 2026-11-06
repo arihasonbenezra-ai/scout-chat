@@ -867,21 +867,22 @@ function wantsToText(w) {
     .map(function (k) { return WANT_LABELS[k] + ': ' + String(w[k]).trim(); }).join('\n');
 }
 async function fetchDecideContext(token, userId, opportunityId) {
-  if (typeof opportunityId !== 'string' || !/^[0-9a-f-]{16,}$/i.test(opportunityId)) return null;
   var H = { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } };
   var get = function (path) { return fetch(SUPABASE_URL + '/rest/v1/' + path, H).then(function (r) { return r.ok ? r.json() : []; }, function () { return []; }); };
+  var hasOpp = typeof opportunityId === 'string' && /^[0-9a-f-]{16,}$/i.test(opportunityId);
   var rows = await Promise.all([
-    get('career_opportunities?id=eq.' + opportunityId + '&user_id=eq.' + userId + '&select=id,company,role_title,jd_text,posting'),
-    get('career_profile?user_id=eq.' + userId + '&select=wants')
+    hasOpp ? get('career_opportunities?id=eq.' + opportunityId + '&user_id=eq.' + userId + '&select=id,company,role_title,jd_text,posting') : Promise.resolve([]),
+    get('career_profile?user_id=eq.' + userId + '&select=*')
   ]);
-  var opp = rows[0][0];
-  if (!opp) return null;
-  var wants = (rows[1][0] && rows[1][0].wants) || {};
-  var brief = opp.company ? await fetchCachedResearchAny(normalizeKey(opp.company)) : '';
-  var jd = String(opp.jd_text || '').slice(0, 8000);
-  var read = opp.posting && opp.posting.wants && Array.isArray(opp.posting.wants.items) ? opp.posting.wants : null;
-  return { opp: opp, wantsText: wantsToText(wants), jd: jd, brief: brief ? brief.slice(0, 5000) : '', read: read,
-    sourceText: wantsToText(wants) + '\n' + jd + (brief ? '\n' + brief : '') };
+  var opp = rows[0][0] || null;
+  var profile = rows[1][0] || null;
+  var wants = (profile && profile.wants) || {};
+  var profileText = profile ? (profileToText(profile) || '') : '';
+  var brief = opp && opp.company ? await fetchCachedResearchAny(normalizeKey(opp.company)) : '';
+  var jd = opp ? String(opp.jd_text || '').slice(0, 8000) : '';
+  var read = opp && opp.posting && opp.posting.wants && Array.isArray(opp.posting.wants.items) ? opp.posting.wants : null;
+  return { opp: opp, wantsText: wantsToText(wants), profileText: profileText, jd: jd, brief: brief ? brief.slice(0, 5000) : '', read: read,
+    sourceText: wantsToText(wants) + '\n' + profileText + '\n' + jd + (brief ? '\n' + brief : '') };
 }
 async function fetchCachedResearchAny(companyKey) {
   try {
@@ -894,17 +895,21 @@ async function fetchCachedResearchAny(companyKey) {
 }
 function decideSystemPrompt(ctx, role) {
   var o = ctx.opp;
+  var what = o ? 'one specific role: ' + o.role_title + (o.company ? ' at ' + o.company : '') : 'an opportunity they have in mind, which is not in Ezzy: a recruiter reached out, a friend mentioned it, a posting they saw';
+  var open = o
+    ? 'Open by naming the tension in one or two sentences, in their words and the posting\'s words, then ask the one question that matters most.'
+    : 'Open by asking, in one short message, what the role and company are and what has them unsure. Then take it one question at a time: what pulls them, what bothers them, what they would be giving up, what they would need to hear to say yes.';
   var parts = [
-    'You are Ezzy, a recruiter helping a candidate decide whether to pursue one specific role: ' + o.role_title + (o.company ? ' at ' + o.company : '') + '.',
-    'This is a short, bounded conversation: at most six exchanges, one question at a time. Open by naming the tension in one or two sentences, in their words and the posting\'s words, then ask the one question that matters most. Do not list everything.',
-    'Ground every sentence. Quote the candidate only with words they wrote, here or in what they want. Say things about the company only from the posting and brief below; when the text does not say, say so and treat it as a question for the interview. Never invent a fact about the company. Do not flatter.',
-    'When it is clear, and no later than the sixth exchange, finish with a line that starts with "Stance:" followed by exactly one of: pursue, pursue with a test, pass. Then one sentence why, in their own terms. If the stance is "pursue with a test", give the exact question to ask the interviewer.',
-    /recruit|talent|sourc/i.test(String(role || o.role_title)) ? 'They would be pitching this company to candidates every day. If the mission bores them, candidates will hear it. Say that plainly if it applies.' : '',
+    'You are Ezzy, a recruiter helping a candidate decide whether to pursue ' + what + '.',
+    'This is a short, bounded conversation: at most ' + (o ? 'six' : 'eight') + ' exchanges, one question at a time. ' + open + ' Do not list everything you could ask.',
+    'Ground every sentence. Quote the candidate only with words they wrote, here or in what they want. Say things about the company only from what they tell you' + (o ? ' and the posting and brief below' : '') + '; when you do not know, say so and make it a question for the interview. Never invent a fact about a company. Do not flatter.',
+    'Give a recruiter\'s honest read as you go, in plain words, when you have enough to say it. When it is clear, and no later than the last exchange, finish with a line that starts with "Stance:" followed by exactly one of: pursue, pursue with a test, pass. Then one sentence why, in their own terms. If the stance is "pursue with a test", give the exact question to ask.',
+    /recruit|talent|sourc/i.test(String(role || (o && o.role_title) || '')) ? 'They would be pitching this company to candidates every day. If the mission bores them, candidates will hear it. Say that plainly if it applies.' : '',
     'Plain prose. No headers, no bullet lists, no bold.',
     '',
-    'What the candidate wants from the next role:', ctx.wantsText || '(nothing stated)',
-    '',
-    'The posting:', ctx.jd || '(none)',
+    'What the candidate wants from the next role:', ctx.wantsText || '(nothing stated yet; ask when it matters)',
+    ctx.profileText ? '\nWhat Ezzy knows about them:\n' + ctx.profileText : '',
+    o ? '\nThe posting:\n' + (ctx.jd || '(none)') : '',
     ctx.brief ? '\nResearch brief on the company:\n' + ctx.brief : '',
     ctx.read ? '\nEzzy\'s read of the posting against what they want (' + ctx.read.stance.title + '):\n' + ctx.read.items.map(function (i) {
       return '- ' + i.bucket + ': "' + i.your_words + '"' + (i.source_quote ? ' vs "' + i.source_quote + '"' : '') + (i.question ? ' - ask: ' + i.question : '');
@@ -1563,7 +1568,7 @@ export default async function handler(req, res) {
     var decideCtx = null;
     if (mode === 'decide') {
       decideCtx = await fetchDecideContext(token, user.id, body.opportunityId);
-      if (!decideCtx) return res.status(400).json({ error: 'opportunity_required' });
+      if (!decideCtx) return res.status(400).json({ error: 'profile_unavailable' });
     }
 
     var researchCacheKeys = null;
@@ -1620,7 +1625,7 @@ export default async function handler(req, res) {
 
     if (mode === 'decide') {
       var turns = messages.filter(function (m) { return m.role === 'assistant'; }).length;
-      if (turns >= 5) anthropicBody.system += '\n\nThis is the last exchange. Give the Stance line now, whatever is still open.';
+      if (turns >= (decideCtx.opp ? 5 : 7)) anthropicBody.system += '\n\nThis is the last exchange. Give the Stance line now, whatever is still open.';
       var dr = await groundedPrepReply(anthropicBody, messages, mode, decideCtx.sourceText);
       if (!dr.ok) return res.status(dr.status || 502).json(dr.data || { error: 'Reply failed' });
       if (isStreaming) return writeAsStream(res, dr.text, dr.guard);
