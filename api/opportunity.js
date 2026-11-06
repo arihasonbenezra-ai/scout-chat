@@ -1,4 +1,8 @@
-export const runtime = 'edge';
+// Node runtime, not edge: this call reads a posting and makes model
+// calls before it can answer, and an edge function that has not started
+// its response within 25 seconds is cut off with no body. Node gets a
+// minute.
+export const config = { maxDuration: 60 };
 import { fetchDescription } from './_jobs.js';
 
 // Opportunities: a pasted posting -> a career_opportunities row with a fit
@@ -224,6 +228,13 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'posting_too_short' });
     }
 
+    // 2 starts now so it runs while the posting is being read.
+    var evidenceP = Promise.all([
+      restRows(token, 'career_profile?user_id=eq.' + user.id + '&select=*'),
+      restRows(token, 'career_claims?user_id=eq.' + user.id + '&select=claim_type,label,status,detail,evidence&order=last_seen_at.desc&limit=40'),
+      restRows(token, 'conversations?user_id=eq.' + user.id + '&mode=eq.resume&resume_text=not.is.null&select=resume_text&order=created_at.desc&limit=1')
+    ]);
+
     // 1. What the posting states.
     var posting = await anthropicToolCall('claude-haiku-4-5', POSTING_SYSTEM, 'Job posting:\n\n' + jdText, POSTING_TOOL, 1500);
     if (!posting || !posting.role_title) return res.status(502).json({ error: 'Could not read that posting' });
@@ -238,11 +249,7 @@ export default async function handler(req, res) {
     };
 
     // 2. Everything Ezzy knows about the candidate.
-    var evidence = await Promise.all([
-      restRows(token, 'career_profile?user_id=eq.' + user.id + '&select=*'),
-      restRows(token, 'career_claims?user_id=eq.' + user.id + '&select=claim_type,label,status,detail,evidence&order=last_seen_at.desc&limit=40'),
-      restRows(token, 'conversations?user_id=eq.' + user.id + '&mode=eq.resume&resume_text=not.is.null&select=resume_text&order=created_at.desc&limit=1')
-    ]);
+    var evidence = await evidenceP;
     var profile = evidence[0][0] || null;
     var claims = evidence[1] || [];
     // The profile carries the latest resume from any entry point (onboarding

@@ -1,4 +1,8 @@
-export const runtime = 'edge';
+// Node runtime, not edge: this call reads a posting and makes model
+// calls before it can answer, and an edge function that has not started
+// its response within 25 seconds is cut off with no body. Node gets a
+// minute.
+export const config = { maxDuration: 60 };
 
 // "Apply with these fixes" has to hand over the fixes. For each requirement
 // the verdict lists (related experience exists, but the resume does not show
