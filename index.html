@@ -347,6 +347,7 @@ button,input,textarea{font-family:inherit}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
 .role-row:last-of-type{margin-bottom:0}
 .role-main{min-width:0;flex:1}
+.role-err{font-size:12.5px;color:#8F3229;line-height:1.4;max-width:260px;text-align:right;margin-top:6px}
 .role-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .role-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:1px solid #D5D2CB;background:#fff;color:#333;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer}
 .role-chip span{font-weight:500;color:#8A8A8A;font-size:13px}
@@ -4130,18 +4131,23 @@ async function dashCheckFit(listingId, btn){
   if(!token) return;
   var label = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = 'Reading the posting...'; }
-  var fail = function(msg){ if(btn){ btn.disabled = false; btn.textContent = msg || label; } };
+  var fail = function(msg, why){
+    if(!btn) return;
+    btn.disabled = false; btn.textContent = msg || label;
+    var old = btn.parentNode && btn.parentNode.querySelector('.role-err'); if(old) old.remove();
+    if(why) btn.insertAdjacentHTML('afterend', '<div class="role-err">' + escapeHtml(why) + '</div>');
+  };
   try{
     var res = await fetch(OPP_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer ' + token}, body: JSON.stringify({ listingId: listingId }) });
-    var data = await res.json().catch(function(){ return {}; });
+    var data = await res.json().catch(function(){ return { error: 'HTTP ' + res.status + ' with no body' }; });
     if(!res.ok){
       if(data.error === 'upgrade_required'){ fail(); openPricingModal(); return; }
       if(data.error === 'listing_unavailable' || data.error === 'listing_not_found'){ if(btn){ btn.textContent = 'No longer listed'; } return; }
-      console.error('check fit', data); fail('Try again'); return;
+      console.error('check fit', data); fail('Try again', (data.error || 'Failed') + (data.detail ? ': ' + data.detail : '') + ' (' + res.status + ')'); return;
     }
     DASH_ROLES = null; // this role is an opportunity now
     dashShowOpportunity(data.opportunity.id, data.opportunity);
-  }catch(e){ console.error('check fit', e); fail('Try again'); }
+  }catch(e){ console.error('check fit', e); fail('Try again', String(e && e.message || e)); }
 }
 
 // --- Opportunities -----------------------------------------------------------
