@@ -2502,10 +2502,21 @@ async function signInWithGoogle(){
 (function(){
   if(!window.supabaseClient) return;
 
-  // Check on page load
-  window.supabaseClient.auth.getSession().then(function(res){
+  // Check on page load. A stored token can outlive its account (the user
+  // was deleted server-side); getUser() asks the server, and if the
+  // account is gone the stale session is dropped so the page starts
+  // signed out instead of stuck in onboarding with a dead user id.
+  window.supabaseClient.auth.getSession().then(async function(res){
     var session = res.data.session;
     if(session && session.user){
+      try{
+        var u = await window.supabaseClient.auth.getUser();
+        if(u.error || !u.data || !u.data.user){
+          await window.supabaseClient.auth.signOut({ scope: 'local' });
+          updateAuthUI(null);
+          return;
+        }
+      }catch(e){}
       updateAuthUI(session.user);
       resumeGatedRetryIfAny();
     } else {
