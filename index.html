@@ -409,6 +409,8 @@ button,input,textarea{font-family:inherit}
 .dash-row:hover{border-color:#F26B5E}
 .dash-row-t{font-size:16.5px;font-weight:600}
 .dash-row-s{font-size:14px;color:#6B6B6B;margin-top:2px}
+.opp-rating{font-size:13.5px;color:#8A8A8A;margin-top:3px}
+.opp-rating:empty{display:none}
 .dash-score{font-size:14px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px;flex:none}
 .dash-nr{font-size:14px;color:#9A9A9A;flex:none}
 .dash-empty{display:flex;flex-direction:column;gap:8px;align-items:flex-start;padding:14px;border:1px dashed #D5D2CB;border-radius:12px}
@@ -3658,6 +3660,7 @@ function renderDashboard(body, d){
   html += '</div>'; // grid
   html += '<div class="dash-foot">' + (fresh ? 'Your readiness score, scorecards, sessions and matched roles appear here as you use Ezzy. ' : '') + 'Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
+  dashFillRatings(body);
   if(roleProfile(p).target_role_title) dashLoadRoles(d);
 }
 
@@ -4260,7 +4263,42 @@ function oppStale(o){ return !!(o && OPP_ACTIVE[o.stage] && oppDaysQuiet(o) >= 7
 function dashOppRow(o){
   var bits = [OPP_STAGE_LABEL[o.stage] || o.stage].concat(oppFacts(o).slice(0,2));
   bits.push(dashDate(o.updated_at));
-  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + (oppStale(o) ? ' <span class="dash-tag coral">Any news?</span>' : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div></div>' + oppFitLabel(o) + '</button>';
+  return '<button class="dash-row" onclick="dashShowOpportunity(\'' + o.id + '\')"><div><div class="dash-row-t">' + escapeHtml(o.role_title) + (o.company ? ' \u00b7 ' + escapeHtml(o.company) : '') + (oppStale(o) ? ' <span class="dash-tag coral">Any news?</span>' : '') + '</div><div class="dash-row-s">' + bits.map(escapeHtml).join(' · ') + '</div>' + (o.company ? '<div class="opp-rating" data-company="' + escapeHtml(o.company) + '"></div>' : '') + '</div>' + oppFitLabel(o) + '</button>';
+}
+
+// Employer ratings (Glassdoor, Indeed, Blind) for the companies on the
+// page. One request per company; the server keeps each for 30 days and
+// only returns a number it found in the cited page text.
+var RATINGS_CACHE = {};
+async function fetchCompanyRatings(company){
+  var k = company.toLowerCase().trim();
+  if(RATINGS_CACHE[k]) return RATINGS_CACHE[k];
+  RATINGS_CACHE[k] = (async function(){
+    try{
+      var sr = await window.supabaseClient.auth.getSession();
+      var token = sr.data && sr.data.session && sr.data.session.access_token;
+      if(!token) return [];
+      var res = await fetch('/api/company-ratings?company=' + encodeURIComponent(company), { headers:{ 'Authorization':'Bearer ' + token } });
+      if(!res.ok) return [];
+      var data = await res.json();
+      return Array.isArray(data.ratings) ? data.ratings : [];
+    }catch(e){ return []; }
+  })();
+  return RATINGS_CACHE[k];
+}
+function ratingText(r){ return r.site + ' ' + r.rating + (r.count ? ' (' + r.count.toLocaleString() + ')' : ''); }
+function dashFillRatings(root){
+  if(!root || !window.supabaseClient) return;
+  var slots = [].slice.call(root.querySelectorAll('.opp-rating[data-company]'));
+  slots.forEach(function(el){
+    fetchCompanyRatings(el.getAttribute('data-company')).then(function(ratings){
+      if(!ratings.length) return;
+      if(el.tagName === 'DIV' && el.closest('button')) el.textContent = ratings.map(ratingText).join(' \u00b7 ');
+      else el.innerHTML = ratings.map(function(r){
+        return '<a class="dash-chip" href="' + escapeHtml(r.url) + '" target="_blank" rel="noopener">' + escapeHtml(ratingText(r)) + ' \u2197</a>';
+      }).join('') + '<span class="dash-muted" style="margin:0;align-self:center">Employer ratings found by search, each linked to the page it came from.</span>';
+    });
+  });
 }
 
 function dashAddOpportunity(){
@@ -4327,6 +4365,7 @@ async function dashShowOpportunities(){
   var funnel = rows.length ? rows.length + ' tracked \u00b7 ' + cnt(['applied','screening','interviewing','offer','accepted','hired','rejected','withdrawn']) + ' applied \u00b7 ' + cnt(['interviewing','offer','accepted','hired']) + ' reached interviews \u00b7 ' + cnt(['offer','accepted','hired']) + ' offers.' : 'Nothing tracked yet.';
   setDashHash('opps');
   body.innerHTML = dashView('Opportunities', funnel + ' Open one to log where it stands or prep for it.', 'My Career', 'loadDashboard()', inner);
+  dashFillRatings(body);
   body.parentNode.scrollTop = 0;
 }
 
@@ -4378,7 +4417,8 @@ async function dashShowOpportunity(id, row){
   var partial = gaps.filter(function(g){ return g.status === 'partial'; }).length;
 
   var html = '<div class="dash-chips">' + oppFacts(row).map(function(c){ return '<span class="dash-chip">' + escapeHtml(c) + '</span>'; }).join('')
-    + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>';
+    + (row.url ? '<a class="dash-chip" href="' + escapeHtml(row.url) + '" target="_blank" rel="noopener">Open posting ↗</a>' : '') + '</div>'
+    + (row.company ? '<div class="dash-chips opp-rating" data-company="' + escapeHtml(row.company) + '"></div>' : '');
   // A role that came from the feed: say so when the company has since
   // taken the posting down. The opportunity itself stays; a closed posting
   // is not a rejection, so the stage is left to the person.
@@ -4460,6 +4500,7 @@ async function dashShowOpportunity(id, row){
   if(canEdit) html += '<div class="onb-foot" style="margin-top:8px"><button class="dash-link" style="color:#8A8A8A" onclick="dashRemoveOpportunity(\'' + row.id + '\')">Remove this opportunity</button></div>';
 
   body.innerHTML = dashView(escapeHtml(row.role_title) + (row.company ? ' <span style="color:#8A8A8A;font-weight:500">at ' + escapeHtml(row.company) + '</span>' : ''), 'Added ' + dashDate(row.created_at) + '.', 'Opportunities', 'dashShowOpportunities()', html);
+  dashFillRatings(body);
   body.parentNode.scrollTop = 0;
 }
 

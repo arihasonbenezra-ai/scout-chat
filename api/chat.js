@@ -747,19 +747,20 @@ function researchSystemPrompt(role, company) {
   return [
     'You are Ezzy, a recruiting partner helping a candidate prep for a ' + role + ' interview at ' + company + '.',
     '',
-    'Use web search to gather CURRENT, DATED information about the company. Produce a focused brief.',
+    'Use web search to gather CURRENT, DATED information about the company. Produce a focused brief. Include at least one search for the company\'s employer reviews (for example "' + company + ' Glassdoor rating").',
     '',
     'Do NOT write any preamble or process narration before your response. Do NOT say things like "I will search for..." or "Let me search..." or "Now I have the information..." or "I will now search for additional...". Just start your response directly with the disclaimer line below.',
     '',
     'ALWAYS start with this exact disclaimer:',
     '_Based on public web search. Verify specifics like comp, benefits, policies, and current personnel before your interview._',
     '',
-    'Then produce these 5 sections:',
+    'Then produce these 6 sections:',
     '',
     '**Recent News** - 2-3 most relevant news items from the last 12 months, ideally last 6 months. Each must have a dated source.',
     '**Product** - what the company does and any recent product launches or strategic shifts (last 12 months only)',
     '**Funding & Stage** - last raise, investors, headcount if announced (only include if publicly disclosed and recent)',
     '**What People Are Saying Recently** - 2-3 specific public statements, quotes from leadership, or themes from recent press. NOT generic culture vibes - only specific recent quotes or coverage.',
+    '**What Employees Say** - the employer rating and review count on Glassdoor, Indeed and Blind, one sentence per site, only where a search result states the number, with the year it was seen. Then 2-3 themes that recur in those results, each dated. Paraphrase; never quote review text. If no result states a rating, write "I could not find a verified employer rating."',
     '**3 Questions to Ask** - sharp, specific questions a ' + role + ' candidate could ask their interviewer, informed by what you found above',
     '',
     'After the brief, the candidate may ask follow-up questions. Use web search whenever needed.',
@@ -1498,7 +1499,7 @@ export default async function handler(req, res) {
     }
 
     if (mode === 'research') {
-      anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 8 }];
+      anthropicBody.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 10 }];
       var rr = await callResearch(anthropicBody);
       if (!rr.ok) return res.status(rr.status || 502).json(rr.data || { error: 'Research failed' });
       var verified = verifyResearchBrief(rr.content);
