@@ -170,22 +170,32 @@ function checkGrounding(reply, sourceText, requireQuote) {
   return { ok: !bad.length && !missing, bad: bad, quotes: quotes.length, missing: missing };
 }
 
-// Last resort when a retry still fabricates: drop the sentences that hold
-// a bad quote and say so, rather than showing invented feedback.
+// Last resort when the retries still fabricate: drop the whole point that
+// holds a bad quote (the line, plus a heading line of its own above it),
+// renumber what is left, and say so. Cutting one sentence used to leave
+// the rest of the point dangling ("If you did say it, what happened?").
+var LIST_ITEM_RE = /^(\s*)(\d+)([.)])(\s+)/;
+var LIST_HEADING_RE = /^\s*\d+[.)]\s*(?:\*\*[^*\n]+\*\*|[A-Z][^.!?\n]{0,60}:)\s*$/;
 function stripBadQuotes(reply, bad) {
-  var removed = 0;
-  var lines = reply.split('\n').map(function (line) {
-    var sentences = line.split(/(?<=[.!?])\s+/);
-    var kept = sentences.filter(function (sent) {
-      var hit = bad.some(function (q) { return sent.indexOf(q) !== -1; });
-      if (hit) removed++;
-      return !hit;
-    });
-    var out = kept.join(' ');
-    if (/^\s*(?:\d+[.)]|[-*\u2022])\s*(?:\*\*\s*)?$/.test(out)) return null;
-    return out;
-  }).filter(function (l) { return l !== null; });
-  var text = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  var lines = reply.split('\n');
+  var drop = lines.map(function (line) { return bad.some(function (q) { return line.indexOf(q) !== -1; }); });
+  var removed = drop.filter(Boolean).length;
+  // A heading-only list line whose body was just dropped goes too.
+  for (var i = 0; i < lines.length; i++) {
+    if (!drop[i] || i === 0 || drop[i - 1]) continue;
+    if (LIST_HEADING_RE.test(lines[i - 1])) drop[i - 1] = true;
+  }
+  var kept = lines.filter(function (l, i) { return !drop[i]; });
+  // Renumber ordered items so the list reads 1, 2, 3 again.
+  var n = 0, inList = false;
+  kept = kept.map(function (line) {
+    var m = line.match(LIST_ITEM_RE);
+    if (m) { n = inList ? n + 1 : 1; inList = true; return m[1] + n + m[3] + m[4] + line.slice(m[0].length); }
+    if (line.trim() === '' || /^\s{2,}/.test(line)) return line; // blank or continuation keeps the list open
+    inList = false;
+    return line;
+  });
+  var text = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   if (removed) text += '\n\n_' + (removed === 1 ? 'One point was' : removed + ' points were') + ' removed because ' + (removed === 1 ? 'it' : 'they') + ' referred to something you didn\'t say._';
   return text;
 }
@@ -225,9 +235,23 @@ async function groundedPrepReply(anthropicBody, messages, mode) {
   var check2 = checkGrounding(second.text, source, requireQuote);
   if (check2.ok) return { ok: true, text: holdNextQuestion(second.text, mode, progress), data: second.data, guard: { retried: true, firstBad: firstBad, stripped: 0 } };
 
-  console.log('[prep-guard] strip', JSON.stringify({ mode: mode, bad: check2.bad, missing: check2.missing }));
-  var text = check2.bad.length ? stripBadQuotes(second.text, check2.bad) : second.text;
-  return { ok: true, text: holdNextQuestion(text, mode, progress), data: second.data, guard: { retried: true, firstBad: firstBad, stripped: check2.bad.length, strippedQuotes: check2.bad } };
+  // One more try before anything is cut, with every invented quote so
+  // far banned by name and the points they sat in dropped at the source.
+  var allBad = firstBad.concat(check2.bad).filter(function (q, i, a) { return a.indexOf(q) === i; });
+  var third = null, check3 = null;
+  if (allBad.length) {
+    var correction2 = 'Two drafts quoted words the candidate never said: ' + allBad.map(function (q) { return '"' + q + '"'; }).join(', ') + '. Write the reply again from scratch. Make no point that depends on those words, and do not refer to them. Quote only text that appears word for word in the candidate\'s answers; a point with no quote is better than one with an invented quote.';
+    third = await callOnce(Object.assign({}, anthropicBody, { system: anthropicBody.system + '\n\n' + correction2 }));
+    if (third.ok) {
+      check3 = checkGrounding(third.text, source, requireQuote);
+      if (check3.ok) return { ok: true, text: holdNextQuestion(third.text, mode, progress), data: third.data, guard: { retried: true, firstBad: firstBad, stripped: 0, tries: 3 } };
+    }
+  }
+  var last = third && third.ok ? third : second;
+  var lastCheck = third && third.ok ? check3 : check2;
+  console.log('[prep-guard] strip', JSON.stringify({ mode: mode, bad: lastCheck.bad, missing: lastCheck.missing }));
+  var text = lastCheck.bad.length ? stripBadQuotes(last.text, lastCheck.bad) : last.text;
+  return { ok: true, text: holdNextQuestion(text, mode, progress), data: last.data, guard: { retried: true, firstBad: firstBad, stripped: lastCheck.bad.length, strippedQuotes: lastCheck.bad, tries: third ? 3 : 2 } };
 }
 
 // If the feedback asks the candidate for something, the next question
