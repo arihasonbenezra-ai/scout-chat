@@ -535,18 +535,37 @@ function noPraise(imp) { imp = String(imp || '').trim(); return PRAISE_RE.test(i
 
 // A suggested change that carries a number the candidate never said is an
 // invented fact dressed as advice ("Q2 2023", "100 interviews/month").
-// Same whole-number rule as the resume guard; a miss blanks the cell.
+// A number is checked together with what it counts: "3 platforms" in the
+// answer does not license "3 months" in the suggestion. A bare number
+// ("from 3 to 2") only needs the number itself. A miss blanks the cell.
+var UNIT_STEM = { min: 'minute', mins: 'minute', minute: 'minute', minutes: 'minute', hr: 'hour', hrs: 'hour', hour: 'hour', hours: 'hour',
+  day: 'day', days: 'day', wk: 'week', wks: 'week', week: 'week', weeks: 'week', mo: 'month', mos: 'month', month: 'month', months: 'month',
+  yr: 'year', yrs: 'year', year: 'year', years: 'year', sec: 'second', secs: 'second', second: 'second', seconds: 'second', pct: 'percent', percent: 'percent' };
+var UNIT_SKIP = { to: 1, and: 1, or: 1, of: 1, x: 1, by: 1, per: 1, a: 1, the: 1, in: 1, at: 1, on: 1, for: 1, with: 1, from: 1, n: 1 };
+function unitStem(w) { w = String(w || '').toLowerCase().replace(/[^a-z]/g, ''); if (UNIT_STEM[w]) return UNIT_STEM[w]; return w.replace(/s$/, ''); }
+function numCore(t) { return String(t || '').replace(/[^0-9.]/g, '').replace(/\.$/, ''); }
+function numberKeys(tokens) {
+  var keys = {};
+  tokens.forEach(function (t, i) {
+    var c = numCore(t); if (!c || !/\d/.test(t)) return;
+    keys[c] = true;
+    var next = tokens[i + 1];
+    if (next && /^[a-z]/.test(next) && !UNIT_SKIP[next]) keys[c + ' ' + unitStem(next)] = true;
+  });
+  return keys;
+}
 function groundImprovement(imp, srcNorm) {
   if (!imp) return '';
-  var st = String(srcNorm || '').split(' ');
-  var cores = {};
-  st.forEach(function (t) { var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, ''); if (c) cores[c] = true; });
-  var bad = normText(imp).split(' ').some(function (t) {
-    if (!/\d/.test(t) || st.indexOf(t) !== -1) return false;
-    var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, '');
-    return !!(c && !cores[c]);
-  });
-  return bad ? '' : imp;
+  var have = numberKeys(String(srcNorm || '').split(' ').filter(Boolean));
+  var toks = normText(imp).split(' ').filter(Boolean);
+  for (var i = 0; i < toks.length; i++) {
+    var t = toks[i]; if (!/\d/.test(t)) continue;
+    var c = numCore(t); if (!c) continue;
+    var next = toks[i + 1];
+    var unit = next && /^[a-z]/.test(next) && !UNIT_SKIP[next] ? unitStem(next) : null;
+    if (unit ? !have[c + ' ' + unit] : !have[c]) return '';
+  }
+  return imp;
 }
 
 function computeOverall(dims) {
