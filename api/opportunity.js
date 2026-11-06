@@ -163,7 +163,15 @@ async function anthropicToolCall(model, system, userContent, tool, maxTokens) {
   });
   const data = await res.json();
   const toolUse = (data.content || []).find(function (b) { return b.type === 'tool_use'; });
-  return toolUse ? toolUse.input : null;
+  if (!toolUse) {
+    // Say why, in the log and to the caller, instead of a bare null.
+    var why = data && data.error ? (data.error.type + ': ' + data.error.message) : ('no tool_use, stop_reason ' + (data && data.stop_reason));
+    console.error('[anthropic] ' + model + ' ' + res.status + ' ' + why);
+    anthropicToolCall.lastError = String(why).slice(0, 300);
+    return null;
+  }
+  anthropicToolCall.lastError = null;
+  return toolUse.input;
 }
 
 // Weighted by what the posting says matters. Required counts double.
@@ -237,7 +245,7 @@ export default async function handler(req, res) {
 
     // 1. What the posting states.
     var posting = await anthropicToolCall('claude-haiku-4-5', POSTING_SYSTEM, 'Job posting:\n\n' + jdText, POSTING_TOOL, 1500);
-    if (!posting || !posting.role_title) return res.status(502).json({ error: 'Could not read that posting' });
+    if (!posting || !posting.role_title) return res.status(502).json({ error: 'Could not read that posting', detail: anthropicToolCall.lastError || 'the posting read returned no title' });
     var requirements = Array.isArray(posting.requirements) ? posting.requirements.slice(0, 10) : [];
     var meta = {
       location: posting.location ? String(posting.location).slice(0, 120) : null,
