@@ -337,12 +337,13 @@ button,input,textarea{font-family:inherit}
 .dash-btn{padding:13px 22px;border-radius:999px;font-size:16px;font-weight:600;cursor:pointer;border:1px solid #C9C6C0;background:#fff;color:#111;font-family:inherit}
 .dash-btn.primary{background:#111;color:#fff;border-color:#111}
 .dash-btn:hover{border-color:#111}
-.dash-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
-.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:32px 34px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.dash-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:32px}
+.dash-card{background:#fff;border:1px solid #E5E5E5;border-radius:18px;padding:32px 34px;display:flex;flex-direction:column;gap:22px;min-width:0;grid-column:span 2}
 .dash-card.dark{background:#111;color:#fff;border-color:#111}
-.dash-card.span2{grid-column:span 2}
+.dash-card.span2{grid-column:span 4}
 .dash-card.span3{grid-column:1 / -1}
-.dash-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dash-card.half{grid-column:span 3}
+.dash-grid.two{grid-template-columns:repeat(4,minmax(0,1fr))}
 .dash-quick{display:flex;gap:18px;flex-wrap:wrap;padding-top:4px}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
 .role-row:last-of-type{margin-bottom:0}
@@ -524,9 +525,9 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .nav-back{display:none;margin-left:8px;padding:7px 14px;border-radius:999px;font-size:14px;font-weight:600;color:#8F3229;background:#FCEAE6;text-decoration:none;cursor:pointer;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
 .nav-back.show{display:inline-block}
 .nav-back:hover{background:#FBE3DD}
-@media (max-width:1000px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:1000px){.dash-grid,.dash-grid.two{grid-template-columns:repeat(4,minmax(0,1fr))}.dash-card.span2,.dash-card.half{grid-column:span 4}}
 @media (max-width:420px){.brand-name{display:none}}
-@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card.span2{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
+@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card,.dash-card.span2,.dash-card.span3,.dash-card.half{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
 .sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
 .sess-msg.bot{background:var(--coral-pale);color:#111;margin-right:24px}
@@ -3697,9 +3698,14 @@ function renderDashboard(body, d){
     + '<div id="dashRoles"><div class="dash-muted">Looking for open ' + escapeHtml(roleProfile(p).target_role_title) + ' roles...</div></div></div>';
   }
 
+  // The last row: sessions, stories, opportunities, whichever exist. Two
+  // cards share the width; one takes it all; three sit as thirds.
+  var lastRow = (d.past.length ? 1 : 0) + (!locked && d.stories.length ? 1 : 0) + (!locked && d.opps.length ? 1 : 0);
+  var lastCls = lastRow === 1 ? ' span3' : lastRow === 2 ? ' half' : '';
+
   // Past sessions
   if(d.past.length){
-  html += '<div class="dash-card' + (locked ? ' span3' : '') + '"><div class="dash-card-head"><div class="dash-label">Sessions</div><button class="dash-link" onclick="dashShowSessions()">All</button></div>';
+  html += '<div class="dash-card' + lastCls + '"><div class="dash-card-head"><div class="dash-label">Sessions</div><button class="dash-link" onclick="dashShowSessions()">All</button></div>';
   html += d.past.map(dashSessionRow).join('');
   html += '</div>';
   }
@@ -3707,7 +3713,7 @@ function renderDashboard(body, d){
   if(!locked){
   // Story bank
   if(d.stories.length){
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Story bank</div></div>';
+  html += '<div class="dash-card' + lastCls + '"><div class="dash-card-head"><div class="dash-label">Story bank</div></div>';
     html += d.stories.map(function(st){
       return '<div class="dash-empty" style="border-style:solid"><div class="dash-empty-t">' + (st.status==='draft'?'Draft: ':'') + escapeHtml(st.title) + '</div><div class="dash-empty-s">' + (st.competencies && st.competencies.length ? 'Tagged: ' + escapeHtml(st.competencies.join(', ')) + '. ' : '') + (st.result ? '' : 'Missing: the result.') + '</div></div>';
     }).join('');
@@ -3716,7 +3722,7 @@ function renderDashboard(body, d){
 
   // Opportunities
   if(d.opps.length){
-  html += '<div class="dash-card"><div class="dash-card-head"><div class="dash-label">Opportunities</div><button class="dash-link" onclick="dashShowOpportunities()">All</button></div>';
+  html += '<div class="dash-card' + lastCls + '"><div class="dash-card-head"><div class="dash-label">Opportunities</div><button class="dash-link" onclick="dashShowOpportunities()">All</button></div>';
   html += d.opps.slice(0,3).map(dashOppRow).join('');
   html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
   html += '</div>';
