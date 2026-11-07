@@ -3935,6 +3935,7 @@ function rankRole(l, p, toks){
 // Days since the posting went up; feeds without a post date (Rippling) count
 // from when Ezzy first saw it. null when neither is known.
 var ROLE_RECENT_DAYS = 45;
+function roleWeek(l){ var d = roleAgeDays(l); return d === null ? 1 : Math.floor(d / 7); }
 function roleAgeDays(l){
   var iso = l.posted_at || l.first_seen_at;
   if(!iso) return null;
@@ -4018,7 +4019,10 @@ async function dashFetchRoles(p, oppUrls){
   var have = {}; (oppUrls || []).forEach(function(u){ if(u) have[u] = true; });
   var ranked = (r.data || []).filter(function(l){ return !have[l.url]; })
     .map(function(l){ return rankRole(l, p, toks); }).filter(Boolean)
-    .sort(function(a, b){ return b.score - a.score || (new Date(b.l.posted_at || b.l.first_seen_at || 0) - new Date(a.l.posted_at || a.l.first_seen_at || 0)); });
+    // Newest week first, then fit, then the exact date. A better-matching
+    // role posted a month ago does not sit above one posted today; within
+    // the same week the better match wins.
+    .sort(function(a, b){ return roleWeek(a.l) - roleWeek(b.l) || b.score - a.score || (new Date(b.l.posted_at || b.l.first_seen_at || 0) - new Date(a.l.posted_at || a.l.first_seen_at || 0)); });
   DASH_ROLES.rows[fkey] = ranked;
   return ranked;
 }
@@ -4066,7 +4070,10 @@ var ROLE_SHOW_OLDER = false;
 function showOlderRoles(on){
   ROLE_SHOW_OLDER = on;
   if(!ROLE_VIEW) return;
-  if(ROLE_VIEW.where === 'list') renderRolesList(); else dashShowRoles();
+  if(ROLE_VIEW.where === 'list'){ renderRolesList(); return; }
+  // From the card: open the full list and land on the older section, not
+  // on the recent rows above it.
+  dashShowRoles().then(function(){ var el = document.getElementById('rolesOlder'); if(el) el.scrollIntoView({ block: 'start' }); });
 }
 // The rows that pass the place/level filter: recent ones shown, older
 // ones behind the link.
@@ -4080,7 +4087,7 @@ function roleOlderSection(sp){
   if(!ROLE_SHOW_OLDER || ROLE_VIEW.where === 'card'){
     return '<div style="margin-top:8px"><button class="dash-link" onclick="showOlderRoles(true)">Show ' + n + '</button> <span class="dash-muted">posted over ' + ROLE_RECENT_DAYS + ' days ago</span></div>';
   }
-  return '<div class="dash-label" style="margin-top:18px">Open more than ' + ROLE_RECENT_DAYS + ' days</div><div class="dash-muted" style="margin:2px 0 8px">Usually an evergreen or hard-to-fill role. Still worth a look; expect a slower process.</div>'
+  return '<div class="dash-label" id="rolesOlder" style="margin-top:18px">Open more than ' + ROLE_RECENT_DAYS + ' days</div><div class="dash-muted" style="margin:2px 0 8px">Usually an evergreen or hard-to-fill role. Still worth a look; expect a slower process.</div>'
     + sp.older.slice(0, 80).map(dashRoleRow).join('')
     + '<div style="margin-top:8px"><button class="dash-link" onclick="showOlderRoles(false)">Hide ' + n + '</button></div>';
 }
