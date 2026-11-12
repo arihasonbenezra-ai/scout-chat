@@ -52,31 +52,126 @@ export function levelFor(title) {
   if (/\b(intern|internship|new grad|graduate|entry|junior|jr\.?|associate|apprentice)\b/.test(r)) return 'entry';
   return null;
 }
+// --- Posted pay ------------------------------------------------------------
+// The salary range a company prints in its own posting. Only what the text
+// states is kept, with the sentence it came from; nothing is estimated.
+// Returns { min, max, currency, interval, source, text } or null.
+var PAY_AMOUNT = '(?:(USD|CAD|GBP|EUR|AUD|US\\$|C\\$|A\\$|\\$|£|€)\\s?)(\\d{1,3}(?:,\\d{3})+(?:\\.\\d+)?|\\d+(?:\\.\\d+)?)\\s?([kK])?(?!\\s?(?:[mMbB]\\b|million|billion))';
+// The second figure of a range often drops the symbol: "$150-200K", "$23-29/hr".
+var PAY_RANGE = new RegExp(PAY_AMOUNT + '(?:\\s?(?:-|–|—|to|and)\\s?' + PAY_AMOUNT.replace('(?:(', '(?:(').replace(')\\s?)', ')\\s?)?') + ')?', 'g');
+var PAY_CONTEXT = /salary|\bpay\b|pay range|compensation|\bcomp\b|wage|base rate|hourly|per hour|\/\s?hr\b|per year|annual|\bOTE\b|on-target/i;
+var PAY_NOT = /revenue|funding|raised|valuation|customers|in sales|ARR|GMV|budget|portfolio|assets|reimburse|stipend|bonus of|sign-on|signing|referral|allowance|401|match/i;
+function payCurrency(sym, window) {
+  if (!sym) return 'USD';
+  var s = sym.toUpperCase();
+  if (s === '£') return 'GBP';
+  if (s === '€') return 'EUR';
+  if (s === 'C$') return 'CAD';
+  if (s === 'A$') return 'AUD';
+  if (s === '$' || s === 'US$') {
+    if (/\bCAD\b|canadian/i.test(window)) return 'CAD';
+    if (/\bAUD\b|australian/i.test(window)) return 'AUD';
+    return 'USD';
+  }
+  return s;
+}
+function payAmount(num, k) { var v = parseFloat(String(num).replace(/,/g, '')); if (isNaN(v)) return null; return k ? v * 1000 : v; }
+function payOk(v, interval) { return interval === 'hour' ? v >= 10 && v <= 500 : v >= 20000 && v <= 1500000; }
+export function payFromText(text) {
+  var s = String(text || '');
+  if (!s || !/[$£€]|\b(USD|CAD|GBP|EUR|AUD)\b/.test(s)) return null;
+  var found = [], m;
+  PAY_RANGE.lastIndex = 0;
+  while ((m = PAY_RANGE.exec(s)) !== null && found.length < 12) {
+    var before = s.slice(Math.max(0, m.index - 160), m.index), after = s.slice(m.index + m[0].length, m.index + m[0].length + 60);
+    var window = before + m[0] + after;
+    // The sentence the figure sits in decides whether it is pay at all; a
+    // bonus or a 401(k) match in the sentence before must not veto it.
+    var sentStart = Math.max(0, before.search(/[^.\n]*$/)), sentEnd = after.search(/[.\n]/);
+    var sentence = (before.slice(sentStart) + m[0] + (sentEnd === -1 ? after : after.slice(0, sentEnd + 1))).replace(/\s+/g, ' ').trim();
+    if (!PAY_CONTEXT.test(window) || PAY_NOT.test(sentence)) continue;
+    var interval = /hour|\/\s?hr\b|hourly|per hr/i.test(window) ? 'hour' : 'year';
+    var lo = payAmount(m[2], m[3]), hi = m[5] ? payAmount(m[5], m[6]) : null;
+    // "$150-200K": the K after the second number applies to both.
+    if (hi !== null && !m[3] && m[6] && lo < 1000) lo = lo * 1000;
+    if (lo === null || !payOk(lo, interval)) continue;
+    // A second figure that cannot be pay ("$5,000 and 2 weeks") is not a range.
+    if (hi !== null && (!payOk(hi, interval) || hi < lo || hi / lo > 4)) hi = null;
+    if (hi === null) {
+      // A lone figure counts only when the sentence is plainly about pay.
+      if (!/salary|pay range|compensation|base pay|\bpays?\b|rate/i.test(before.slice(-50) + after.slice(0, 30))) continue;
+      hi = lo;
+    }
+    var cur = payCurrency(m[1] || m[4], window);
+    found.push({ min: lo, max: hi, currency: cur, interval: interval, text: sentence });
+  }
+  if (!found.length) return null;
+  // Several ranges (levels, cities) become the envelope, in the first
+  // range's currency and interval; a posting that mixes them keeps the first.
+  var first = found[0], lo2 = first.min, hi2 = first.max;
+  found.forEach(function (f) { if (f.currency === first.currency && f.interval === first.interval) { lo2 = Math.min(lo2, f.min); hi2 = Math.max(hi2, f.max); } });
+  if (hi2 / lo2 > 4) { lo2 = first.min; hi2 = first.max; }
+  return { min: lo2, max: hi2, currency: first.currency, interval: first.interval, source: 'posting_text', text: clip(first.text, 240) };
+}
+// Ashby publishes pay as data when the board is read with includeCompensation.
+export function payFromAshby(comp) {
+  if (!comp) return null;
+  var parts = Array.isArray(comp.summaryComponents) && comp.summaryComponents.length ? comp.summaryComponents : [];
+  if (!parts.length) (comp.compensationTiers || []).forEach(function (t) { (t.components || []).forEach(function (c) { parts.push(c); }); });
+  var lo = null, hi = null, cur = null, interval = null;
+  parts.forEach(function (c) {
+    if (!c || c.compensationType !== 'Salary') return;
+    var iv = /HOUR/i.test(c.interval || '') ? 'hour' : (/YEAR/i.test(c.interval || '') ? 'year' : null);
+    if (!iv || (interval && iv !== interval)) return;
+    var a = typeof c.minValue === 'number' ? c.minValue : null, b = typeof c.maxValue === 'number' ? c.maxValue : null;
+    if (a === null && b === null) return;
+    if (a === null) a = b; if (b === null) b = a;
+    if (!payOk(a, iv) || !payOk(b, iv)) return;
+    interval = iv; cur = cur || c.currencyCode || 'USD';
+    lo = lo === null ? a : Math.min(lo, a); hi = hi === null ? b : Math.max(hi, b);
+  });
+  if (lo === null) return null;
+  return { min: lo, max: hi, currency: cur, interval: interval, source: 'structured', text: clip(comp.compensationTierSummary || comp.scrapeableCompensationSalarySummary || '', 240) || null };
+}
+// The columns a pay object maps to on job_listings.
+export function payColumns(pay) {
+  return pay
+    ? { comp_min: pay.min, comp_max: pay.max, comp_currency: pay.currency, comp_interval: pay.interval, comp_source: pay.source, comp_text: pay.text }
+    : { comp_min: null, comp_max: null, comp_currency: null, comp_interval: null, comp_source: null, comp_text: null };
+}
+// Feeds whose listing call carries the posting text (or pay itself), so the
+// nightly sync can read pay for every role. The others are read one role at
+// a time, when someone asks for a fit check.
+export var PAY_AT_SYNC = { greenhouse: true, lever: true, ashby: true, workable: true };
+
 function isRemote(loc, flag) { return !!flag || /\bremote\b|work from home|distributed/i.test(String(loc || '')); }
 function iso(v) { if (!v) return null; var d = new Date(v); return isNaN(d.getTime()) ? null : d.toISOString(); }
 function clip(s, n) { s = String(s == null ? '' : s).trim(); return s.length > n ? s.slice(0, n) : s; }
 
-// One company's open roles, in a common shape. No descriptions here: they
-// are fetched only when someone asks for a fit check on a specific role.
+// One company's open roles, in a common shape. Descriptions are not kept:
+// the full posting is fetched only when someone asks for a fit check. The
+// feeds that carry the text (or pay itself) in this one call do give up the
+// posted pay range here, so Roles for you can show it for every role.
 export async function fetchListings(ats, slug) {
   var out = [];
   if (ats === 'greenhouse') {
-    var g = await getJson('https://boards-api.greenhouse.io/v1/boards/' + encodeURIComponent(slug) + '/jobs', 25000);
+    var g = await getJson('https://boards-api.greenhouse.io/v1/boards/' + encodeURIComponent(slug) + '/jobs?content=true', 25000);
     (g.jobs || []).forEach(function (j) {
       var loc = j.location && j.location.name;
-      out.push({ external_id: String(j.id), title: j.title, location: loc, remote: isRemote(loc), department: null, url: j.absolute_url, posted_at: iso(j.first_published || j.updated_at) });
+      out.push({ external_id: String(j.id), title: j.title, location: loc, remote: isRemote(loc), department: null, url: j.absolute_url, posted_at: iso(j.first_published || j.updated_at), pay: payFromText(htmlToText(j.content)) });
     });
   } else if (ats === 'lever') {
     var l = await getJson('https://api.lever.co/v0/postings/' + encodeURIComponent(slug) + '?mode=json', 25000);
     (Array.isArray(l) ? l : []).forEach(function (j) {
       var c = j.categories || {};
-      out.push({ external_id: String(j.id), title: j.text, location: c.location, remote: isRemote(c.location, j.workplaceType === 'remote'), department: c.department || c.team || null, url: j.hostedUrl, posted_at: iso(j.createdAt) });
+      var text = [j.descriptionPlain || htmlToText(j.description)].concat((j.lists || []).map(function (x) { return (x.text || '') + '\n' + htmlToText(x.content); }), [j.additionalPlain || htmlToText(j.additional)]).join('\n');
+      out.push({ external_id: String(j.id), title: j.text, location: c.location, remote: isRemote(c.location, j.workplaceType === 'remote'), department: c.department || c.team || null, url: j.hostedUrl, posted_at: iso(j.createdAt), pay: payFromText(text) });
     });
   } else if (ats === 'ashby') {
-    var a = await getJson('https://api.ashbyhq.com/posting-api/job-board/' + encodeURIComponent(slug), 25000);
+    var a = await getJson('https://api.ashbyhq.com/posting-api/job-board/' + encodeURIComponent(slug) + '?includeCompensation=true', 25000);
     (a.jobs || []).forEach(function (j) {
       if (j.isListed === false) return;
-      out.push({ external_id: String(j.id), title: j.title, location: j.location, remote: isRemote(j.location, j.isRemote), department: j.department || j.team || null, url: j.jobUrl || j.applyUrl, posted_at: iso(j.publishedAt) });
+      out.push({ external_id: String(j.id), title: j.title, location: j.location, remote: isRemote(j.location, j.isRemote), department: j.department || j.team || null, url: j.jobUrl || j.applyUrl, posted_at: iso(j.publishedAt), pay: payFromAshby(j.compensation) || payFromText(j.descriptionPlain || htmlToText(j.descriptionHtml)) });
     });
   } else if (ats === 'smartrecruiters') {
     for (var off = 0; off < 3000; off += 100) {
@@ -90,10 +185,10 @@ export async function fetchListings(ats, slug) {
       if (page.length < 100 || out.length >= (s.totalFound || 0)) break;
     }
   } else if (ats === 'workable') {
-    var w = await getJson('https://apply.workable.com/api/v1/widget/accounts/' + encodeURIComponent(slug), 20000);
+    var w = await getJson('https://apply.workable.com/api/v1/widget/accounts/' + encodeURIComponent(slug) + '?details=true', 20000);
     (w.jobs || []).forEach(function (j) {
       var loc = [j.city, j.state, j.country].filter(Boolean).join(', ');
-      out.push({ external_id: String(j.shortcode), title: j.title, location: loc, remote: isRemote(loc, j.telecommuting), department: j.department || null, url: j.url || j.application_url, posted_at: iso(j.published_on || j.created_at) });
+      out.push({ external_id: String(j.shortcode), title: j.title, location: loc, remote: isRemote(loc, j.telecommuting), department: j.department || null, url: j.url || j.application_url, posted_at: iso(j.published_on || j.created_at), pay: payFromText(htmlToText(j.description)) });
     });
   } else if (ats === 'rippling') {
     var r = await getJson('https://api.rippling.com/platform/api/ats/v1/board/' + encodeURIComponent(slug) + '/jobs', 20000);
@@ -111,7 +206,7 @@ export async function fetchListings(ats, slug) {
     seen[j.external_id] = true;
     return true;
   }).map(function (j) {
-    return { external_id: clip(j.external_id, 120), title: clip(j.title, 240), location: j.location ? clip(j.location, 200) : null, remote: !!j.remote, department: j.department ? clip(j.department, 120) : null, url: clip(j.url, 600), posted_at: j.posted_at };
+    return { external_id: clip(j.external_id, 120), title: clip(j.title, 240), location: j.location ? clip(j.location, 200) : null, remote: !!j.remote, department: j.department ? clip(j.department, 120) : null, url: clip(j.url, 600), posted_at: j.posted_at, pay: j.pay || null };
   });
 }
 

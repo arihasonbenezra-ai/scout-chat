@@ -4003,13 +4003,14 @@ async function dashFetchRoles(p, oppUrls){
   var key = roleKey(p);
   if(!DASH_ROLES || DASH_ROLES.key !== key) DASH_ROLES = { key: key, summary: null, rows: {} };
   var loc = ROLE_FILTER.loc || 'all', lvl = ROLE_FILTER.level || '';
-  var fkey = loc + '|' + lvl;
+  var fkey = loc + '|' + lvl + (ROLE_FILTER.pay ? '|pay' : '');
   if(DASH_ROLES.rows[fkey]) return DASH_ROLES.rows[fkey];
   var clean = function(s){ return String(s).replace(/[,()"\\*%]/g, ' ').replace(/\s+/g, ' ').trim(); };
   var build = function(orderCol){
     var q = window.supabaseClient.from('job_listings')
-      .select('id,company,title,location,remote,url,posted_at,first_seen_at,level,family')
+      .select('id,company,title,location,remote,url,posted_at,first_seen_at,level,family,comp_min,comp_max,comp_currency,comp_interval')
       .eq('active', true).textSearch('title_tsv', head, { type: 'websearch' });
+    if(ROLE_FILTER.pay) q = q.not('comp_min', 'is', null);
     if(loc === 'remote') q = q.eq('remote', true);
     else if(loc === 'mine'){
       var want = roleTargetPlaces(p).map(clean).filter(Boolean);
@@ -4054,12 +4055,29 @@ function roleWantChips(l){
   wantTerms('pull').forEach(function(t){ if(hay.indexOf(t) !== -1) out.push('<span class="dash-chip" style="background:#E6F4EA;color:#17602F">Pulls you in: \u201c' + escapeHtml(t) + '\u201d</span>'); });
   return out.join('');
 }
+// The pay range the company printed in the posting, as printed: yearly or
+// hourly, in its own currency. Nothing is estimated; no range, no chip.
+function rolePay(l){
+  if(l.comp_min == null) return '';
+  var lo = Number(l.comp_min), hi = Number(l.comp_max || l.comp_min);
+  var cur = l.comp_currency || 'USD';
+  var sym = cur === 'USD' ? '$' : cur === 'GBP' ? '£' : cur === 'EUR' ? '€' : cur + ' ';
+  var f = l.comp_interval === 'hour'
+    ? function(v){ return sym + (Math.round(v * 100) / 100); }
+    : function(v){ return sym + Math.round(v / 1000) + 'k'; };
+  var range = lo === hi ? f(lo) : f(lo) + '–' + f(hi);
+  return range + (l.comp_interval === 'hour' ? '/hr' : '');
+}
+function rolePayChip(l){
+  var r = rolePay(l);
+  return r ? '<span class="dash-chip" style="background:#E6F4EA;color:#17602F" title="Pay range printed in the posting">' + escapeHtml(r) + ' posted</span>' : '';
+}
 function dashRoleRow(x){
   var l = x.l;
   var sub = [l.location, roleAge(l)].filter(Boolean).map(escapeHtml).join(' · ');
   return '<div class="role-row"><div class="role-main"><div class="dash-row-t">' + escapeHtml(l.title) + ' <span class="role-co">· ' + escapeHtml(l.company) + '</span></div>'
     + (sub ? '<div class="dash-row-s">' + sub + '</div>' : '')
-    + '<div class="dash-chips" style="margin-top:6px">' + roleWantChips(l) + x.why.map(function(w){ return '<span class="dash-chip">' + escapeHtml(w) + '</span>'; }).join('') + '</div></div>'
+    + '<div class="dash-chips" style="margin-top:6px">' + rolePayChip(l) + roleWantChips(l) + x.why.map(function(w){ return '<span class="dash-chip">' + escapeHtml(w) + '</span>'; }).join('') + '</div></div>'
     + '<div class="role-actions">' + (isCareerPlan() ? '<button class="dash-btn" onclick="dashCheckFit(\'' + l.id + '\', this)">Check my fit</button>' : '')
     + '<a class="dash-link" href="' + escapeHtml(l.url) + '" target="_blank" rel="noopener">View posting ↗</a></div></div>';
 }
@@ -4109,6 +4127,7 @@ function applyRoleFilter(ranked){
     if(loc === 'remote' && !x.l.remote) return false;
     if(loc.indexOf('city:') === 0 && !rolePlaces(x.l).some(function(pl){ return pl === loc.slice(5); })) return false;
     if(lvl && x.l.level !== lvl) return false;
+    if(ROLE_FILTER.pay && x.l.comp_min == null) return false;
     return true;
   });
 }
@@ -4117,11 +4136,12 @@ function setRoleFilter(key, val){
   try{ localStorage.setItem('ezzyRoleFilter', JSON.stringify(ROLE_FILTER)); }catch(e){}
   if(!ROLE_VIEW) return;
   var v = ROLE_VIEW;
-  var want = (ROLE_FILTER.loc || 'all') + '|' + (ROLE_FILTER.level || '');
+  var filterKey = function(){ return (ROLE_FILTER.loc || 'all') + '|' + (ROLE_FILTER.level || '') + (ROLE_FILTER.pay ? '|pay' : ''); };
+  var want = filterKey();
   var render = function(){ if(v.where === 'list') renderRolesList(); else renderRolesCard(); };
   v.loading = true; render();
   dashFetchRoles(v.p, v.oppUrls).then(function(ranked){
-    if(ROLE_VIEW !== v || (ROLE_FILTER.loc || 'all') + '|' + (ROLE_FILTER.level || '') !== want) return; // they clicked again
+    if(ROLE_VIEW !== v || filterKey() !== want) return; // they clicked again
     v.ranked = ranked; v.loading = false; render();
   }, function(e){ console.error('roles', e); if(ROLE_VIEW === v){ v.loading = false; render(); } });
 }
@@ -4137,6 +4157,10 @@ function roleFilterBar(full){
   var html = '<div class="role-filters">';
   if(mine) html += chip('mine', mine, n('mine', function(x){ return x.here; }));
   html += chip('remote', 'Remote', n('remote', function(x){ return x.l.remote; })) + chip('all', 'Everywhere', n('all', function(){ return true; }));
+  // Only roles whose posting prints a pay range. Counted from the rows in
+  // hand; the server summary does not know about pay.
+  var payN = ranked.filter(function(x){ return x.l.comp_min != null; }).length;
+  if(payN || ROLE_FILTER.pay) html += '<button class="role-chip' + (ROLE_FILTER.pay ? ' on' : '') + '" onclick="setRoleFilter(\'pay\', ' + (ROLE_FILTER.pay ? 'false' : 'true') + ')">Shows pay <span>' + payN + '</span></button>';
   if(full){
     // Every place that appears, most roles first.
     var counts = s ? s.places : {};
@@ -4157,7 +4181,7 @@ function roleFilterBar(full){
 function roleFilterEmpty(older){
   if(older && ROLE_SHOW_OLDER && ROLE_VIEW.where === 'list') return ''; // the older section follows
   if(older) return '<div class="dash-empty"><div class="dash-empty-t">Nothing recent under this filter</div><div class="dash-empty-s">' + older + (older === 1 ? ' role has' : ' roles have') + ' been open for more than ' + ROLE_RECENT_DAYS + ' days.</div><button class="dash-btn" onclick="showOlderRoles(true)">Show older roles</button></div>';
-  return '<div class="dash-empty"><div class="dash-empty-t">Nothing under this filter</div><div class="dash-empty-s">There are open roles elsewhere.</div><button class="dash-btn" onclick="ROLE_FILTER.level=\'\';setRoleFilter(\'loc\',\'all\')">Show everywhere</button></div>';
+  return '<div class="dash-empty"><div class="dash-empty-t">Nothing under this filter</div><div class="dash-empty-s">There are open roles elsewhere.</div><button class="dash-btn" onclick="ROLE_FILTER.level=\'\';ROLE_FILTER.pay=false;setRoleFilter(\'loc\',\'all\')">Show everywhere</button></div>';
 }
 function roleTotal(){ return ROLE_VIEW.summary ? ROLE_VIEW.summary.all : ROLE_VIEW.ranked.length; }
 function roleRows(sp, max){

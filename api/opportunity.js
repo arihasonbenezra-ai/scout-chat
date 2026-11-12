@@ -3,7 +3,7 @@
 // its response within 25 seconds is cut off with no body. Node gets a
 // minute.
 export const config = { maxDuration: 60 };
-import { fetchDescription } from './_jobs.js';
+import { fetchDescription, payFromText, payColumns } from './_jobs.js';
 import { handleWants } from './_wants.js';
 
 // Opportunities: a pasted posting -> a career_opportunities row with a fit
@@ -220,7 +220,7 @@ export default async function handler(req, res) {
     // company's own job-board feed now, not from what the candidate pasted.
     var listing = null, listingKey = null;
     if (typeof body.listingId === 'string' && /^[0-9a-f-]{16,}$/i.test(body.listingId)) {
-      var ls = await restRows(token, 'job_listings?id=eq.' + body.listingId + '&select=id,company,title,location,url,ats,slug,external_id');
+      var ls = await restRows(token, 'job_listings?id=eq.' + body.listingId + '&select=id,company,title,location,url,ats,slug,external_id,comp_min,comp_max,comp_currency,comp_interval');
       listing = ls[0];
       if (!listing) return res.status(404).json({ error: 'listing_not_found' });
       listingKey = listing.ats + ':' + listing.slug + ':' + listing.external_id;
@@ -232,6 +232,19 @@ export default async function handler(req, res) {
       catch (e) { return res.status(502).json({ error: 'listing_unavailable', detail: String(e && e.message || e).slice(0, 160) }); }
       jdText = [listing.title, listing.company, listing.location ? 'Location: ' + listing.location : '', '', desc].join('\n').trim().slice(0, 20000);
       url = listing.url;
+      // The full posting is in hand: read the pay range from it and keep it
+      // on the listing. This is how feeds that do not carry the text in
+      // the nightly call (SmartRecruiters, Rippling) get their ranges.
+      if (listing.comp_min == null && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        var pay = payFromText(desc);
+        if (pay) {
+          listing.comp_min = pay.min; listing.comp_max = pay.max; listing.comp_currency = pay.currency; listing.comp_interval = pay.interval;
+          fetch(SUPABASE_URL + '/rest/v1/job_listings?id=eq.' + listing.id, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json', apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY, Prefer: 'return=minimal' },
+            body: JSON.stringify(payColumns(pay))
+          }).catch(function (e) { console.log('[opp] pay write failed', String(e && e.message || e).slice(0, 120)); });
+        }
+      }
     }
     // A requirement list can only come from a real posting; a one-liner
     // would make the model invent requirements and then grade against them.
@@ -259,6 +272,11 @@ export default async function handler(req, res) {
       comp_max: typeof posting.comp_max === 'number' && posting.comp_max > 0 ? Math.round(posting.comp_max) : null,
       requirements: requirements
     };
+    // A range read straight from the feed beats the model's reading of the
+    // same text. Yearly USD only: that is what the target compares against.
+    if (listing && listing.comp_min != null && listing.comp_interval === 'year' && (listing.comp_currency || 'USD') === 'USD') {
+      meta.comp_min = Math.round(Number(listing.comp_min)); meta.comp_max = Math.round(Number(listing.comp_max || listing.comp_min)); meta.comp_source = 'posted';
+    }
 
     // 2. Everything Ezzy knows about the candidate.
     var evidence = await evidenceP;

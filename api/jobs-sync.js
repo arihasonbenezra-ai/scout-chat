@@ -3,7 +3,7 @@
 // secret. One call works through the stalest sources until its time
 // budget is spent, then hands the rest to a fresh call of itself, so a
 // full pass over ~185 companies finishes without one long-running request.
-import { fetchListings, familyFor, levelFor } from './_jobs.js';
+import { fetchListings, familyFor, levelFor, payColumns, PAY_AT_SYNC } from './_jobs.js';
 
 export const config = { maxDuration: 60 };
 
@@ -30,13 +30,17 @@ async function syncSource(src) {
   const started = new Date().toISOString();
   try {
     const listings = await fetchListings(src.ats, src.slug);
+    // Feeds that carry the posting text set the pay columns every night,
+    // null when the posting states none. The others leave them alone, so a
+    // range read during a fit check is not wiped the next morning.
+    const withPay = !!PAY_AT_SYNC[src.ats];
     const rows = listings.map(function (j) {
-      return {
+      return Object.assign({
         company: src.company, ats: src.ats, slug: src.slug, external_id: j.external_id,
         title: j.title, location: j.location, remote: j.remote, department: j.department, url: j.url,
         posted_at: j.posted_at, family: familyFor(j.title), level: levelFor(j.title),
         active: true, last_seen_at: started
-      };
+      }, withPay ? payColumns(j.pay) : {});
     });
     for (var i = 0; i < rows.length; i += 500) {
       await rest('job_listings?on_conflict=ats,slug,external_id', {
@@ -48,7 +52,7 @@ async function syncSource(src) {
       method: 'PATCH', headers: svc({ Prefer: 'return=minimal' }), body: JSON.stringify({ active: false })
     });
     await rest('job_sources?id=eq.' + src.id, { method: 'PATCH', headers: svc({ Prefer: 'return=minimal' }), body: JSON.stringify({ last_synced_at: started, last_count: rows.length, last_error: null }) });
-    return { company: src.company, roles: rows.length };
+    return { company: src.company, roles: rows.length, with_pay: withPay ? rows.filter(function (r) { return r.comp_min != null; }).length : null };
   } catch (e) {
     // Record the failure and move on; a broken feed must not stall the queue.
     try {
