@@ -344,6 +344,16 @@ button,input,textarea{font-family:inherit}
 .dash-card.span3{grid-column:1 / -1}
 .dash-card.half{grid-column:span 3}
 .dash-grid.two{grid-template-columns:repeat(4,minmax(0,1fr))}
+.start-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.start-step{display:flex;gap:12px;align-items:flex-start;padding:16px 18px;border-radius:12px;background:#F3F1EC;border:none;text-align:left;font-family:inherit;cursor:pointer;color:#111}
+.start-step:hover{outline:1px solid #C9C6C0}
+.start-step.done{background:#E6F4EA}
+.start-n{flex:none;width:26px;height:26px;border-radius:50%;background:#111;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.start-step.done .start-n{background:#1E7A3D}
+.start-t{font-size:16px;font-weight:600}
+.start-s{font-size:14px;color:#555;margin-top:2px;line-height:1.45}
+.help-part{padding:14px 0;border-top:1px solid #EEECE7}
+.help-t{font-size:16.5px;font-weight:600;margin-bottom:4px}
 .dash-quick{display:flex;gap:18px;flex-wrap:wrap;padding-top:4px}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
 .role-row:last-of-type{margin-bottom:0}
@@ -527,7 +537,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
 .nav-back:hover{background:#FBE3DD}
 @media (max-width:1000px){.dash-grid,.dash-grid.two{grid-template-columns:repeat(4,minmax(0,1fr))}.dash-card.span2,.dash-card.half{grid-column:span 4}}
 @media (max-width:420px){.brand-name{display:none}}
-@media (max-width:640px){.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card,.dash-card.span2,.dash-card.span3,.dash-card.half{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
+@media (max-width:640px){.start-steps{grid-template-columns:1fr}.dash-inner{padding:20px 16px 32px}.dash-grid,.dash-grid.two{grid-template-columns:1fr}.dash-card,.dash-card.span2,.dash-card.span3,.dash-card.half{grid-column:auto}.dash-dim{grid-template-columns:1fr;gap:4px}.nav-home{margin-left:6px}}
 .sess-msg{font-size:15.5px;line-height:1.6;border-radius:12px;padding:14px 16px;margin-bottom:10px;overflow-wrap:anywhere}
 .sess-msg.user{background:#111;color:#fff;white-space:pre-wrap;margin-left:24px}
 .sess-msg.bot{background:var(--coral-pale);color:#111;margin-right:24px}
@@ -664,6 +674,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
             <div class="header-user-dropdown-email" id="authUserEmail"></div>
             <hr class="header-user-dropdown-sep">
             <button class="header-user-dropdown-item" id="authPlanItem" onclick="openPricingModal()">Plans</button>
+            <button class="header-user-dropdown-item" onclick="dashShowHelp()">How Ezzy works</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
         </div>
@@ -3311,7 +3322,39 @@ function routeDashHash(h){
   if(h === 'opps'){ dashShowOpportunities(); return true; }
   if(h === 'sessions'){ dashShowSessions(); return true; }
   if(h === 'roles'){ dashShowRoles(); return true; }
+  if(h === 'help'){ dashShowHelp(); return true; }
   return false;
+}
+
+// How Ezzy works, and the questions people ask. Plain words, one page,
+// reached from the menu under your initial. Copy is Ari's to tune.
+function dashShowHelp(){
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body) return;
+  setDashHash('help');
+  var part = function(t, s){ return '<div class="help-part"><div class="help-t">' + t + '</div><div class="dash-text">' + s + '</div></div>'; };
+  var inner = '<div class="dash-text" style="font-size:17px">One coach that knows your resume, your target and your last session. Nothing on My Career is a guess: every number and claim links back to your resume, your answers, or a source. Here is what each part does and when to use it.</div>'
+    + '<div class="dash-label" style="margin-top:8px">The parts</div>'
+    + part('My Career', 'Home. Your target, what Ezzy knows about you, your latest scorecard, open roles that fit, and the opportunities you\u2019re chasing. Start here, and come back here.')
+    + part('Resume Review', 'Drop your resume, and a posting if you have one. You get a recruiter-style review with a scorecard and rewrites built only from what your resume already says. Ezzy keeps what it learns about you. Dropping a new resume replaces the old one.')
+    + part('Practice Q&amp;A', 'Five interview questions for your target role. Feedback on each one quotes your own words. After the fifth you get a scorecard, every mark tied to something you said.')
+    + part('STAR Coaching', 'Build one story at a time: situation, task, action, result. Stories you work through are saved for the real interview.')
+    + part('Mock Interview', 'The full thing, in character, no feedback until the end.')
+    + part('Company Research', 'A dated brief on a company with real, linked sources, including what employees say on the review sites. Nothing without a source.')
+    + part('Roles for you', 'Open roles from the companies\u2019 own job boards, matched to your target, newest first. Check my fit reads the whole posting and gives a verdict with the reasons.')
+    + part('Talk through an opportunity', 'A recruiter reached out, or a posting caught your eye, and you\u2019re not sure. Say what it is. A short conversation, one question at a time, that ends with a stance in your own terms. Ezzy remembers what you learn about yourself along the way, with your say-so.')
+    + '<div class="dash-label" style="margin-top:8px">Questions</div>'
+    + part('Does Ezzy make things up?', 'No, and it is checked, not promised. A piece of feedback that quotes words you never said is removed and you are told. A suggestion that includes a number you never gave is dropped. A research sentence without a source is marked. If you ever catch something that slipped through, email hello@meetezzy.com.')
+    + part('What does the free plan include?', 'Enough to see how Ezzy works: a basic resume review, a Practice set, and the roles that match your target.')
+    + part('What is in the Career plan?', 'Everything. Unlimited practice, STAR coaching and mock interviews with scorecards, full resume reviews, company research with employer ratings, Check my fit on any role, talking through any opportunity, and your story bank and opportunity tracker. $19.99 a month.')
+    + part('How do I cancel?', 'Email hello@meetezzy.com and it is done the same day. You keep access to the end of the month you paid for.')
+    + part('How do I replace my resume?', 'Start a Resume Review and drop the new one, or use Replace next to \u201cResume on file\u201d on My Career. The new one takes over everywhere.')
+    + part('Where does my information go?', 'Your resume, answers and profile are stored for your account so Ezzy can remember you between sessions. They are sent to the AI model only to produce your coaching. Nothing is sold or shared. To delete everything, email hello@meetezzy.com.')
+    + part('Does it work on my phone?', 'Yes, in the browser. No app to install.')
+    + part('Who built this?', 'Recruiters and hiring managers from top companies, who got tired of watching good candidates lose to bad preparation.');
+  body.innerHTML = dashView('How Ezzy works', 'What each part does, and the questions people ask.', 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
 }
 var DASH_ROLE = null;
 var DASH_PROFILE = null;
@@ -3570,6 +3613,22 @@ function renderDashboard(body, d){
   var fresh = !latest && !hasKnown && !d.past.length && !d.stories.length && !d.opps.length;
   html += '<div class="dash-grid' + (fresh ? ' two' : '') + '">';
 
+  // Start here: the three things a new account needs before Ezzy has
+  // enough to work with. Each ticks itself off; the card goes when all do.
+  var stepResume = !!(p.resume_text || p.resume_updated_at || d.resumeScore || d.claims.length);
+  var stepTarget = !!p.target_role_title;
+  var stepPractice = !!(latest || d.past.some(function(x){ return x.mode === 'practice'; }));
+  if(!(stepResume && stepTarget && stepPractice)){
+    var step = function(done, n, t, sub, fn){
+      return '<button class="start-step' + (done ? ' done' : '') + '" onclick="' + fn + '"><span class="start-n">' + (done ? '\u2713' : n) + '</span><div><div class="start-t">' + t + '</div><div class="start-s">' + sub + '</div></div></button>';
+    };
+    html += '<div class="dash-card span3"><div class="dash-card-head"><div class="dash-label">Start here</div><button class="dash-link" onclick="dashShowHelp()">How Ezzy works</button></div><div class="start-steps">'
+      + step(stepResume, 1, 'Add your resume', stepResume ? 'On file. Ezzy learned your skills and experience from it.' : 'Ezzy reads it once and keeps what it learns, each item with the line it came from.', 'dashResume()')
+      + step(stepTarget, 2, 'Set your target', stepTarget ? escapeHtml(p.target_role_title) + '. Matching and prep point at it.' : 'The role you\u2019re going for. Roles, prep and scores all point at it.', 'dashEditTarget()')
+      + step(stepPractice, 3, 'Run one Practice set', stepPractice ? 'Done. Your first scorecard is on this page.' : 'Five questions, feedback on each in your own words, then a scorecard.', 'dashPractice()')
+      + '</div></div>';
+  }
+
   // Target
   html += '<div class="dash-card" id="dashTargetCard"><div class="dash-card-head"><div class="dash-label">Your target</div><button class="dash-link" onclick="' + EDIT + '">Edit</button></div>';
   if(p.target_role_title){
@@ -3730,7 +3789,7 @@ function renderDashboard(body, d){
 
   }
   html += '</div>'; // grid
-  html += '<div class="dash-foot">' + (fresh ? 'Your readiness score, scorecards, sessions and matched roles appear here as you use Ezzy. ' : '') + 'Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
+  html += '<div class="dash-foot">Nothing on this page is a guess. Every number and claim links back to your resume, your answers, or a source.</div>';
   body.innerHTML = html;
   dashFillRatings(body);
   if(roleProfile(p).target_role_title) dashLoadRoles(d);
