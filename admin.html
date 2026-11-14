@@ -124,10 +124,10 @@ async function login(){
   btn.textContent = 'Signing in...';
 
   try {
-    var res = await fetch('/api/admin-login', {
+    var res = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
+      body: JSON.stringify({ action: 'login', email: email, password: password })
     });
     var data = await res.json();
     if(!res.ok){
@@ -181,10 +181,10 @@ async function grantAccess(){
   btn.textContent = 'Granting...';
 
   try {
-    var res = await fetch('/api/admin-grant-access', {
+    var res = await fetch('/api/admin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-session': token },
-      body: JSON.stringify({ email: email, plan: plan, days: days })
+      body: JSON.stringify({ action: 'grant', email: email, plan: plan, days: days })
     });
     var data = await res.json();
 

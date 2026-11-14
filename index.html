@@ -675,6 +675,8 @@ a.dash-chip{text-decoration:none;color:#C2493C}
             <hr class="header-user-dropdown-sep">
             <button class="header-user-dropdown-item" id="authPlanItem" onclick="openPricingModal()">Plans</button>
             <button class="header-user-dropdown-item" onclick="dashShowHelp()">How Ezzy works</button>
+            <button class="header-user-dropdown-item" id="authCancelItem" onclick="accountConfirm('cancel')" style="display:none">Cancel subscription</button>
+            <button class="header-user-dropdown-item" onclick="accountConfirm('delete')">Delete my account</button>
             <button class="header-user-dropdown-item" onclick="signOut()">Sign out</button>
           </div>
         </div>
@@ -2686,6 +2688,48 @@ function clearChatState(){
   if(typeof resetEmptyStateToStage1 === 'function') resetEmptyStateToStage1();
   if(typeof syncWindowState === 'function') syncWindowState();
 }
+// Cancel and delete, self-serve. No email to anyone.
+var ACCOUNT_KIND = null;
+function accountConfirm(kind){
+  var d = document.getElementById('authUserDropdown'); if(d) d.classList.remove('active');
+  ACCOUNT_KIND = kind;
+  var t = document.getElementById('accountTitle'), x = document.getElementById('accountText'), inp = document.getElementById('accountConfirmInput'), go = document.getElementById('accountGo'), keep = document.getElementById('accountKeep'), err = document.getElementById('accountError');
+  err.textContent = ''; inp.value = ''; go.disabled = false; keep.style.display = '';
+  if(kind === 'cancel'){
+    t.textContent = 'Cancel your subscription?';
+    x.textContent = 'Billing stops. You keep everything until the end of the month you paid for, then the account drops to Free. Your resume, sessions and opportunities stay.';
+    inp.style.display = 'none'; go.textContent = 'Cancel subscription';
+  } else {
+    t.textContent = 'Delete your account?';
+    x.textContent = 'Everything goes: your resume, answers, sessions, opportunities and the login itself. Any subscription is cancelled first. This cannot be undone.';
+    inp.style.display = ''; go.textContent = 'Delete my account';
+  }
+  document.getElementById('accountOverlay').classList.add('active');
+  if(kind === 'delete') setTimeout(function(){ inp.focus(); }, 50);
+}
+function accountClose(){ document.getElementById('accountOverlay').classList.remove('active'); ACCOUNT_KIND = null; }
+async function accountGo(){
+  var kind = ACCOUNT_KIND, go = document.getElementById('accountGo'), err = document.getElementById('accountError'), inp = document.getElementById('accountConfirmInput');
+  if(kind === 'delete' && inp.value.trim() !== 'DELETE'){ err.textContent = 'Type DELETE to confirm.'; return; }
+  go.disabled = true; err.textContent = '';
+  try{
+    var token = await getAuthTokenIfSignedIn(); if(!token) throw new Error('Sign in first.');
+    var res = await fetch('/api/account', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action: kind, confirm: inp.value.trim() }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok) throw new Error((data.error || 'Could not do that') + (data.detail ? ': ' + data.detail : ''));
+    if(kind === 'cancel'){
+      accountClose();
+      showSimpleToast(data.billed ? 'Cancelled. You keep access until ' + (data.ends ? dashDate(data.ends) : 'the end of the period') + '.' : 'Nothing is being billed. Access ends ' + (data.ends ? dashDate(data.ends) : 'when the period does') + '.');
+      return;
+    }
+    // Deleted. Drop the local session and say goodbye for real.
+    try{ await window.supabaseClient.auth.signOut({ scope: 'local' }); }catch(e){}
+    document.getElementById('accountTitle').textContent = 'Your account is deleted.';
+    document.getElementById('accountText').textContent = 'Everything is gone. Thanks for giving Ezzy a try.';
+    inp.style.display = 'none'; document.getElementById('accountKeep').style.display = 'none';
+    go.disabled = false; go.textContent = 'Close'; go.onclick = function(){ location.href = location.pathname; };
+  }catch(e){ go.disabled = false; err.textContent = String(e && e.message || e); }
+}
 function showGoodbyeOverlay(name){
   var overlay = document.getElementById('goodbyeOverlay');
   if(!overlay) return;
@@ -2723,6 +2767,7 @@ function onAuthSuccess(user){
 <div id="onboardingOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>What should I call you?</h3><p>I want to make this feel personal.</p><form class="onboarding-form" onsubmit="handleOnboardingSubmit(event)"><input type="text" id="onboardingName" class="onboarding-input" placeholder="Your name" autocomplete="given-name" autofocus required maxlength="40"><button type="submit" class="onboarding-submit-btn" id="onboardingSubmitBtn">Continue</button></form><p class="onboarding-error" id="onboardingError"></p></div></div>
 <div id="goodbyeOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="120" height="120" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 10.5 19.5 Q 16 25 21.5 19.5" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round"/></svg></div><h3>See you soon<span id="goodbyeName"></span>.</h3><p>Sign in to pick up where you left off.</p><button class="onboarding-submit-btn" onclick="signInFromGoodbye()">Sign in</button><button class="goodbye-secondary-btn" onclick="startFreshFromGoodbye()">Start fresh</button></div></div>
 
+<div id="accountOverlay" class="onboarding-overlay"><div class="onboarding-card"><h3 id="accountTitle"></h3><p id="accountText"></p><input type="text" id="accountConfirmInput" class="onboarding-input" placeholder="Type DELETE to confirm" autocomplete="off" style="display:none"><button class="onboarding-submit-btn" id="accountGo" onclick="accountGo()"></button><button class="goodbye-secondary-btn" id="accountKeep" onclick="accountClose()">Keep things as they are</button><p class="onboarding-error" id="accountError"></p></div></div>
 <div id="newPasswordOverlay" class="onboarding-overlay"><div class="onboarding-card"><div class="onboarding-face"><svg viewBox="0 0 32 32" width="80" height="80" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="14" fill="#F26B5E"/><circle cx="11" cy="14" r="1.8" fill="#000"/><circle cx="21" cy="15" r="1.8" fill="#000"/><path d="M 12.5 21 Q 16 23.8 19.5 21" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="round"/></svg></div><h3>Set a new password</h3><p>Pick something you'll remember this time.</p><form class="onboarding-form" onsubmit="submitNewPassword(event)"><input type="password" id="newPasswordInput" class="onboarding-input" placeholder="New password (8+ characters)" autocomplete="new-password" required minlength="8"><button type="submit" class="onboarding-submit-btn" id="newPasswordSubmitBtn">Save new password</button></form><p class="onboarding-error" id="newPasswordError"></p></div></div>
 <div id="pricingOverlay" class="brain-overlay" onclick="if(event.target===this)closePricingModal()">
   <div class="pricing-panel">
@@ -3290,6 +3335,7 @@ function planLabel(){
 // Account menu is just the plan and sign out. Everything about the person
 // lives on My Career.
 function renderPlanMenuItem(){
+  var ci = document.getElementById('authCancelItem'); if(ci) ci.style.display = planActive() && window._plan && window._plan.plan !== 'free' ? '' : 'none';
   var el = document.getElementById('authPlanItem');
   if(!el) return;
   var label = planLabel();
@@ -3348,9 +3394,9 @@ function dashShowHelp(){
     + part('Does Ezzy make things up?', 'No, and it is checked, not promised. A piece of feedback that quotes words you never said is removed and you are told. A suggestion that includes a number you never gave is dropped. A research sentence without a source is marked. If you ever catch something that slipped through, email hello@meetezzy.com.')
     + part('What does the free plan include?', 'Enough to see how Ezzy works: a basic resume review, a Practice set, and the roles that match your target.')
     + part('What is in the Career plan?', 'Everything. Unlimited practice, STAR coaching and mock interviews with scorecards, full resume reviews, company research with employer ratings, Check my fit on any role, talking through any opportunity, and your story bank and opportunity tracker. $19.99 a month.')
-    + part('How do I cancel?', 'Email hello@meetezzy.com and it is done the same day. You keep access to the end of the month you paid for.')
+    + part('How do I cancel?', 'Click your initial at the top right, then Cancel subscription. Billing stops; you keep access to the end of the month you paid for, then the account drops to Free.')
     + part('How do I replace my resume?', 'Start a Resume Review and drop the new one, or use Replace next to \u201cResume on file\u201d on My Career. The new one takes over everywhere.')
-    + part('Where does my information go?', 'Your resume, answers and profile are stored for your account so Ezzy can remember you between sessions. They are sent to the AI model only to produce your coaching. Nothing is sold or shared. To delete everything, email hello@meetezzy.com.')
+    + part('Where does my information go?', 'Your resume, answers and profile are stored for your account so Ezzy can remember you between sessions. They are sent to the AI model only to produce your coaching. Nothing is sold or shared. To delete everything, click your initial at the top right, then Delete my account. It is gone within a minute.')
     + part('Does it work on my phone?', 'Yes, in the browser. No app to install.')
     + part('Who built this?', 'Recruiters and hiring managers from top companies, who got tired of watching good candidates lose to bad preparation.');
   body.innerHTML = dashView('How Ezzy works', 'What each part does, and the questions people ask.', 'My Career', 'loadDashboard()', inner);
