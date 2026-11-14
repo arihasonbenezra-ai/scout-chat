@@ -1,4 +1,4 @@
-export const runtime = 'edge';
+import { handleDirections } from './_directions.js';
 
 // Public anon key — same one already embedded in index.html. Not a secret.
 const SUPABASE_URL = 'https://peksgdlfrnymkzlrbsgi.supabase.co';
@@ -124,12 +124,16 @@ export default async function handler(req, res) {
     var user = await getAuthedUser(token);
     if (!user) return res.status(401).json({ error: 'Sign in required' });
 
+    var body = req.body || {};
+    // Directions shares this function (function cap) and is open to every
+    // signed-in account: it is the door that leads to a target.
+    if (body.action === 'directions') return handleDirections(req, res, user, token);
+
     var sub = await fetchSubscription(token, user.id);
     if (!hasActiveAccess(sub) && !(sub && sub.resume_review_credits > 0)) {
       return res.status(403).json({ error: 'upgrade_required' });
     }
 
-    var body = req.body || {};
     var resumeText = typeof body.resumeText === 'string' ? body.resumeText.slice(0, 20000) : '';
     var jdText = typeof body.jdText === 'string' ? body.jdText.slice(0, 20000) : '';
     if (!resumeText) return res.status(400).json({ error: 'resumeText required' });

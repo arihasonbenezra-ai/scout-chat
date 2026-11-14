@@ -353,6 +353,15 @@ button,input,textarea{font-family:inherit}
 .start-t{font-size:16px;font-weight:600}
 .start-s{font-size:14px;color:#555;margin-top:2px;line-height:1.45}
 .help-part{padding:14px 0;border-top:1px solid #EEECE7}
+.dir-form{display:flex;flex-direction:column;gap:14px;margin:6px 0 4px}
+.dir-q label{display:block;font-size:15.5px;font-weight:600;margin-bottom:6px}
+.dir-list{display:flex;flex-direction:column;gap:16px}
+.dir-card{border:1px solid #E5E5E5;border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;background:#fff}
+.dir-card.unexpected{border-color:#F26B5E}
+.dir-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.dir-title{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.dir-ev{display:flex;flex-direction:column;gap:6px}
+.dir-quote{font-size:15px;color:#333;line-height:1.5;padding-left:12px;border-left:3px solid #EEECE7}
 .help-t{font-size:16.5px;font-weight:600;margin-bottom:4px}
 .dash-quick{display:flex;gap:18px;flex-wrap:wrap;padding-top:4px}
 .role-row{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:14px 16px;border:1px solid #ECEAE5;border-radius:12px;margin-bottom:10px;background:#fff}
@@ -3369,7 +3378,96 @@ function routeDashHash(h){
   if(h === 'sessions'){ dashShowSessions(); return true; }
   if(h === 'roles'){ dashShowRoles(); return true; }
   if(h === 'help'){ dashShowHelp(); return true; }
+  if(h === 'directions'){ dashShowDirections(); return true; }
   return false;
+}
+
+// --- Directions ------------------------------------------------------------
+// The second front door: no target in mind. Ten questions in their own
+// words plus the resume on file. The server (api/extract, action
+// 'directions') proposes three to five job-board titles, keeps only the
+// ones it can quote from both the resume and the answers, and counts the
+// open roles for each from the feed. A tap sets one as the target.
+var DIR_QUESTIONS = [
+  ['q1', 'If you could spend all day on one kind of work, what would it be?'],
+  ['q2', 'What part of your last role drained you?'],
+  ['q3', 'What part of it did you not want to hand off to anyone?'],
+  ['q4', 'People, systems, or ideas: which do you want more of?'],
+  ['q5', 'How fast do you want the place to move?'],
+  ['q6', 'How do you want to be measured?'],
+  ['q7', 'Lead, build, or advise?'],
+  ['q8', 'If money were not the question, what would you do?'],
+  ['q9', 'What do people come to you for?'],
+  ['q10', 'What have you been told you are good at that you do not use enough?']
+];
+function dashShowDirections(edit){
+  if(!DASH_ON) showDashboard(true);
+  var body = document.getElementById('dashBody');
+  if(!body) return;
+  setDashHash('directions');
+  var p = DASH_PROFILE || {};
+  var w = p.wants || {};
+  var hasResume = !!(p.resume_text || p.resume_updated_at);
+  var D = w.directions && Array.isArray(w.directions.items) ? w.directions : null;
+  var inner;
+  if(!hasResume){
+    inner = '<div class="dash-empty"><div class="dash-empty-t">Add your resume first</div><div class="dash-empty-s">The directions are built from what your resume proves, matched against what you say you want. Without it there is nothing to ground them in.</div><button class="dash-btn" onclick="dashResume()">Add your resume</button></div>';
+  } else if(!D || edit){
+    var a = w.quiz || {};
+    inner = '<div class="dash-text">Ten questions, in your own words. Short answers are fine; five is enough to start. Ezzy reads them against your resume and comes back with three to five roles you could win, each with the evidence.</div>'
+      + '<div class="dir-form">' + DIR_QUESTIONS.map(function(q, i){
+        return '<div class="dir-q"><label for="' + q[0] + '">' + (i + 1) + '. ' + escapeHtml(q[1]) + '</label><input id="' + q[0] + '" class="dash-input" type="text" maxlength="300" value="' + escapeHtml(a[q[0]] || '') + '"/></div>';
+      }).join('') + '</div>'
+      + '<div class="onb-foot"><button class="dash-btn primary" id="dirGo" onclick="dashRunDirections()">Show me directions</button><span class="dash-muted" id="dirStatus">Takes about twenty seconds.</span></div>'
+      + (D ? '<div style="margin-top:8px"><button class="dash-link" onclick="dashShowDirections(false)">Back to your directions</button></div>' : '');
+  } else {
+    inner = '<div class="dash-text">Built from your resume and your answers on ' + dashDate(D.checked_at) + '. Every quote is yours; the open-role counts are live from the companies\u2019 own boards.</div>'
+      + '<div class="dir-list">' + D.items.map(function(d, i){
+        return '<div class="dir-card' + (d.unexpected ? ' unexpected' : '') + '"><div class="dir-head"><div class="dir-title">' + escapeHtml(d.title) + (d.unexpected ? ' <span class="dash-tag coral">One you might not have searched</span>' : '') + '</div>'
+          + '<span class="dash-row-s">' + (d.open_now == null ? 'Open-role count unavailable' : d.open_now === 0 ? 'None open in Ezzy\u2019s feed right now' : d.open_now + ' open now in Ezzy\u2019s feed') + '</span></div>'
+          + '<div class="dash-text">' + escapeHtml(d.why) + '</div>'
+          + '<div class="dir-ev"><div class="opp-sub">From your resume</div>' + d.resume_quotes.map(function(q){ return '<div class="dir-quote">\u201c' + escapeHtml(q) + '\u201d</div>'; }).join('') + '</div>'
+          + '<div class="dir-ev"><div class="opp-sub">In your words</div>' + d.answer_quotes.map(function(q){ return '<div class="dir-quote">\u201c' + escapeHtml(q) + '\u201d</div>'; }).join('') + '</div>'
+          + (d.gap ? '<div class="dash-text"><strong>To close:</strong> ' + escapeHtml(d.gap) + '</div>' : '')
+          + '<div class="opp-fix-actions"><button class="dash-btn primary" onclick="dashSetDirection(' + i + ')">Set as my target</button></div></div>';
+      }).join('') + '</div>'
+      + '<div class="dash-muted">' + (D.dropped ? D.dropped + (D.dropped === 1 ? ' direction was' : ' directions were') + ' dropped because Ezzy could not quote your resume or your answers for them. ' : '') + 'Set one as your target and roles, prep and scores all point at it.</div>'
+      + '<div class="opp-fix-actions" style="margin-top:4px"><button class="dash-link" onclick="dashShowDirections(true)">Change my answers</button><button class="dash-link" onclick="dashRunDirections()">Run again</button></div>';
+  }
+  body.innerHTML = dashView('Directions', 'Roles you could win, from what your resume proves and what you say you want.', 'My Career', 'loadDashboard()', inner);
+  body.parentNode.scrollTop = 0;
+}
+async function dashRunDirections(){
+  var p = DASH_PROFILE || {}; var w = p.wants || {};
+  var answers = {};
+  var any = false;
+  DIR_QUESTIONS.forEach(function(q){ var el = document.getElementById(q[0]); var v = el ? el.value.trim() : (w.quiz && w.quiz[q[0]]) || ''; if(v){ answers[q[0]] = v; any = true; } });
+  if(Object.keys(answers).length < 5){ var st0 = document.getElementById('dirStatus'); if(st0) st0.textContent = 'Answer at least five.'; return; }
+  var body = document.getElementById('dashBody');
+  var go = document.getElementById('dirGo'); if(go){ go.disabled = true; go.textContent = 'Reading...'; }
+  var st = document.getElementById('dirStatus'); if(st) st.textContent = 'Reading your resume against your answers...';
+  if(!go && body) body.innerHTML = dashView('Directions', 'Roles you could win, from what your resume proves and what you say you want.', 'My Career', 'loadDashboard()', '<div class="dash-muted">Reading your resume against your answers...</div>');
+  try{
+    var token = await getAuthTokenIfSignedIn(); if(!token) throw new Error('Sign in first.');
+    var res = await fetch('/api/extract', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action: 'directions', answers: answers }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok) throw new Error((data.message || data.error || 'Could not work out directions') + (data.detail ? ': ' + data.detail : ''));
+    DASH_PROFILE = Object.assign({}, p, { wants: Object.assign({}, w, { quiz: data.answers, directions: data.directions }) });
+    if(!data.directions.items.length){ DASH_PROFILE.wants.directions = null; if(st) st.textContent = 'Nothing Ezzy could ground in both your resume and your answers. Try fuller answers.'; if(go){ go.disabled = false; go.textContent = 'Show me directions'; } return; }
+    dashShowDirections(false);
+  }catch(e){
+    if(go){ go.disabled = false; go.textContent = 'Show me directions'; }
+    if(st) st.textContent = String(e && e.message || e); else dashShowDirections(true);
+  }
+}
+async function dashSetDirection(i){
+  var p = DASH_PROFILE || {}; var D = p.wants && p.wants.directions; var d = D && D.items[i]; if(!d) return;
+  var sr = await window.supabaseClient.auth.getSession(); var uid = sr.data && sr.data.session && sr.data.session.user.id; if(!uid) return;
+  var row = { user_id: uid, target_role_title: d.title, target_source: 'discovered', target_set_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  var up = await window.supabaseClient.from('career_profile').upsert(row, { onConflict: 'user_id' });
+  if(up.error){ showSimpleToast('Could not save that just now.'); return; }
+  showSimpleToast(d.title + ' is your target now.');
+  loadDashboard();
 }
 
 // How Ezzy works, and the questions people ask. Plain words, one page,
@@ -3389,6 +3487,7 @@ function dashShowHelp(){
     + part('Mock Interview', 'The full thing, in character, no feedback until the end.')
     + part('Company Research', 'A dated brief on a company with real, linked sources, including what employees say on the review sites. Nothing without a source.')
     + part('Roles for you', 'Open roles from the companies\u2019 own job boards, matched to your target, newest first. Check my fit reads the whole posting and gives a verdict with the reasons.')
+    + part('Directions', 'No target in mind? Ten questions in your own words, read against your resume. Three to five roles you could win, each with the resume lines and the answers that back it, the one thing to close, and how many are open right now. One tap makes it your target.')
     + part('Talk through an opportunity', 'A recruiter reached out, or a posting caught your eye, and you\u2019re not sure. Say what it is. A short conversation, one question at a time, that ends with a stance in your own terms. Ezzy remembers what you learn about yourself along the way, with your say-so.')
     + '<div class="dash-label" style="margin-top:8px">Questions</div>'
     + part('Does Ezzy make things up?', 'No, and it is checked, not promised. A piece of feedback that quotes words you never said is removed and you are told. A suggestion that includes a number you never gave is dropped. A research sentence without a source is marked. If you ever catch something that slipped through, email hello@meetezzy.com.')
@@ -3699,7 +3798,7 @@ function renderDashboard(body, d){
       ? '<div class="dash-ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Confirmed by you</div>'
       : '<div class="dash-warn">Taken from ' + (p.target_source==='resume' ? 'your resume' : 'the role you picked') + '. Confirm or change it.</div>';
   } else {
-    html += '<div class="dash-empty"><div class="dash-empty-t">No target yet</div><div class="dash-empty-s">Tell Ezzy the role you\u2019re going for. Matching and prep are pointed at it.</div><button class="dash-btn" onclick="' + EDIT + '">Set your target</button></div>';
+    html += '<div class="dash-empty"><div class="dash-empty-t">No target yet</div><div class="dash-empty-s">Tell Ezzy the role you\u2019re going for. Matching and prep are pointed at it.</div><button class="dash-btn" onclick="' + EDIT + '">Set your target</button><button class="dash-link" onclick="dashShowDirections()">Not sure? Find a direction</button></div>';
   }
   html += '</div>';
 
@@ -3774,6 +3873,7 @@ function renderDashboard(body, d){
 
   // Do next (rule-based, from the data on this page)
   var next = [];
+  if(!p.target_role_title) next.push({hot:true, t:'Find a direction', s:'Ten questions plus your resume. Three to five roles you could win, with the evidence.', fn:'dashShowDirections()'});
   var staleOpp = (d.opps || []).filter(oppStale).sort(function(a,b){ return new Date(a.updated_at) - new Date(b.updated_at); })[0];
   if(staleOpp && !locked) next.push({hot:!next.length, t:'Any news from ' + (staleOpp.company || staleOpp.role_title) + '?', s:(OPP_STAGE_LABEL[staleOpp.stage] || staleOpp.stage) + ' since ' + dashDate(staleOpp.updated_at) + ', nothing logged after. Record what happened, even if it is nothing yet.', fn:'dashShowOpportunity(\'' + staleOpp.id + '\')'});
   if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
