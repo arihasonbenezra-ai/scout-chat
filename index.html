@@ -2819,11 +2819,11 @@ async function handleOnboardingSubmit(e){
   errEl.textContent = '';
   
   try {
-    var result = await window.supabaseClient.from('profiles').upsert({
-      id: user.id,
-      name: name
-    }, { onConflict: 'id' });
-    
+    // The email rides along so the profiles table reads without a join to
+    // auth. Older databases without the column still get the name.
+    var result = await window.supabaseClient.from('profiles').upsert({ id: user.id, name: name, email: user.email || null }, { onConflict: 'id' });
+    if(result.error && /email/i.test(String(result.error.message || ''))) result = await window.supabaseClient.from('profiles').upsert({ id: user.id, name: name }, { onConflict: 'id' });
+
     if(result.error) throw result.error;
     
     hideOnboarding();
