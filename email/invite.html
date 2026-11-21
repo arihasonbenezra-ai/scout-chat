@@ -7,12 +7,17 @@ body{margin:0;background:#e9e7e2;font-family:-apple-system,BlinkMacSystemFont,"H
 .tool input:focus{border-color:#F26B5E}
 .tool button{height:42px;border:none;border-radius:999px;background:#F26B5E;color:#fff;font-size:15px;font-weight:700;padding:0 22px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .tool .ok{grid-column:1/-1;font-size:13px;color:#bbb;min-height:16px}
+.tool .subj{grid-column:1/-1}
+.subj-row{display:flex;align-items:center;gap:10px;background:#1b1b1b;border:1px solid #444;border-radius:10px;padding:0 6px 0 12px;height:42px}
+.subj-row span{flex:1;font-size:15px;color:#fff;user-select:all}
+.tool button.ghost{background:transparent;border:1px solid #555;color:#fff;font-weight:600;height:30px;padding:0 14px;font-size:13px}
 </style></head><body>
 <div class="tool">
   <div><label for="fn">First name</label><input id="fn" type="text" placeholder="Joe" oninput="fill()"></div>
   <div><label for="bl">Booking link</label><input id="bl" type="url" placeholder="https://calendly.com/..." oninput="fill()"></div>
   <div><button onclick="copyEmail()">Copy email</button></div>
-  <div class="ok" id="ok">Fill both, click Copy email, paste into a new Gmail message. The preview below updates as you type.</div>
+  <div class="subj"><label>Subject line</label><div class="subj-row"><span id="subj">I built something for your job search. Want a look?</span><button class="ghost" onclick="copySubject()">Copy</button></div></div>
+  <div class="ok" id="ok">Copy the subject, then fill both boxes, click Copy email, and paste into a new Gmail message. The preview below updates as you type.</div>
 </div>
 <div id="email"><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#F7F6F3;"><tr><td align="center" style="padding:32px 12px;">
 <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="width:600px;max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Arial,sans-serif;">
@@ -63,6 +68,11 @@ function render(){
   return TEMPLATE.split('[FIRST NAME]').join(esc(fn)).split('[BOOKING LINK]').join(esc(bl));
 }
 function fill(){ document.getElementById('email').innerHTML = render(); }
+async function copySubject(){
+  var ok = document.getElementById('ok');
+  try{ await navigator.clipboard.writeText(document.getElementById('subj').textContent); ok.textContent = 'Subject copied. Paste it into the subject line.'; }
+  catch(e){ var r = document.createRange(); r.selectNodeContents(document.getElementById('subj')); var sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r); ok.textContent = 'Selected the subject. Press Cmd+C.'; }
+}
 async function copyEmail(){
   var html = render();
   var ok = document.getElementById('ok');
