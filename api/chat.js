@@ -106,7 +106,7 @@ function trainerSystemPrompt(mode, role) {
 function trainerBasePrompt(mode, role) {
   if (mode === 'practice') return 'You are an expert interview coach. The candidate is practicing for a ' + role + ' role. Ask ONE interview question at a time. After they respond, give structured feedback: 1-2 strengths, 1-2 areas to improve (specific and actionable). If your areas to improve ask the candidate for something they could add right now (an outcome, a reason, a number), do NOT ask the next question yet - end by inviting them to add it or say "next". Ask the next question only when they say next or when the answer was complete. Keep each feedback response under 150 words. After 5 questions, give a brief overall summary of the set (3-4 sentences, grounded in what they actually said). Do NOT give a numeric score - the scorecard is computed separately.';
   if (mode === 'star') return 'You are an interview coach specializing in the STAR method (Situation, Task, Action, Result) for a ' + role + ' role. Ask one behavioral question at a time. After each answer, identify which STAR elements were present and missing, then show a concise example of how to strengthen it. If elements are missing, do NOT ask the next question yet - end by inviting the candidate to fill them in or say "next". Ask the next question only when they say next or when all four elements were present. Keep responses under 150 words.';
-  if (mode === 'mock') return 'You are conducting a realistic mock interview for a ' + role + ' position. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time, follow up naturally. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve, and a readiness rating out of 10. In the debrief, apply the grounding rules below: quote the candidate\'s exact words for each strength and each area to improve.';
+  if (mode === 'mock') return 'You are conducting a realistic mock interview for a ' + role + ' position, as a skeptical hiring manager, not a friendly tutor. Respond in plain prose only. Do not use markdown headers, asterisks, dashes, or bullet points. Introduce yourself briefly and set the scene in plain text only, no stage directions, no asterisks, no descriptions of body language or facial expressions. Ask questions one at a time. Push back the way a real interviewer would: when an answer claims an outcome without a baseline, a number, or a timeframe, ask for it before moving on, for example "What was it before, and over what period?". When an answer is vague or generic, say so in character and ask for the specific instance. When an answer rambles, ask for the one-sentence version. One push per answer, then move on even if it is still thin; the debrief covers it. Stay in character throughout. After 6-7 questions, end professionally and give a detailed debrief: overall impression, top 2 strengths, top 2 areas to improve naming where you pushed back and whether the second answer landed, and a readiness rating out of 10. In the debrief, apply the grounding rules below: quote the candidate\'s exact words for each strength and each area to improve.';
   return null;
 }
 
@@ -461,6 +461,43 @@ function stripBadChanges(reply, check) {
   }
   return text;
 }
+// Over-optimization. A resume that echoes the posting word for word reads
+// as written for the posting, not about the person, and recruiters say so.
+// Computed, not judged: phrases of four or more words shared verbatim with
+// the posting, and the buzzwords that say nothing.
+var MIRROR_STOP = { the: 1, and: 1, of: 1, to: 1, in: 1, a: 1, an: 1, for: 1, with: 1, on: 1, at: 1, by: 1, or: 1, as: 1, is: 1, are: 1, be: 1, this: 1, that: 1, from: 1, our: 1, your: 1, you: 1, we: 1, will: 1 };
+var BUZZWORDS = ['results-driven', 'results driven', 'synergy', 'synergies', 'go-getter', 'team player', 'detail-oriented', 'detail oriented', 'self-starter', 'self starter', 'thought leader', 'passionate', 'dynamic', 'proven track record', 'leverage', 'leveraged', 'best-in-class', 'world-class', 'rockstar', 'ninja', 'guru', 'hard-working', 'strategic thinker', 'fast-paced', 'impactful', 'innovative', 'disruptive', 'cutting-edge', 'seamlessly', 'holistic', 'robust', 'scalable solutions', 'spearheaded', 'utilized', 'utilize'];
+function mirrorCheck(resume, jd) {
+  var rt = normText(resume).split(' ').filter(Boolean), jt = normText(jd).split(' ').filter(Boolean);
+  var rtext = ' ' + rt.join(' ') + ' ';
+  // Matching windows that overlap are one phrase, not four.
+  var hit = [];
+  for (var i = 0; i + 4 <= jt.length; i++) {
+    var g = jt.slice(i, i + 4);
+    if (g.filter(function (t) { return !MIRROR_STOP[t] && t.length > 2; }).length < 3) { hit.push(false); continue; }
+    hit.push(rtext.indexOf(' ' + g.join(' ') + ' ') !== -1);
+  }
+  var shared = [], seen = {};
+  for (var k = 0; k < hit.length; k++) {
+    if (!hit[k]) continue;
+    var end = k; while (end + 1 < hit.length && hit[end + 1]) end++;
+    var phrase = jt.slice(k, end + 4).join(' ');
+    if (!seen[phrase]) { seen[phrase] = true; shared.push(phrase); }
+    k = end;
+  }
+  var rn = normText(resume);
+  var buzz = BUZZWORDS.filter(function (b) { return (' ' + rn + ' ').indexOf(' ' + b + ' ') !== -1; });
+  return { shared: shared, buzz: buzz };
+}
+function mirrorText(resume, jd) {
+  var m = mirrorCheck(resume, jd);
+  var out = '\n\n**Mirror check** (computed from the text, not judged)\n';
+  if (!m.shared.length && !m.buzz.length) return out + 'Nothing in your resume is copied from the posting word for word, and no stock buzzwords. Good.';
+  if (m.shared.length) out += m.shared.length + (m.shared.length === 1 ? ' phrase' : ' phrases') + ' of four or more words ' + (m.shared.length === 1 ? 'appears' : 'appear') + ' word for word in both your resume and the posting: ' + m.shared.slice(0, 4).map(function (p) { return '\u201c' + p + '\u201d'; }).join(', ') + (m.shared.length > 4 ? ', and more' : '') + '. Recruiters read that as written for the posting rather than about you. Keep the facts, lose the echo.';
+  if (m.buzz.length) out += (m.shared.length ? ' ' : '') + 'Buzzwords that say nothing: ' + m.buzz.slice(0, 6).join(', ') + '. Replace each with what you actually did.';
+  return out;
+}
+
 async function groundedResumeReply(anthropicBody, messages) {
   var srcs = resumeSourceText(messages);
   var resume = srcs.resume, jd = srcs.jd;
@@ -1696,6 +1733,7 @@ export default async function handler(req, res) {
       if (gr) {
         if (!gr.ok) return res.status(gr.status || 502).json(gr.data || { error: 'Review failed' });
         var rcard = await resumeCardPromise;
+        if (messages.length === 1 && rsrc.jd && rsrc.resume) gr.text = gr.text.trim() + mirrorText(rsrc.resume, rsrc.jd);
         if (rcard) {
           gr.text = gr.text.trim() + '\n' + rcard.markdown;
           await saveResumeScorecard(user.id, body.conversationId || null, role, rcard);

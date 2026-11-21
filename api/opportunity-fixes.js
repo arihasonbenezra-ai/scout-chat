@@ -120,6 +120,19 @@ function hasStem(set, st) {
   return false;
 }
 // Returns the list of things in `rewrite` that the resume does not support.
+// A rewrite that lifts four or more words straight from the posting is a
+// mirror, even when every word is also somewhere in the resume.
+function copiedPhrases(rewrite, resumeText, jdText) {
+  var rw = normText(rewrite).split(' ').filter(Boolean);
+  var jd = ' ' + normText(jdText).split(' ').filter(Boolean).join(' ') + ' ';
+  var rs = ' ' + normText(resumeText).split(' ').filter(Boolean).join(' ') + ' ';
+  var out = [];
+  for (var i = 0; i + 4 <= rw.length; i++) {
+    var key = rw.slice(i, i + 4).join(' ');
+    if (jd.indexOf(' ' + key + ' ') !== -1 && rs.indexOf(' ' + key + ' ') === -1 && out.indexOf(key) === -1) out.push(key);
+  }
+  return out;
+}
 function rewriteProblems(rewrite, resumeText, jdText) {
   var srcTokens = normText(resumeText).split(' ');
   var cores = {};
@@ -140,6 +153,7 @@ function rewriteProblems(rewrite, resumeText, jdText) {
     var imported = st && hasStem(jdStems, st) && !hasStem(resumeStems, st);
     if ((level || imported) && bad.indexOf(raw) === -1) bad.push(raw);
   });
+  copiedPhrases(rewrite, resumeText, jdText).forEach(function (p) { bad.push('copies the posting: "' + p + '"'); });
   return bad;
 }
 function quoteInResume(q, resumeText) {

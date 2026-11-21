@@ -441,6 +441,8 @@ button,input,textarea{font-family:inherit}
 .dash-empty-s{font-size:15px;color:#6B6B6B;line-height:1.5}
 .dash-tag{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 8px;border-radius:6px;background:#F3F1EC;color:#555}
 .dash-tag.coral{background:#FCEAE6;color:#8F3229}
+.dash-tag.green{background:#E6F4EA;color:#17602F}
+.dash-tag.amber{background:#FFF3DA;color:#966B0A}
 .dash-foot{font-size:14.5px;color:#8A8A8A}
 .dash-loading{padding:60px;text-align:center;color:#888;font-size:14px}
 .dash-lock{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:18px 22px;border-radius:16px;background:#111;color:#fff;flex-wrap:wrap}
@@ -658,7 +660,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
         </div>
         <div class="mode-option" data-mode="mock" onclick="requestModeSwitch('mock','Mock Interview')">
           <span class="mode-option-title">Mock Interview</span>
-          <span class="mode-option-sub">Full simulated interview</span>
+          <span class="mode-option-sub">A skeptical interviewer, full length</span>
         </div>
         <div class="mode-option" data-mode="resume" onclick="requestModeSwitch('resume','Resume Feedback')">
           <span class="mode-option-title">Resume Feedback</span>
@@ -3490,7 +3492,7 @@ function dashShowHelp(){
     + part('Resume Review', 'Drop your resume, and a posting if you have one. You get a recruiter-style review with a scorecard and rewrites built only from what your resume already says. Ezzy keeps what it learns about you. Dropping a new resume replaces the old one.')
     + part('Practice Q&amp;A', 'Five interview questions for your target role. Feedback on each one quotes your own words. After the fifth you get a scorecard, every mark tied to something you said.')
     + part('STAR Coaching', 'Build one story at a time: situation, task, action, result. Stories you work through are saved for the real interview.')
-    + part('Mock Interview', 'The full thing, in character, no feedback until the end.')
+    + part('Mock Interview', 'The full thing, in character, with a skeptical hiring manager: vague answers get pushed back on, outcomes get asked for their baseline. No feedback until the debrief.')
     + part('Company Research', 'A dated brief on a company with real, linked sources, including what employees say on the review sites. Nothing without a source.')
     + part('Roles for you', 'Open roles from the companies\u2019 own job boards, matched to your target, newest first. Check my fit reads the whole posting and gives a verdict with the reasons.')
     + part('Directions', 'No target in mind? Ten questions in your own words, read against your resume. Three to five roles you could win, each with the resume lines and the answers that back it, the one thing to close, and how many are open right now. One tap makes it your target.')
@@ -3876,6 +3878,19 @@ function renderDashboard(body, d){
   html += '</div>';
   }
 
+  // A weak spot is only fixed when it stays fixed: 4 or better in the
+  // last three rated sets after being low before. Low in two of the last
+  // three is a recurring one, and goes first in the next set.
+  var DIM_HIST = {};
+  (d.scores || []).forEach(function(sc){ (Array.isArray(sc.dimensions) ? sc.dimensions : []).forEach(function(x){ if(x.score == null) return; (DIM_HIST[x.dimension] = DIM_HIST[x.dimension] || []).push(x.score); }); });
+  var dimTrend = function(name){
+    var hist = DIM_HIST[name] || []; // newest first
+    var last3 = hist.slice(0, 3);
+    if(last3.length >= 2 && last3.filter(function(v){ return v <= 3; }).length >= 2) return { key:'recurring', label:'Low ' + last3.filter(function(v){ return v <= 3; }).length + ' of your last ' + last3.length };
+    if(last3.length === 3 && last3.every(function(v){ return v >= 4; }) && hist.slice(3).some(function(v){ return v <= 3; })) return { key:'fixed', label:'Fixed, 3 sets running' };
+    return null;
+  };
+
   // Latest scorecard (span 2), only once there is one.
   var lowNames = [];
   if(latest && Array.isArray(latest.dimensions) && latest.dimensions.length){
@@ -3890,7 +3905,8 @@ function renderDashboard(body, d){
         ? '<div class="dash-meter"><div class="dash-meter-track"></div><div class="dash-meter-n">\u2014</div></div>'
         : '<div class="dash-meter"><div class="dash-meter-track"><div class="dash-meter-fill' + (isLow?' low':'') + '" style="width:' + (x.score/5*100) + '%"></div></div><div class="dash-meter-n">' + x.score + '/5</div></div>';
       var note = x.score == null ? 'Not enough verified evidence in your answers.' : escapeHtml(x.improvement || '');
-      return '<div class="dash-dim"><div class="dash-dim-name">' + escapeHtml(x.dimension) + '</div>' + meter + '<div class="dash-dim-note">' + note + '</div></div>';
+      var tr = dimTrend(x.dimension);
+      return '<div class="dash-dim"><div class="dash-dim-name">' + escapeHtml(x.dimension) + (tr ? ' <span class="dash-tag' + (tr.key === 'recurring' ? ' coral' : ' green') + '">' + tr.label + '</span>' : '') + '</div>' + meter + '<div class="dash-dim-note">' + note + '</div></div>';
     }).join('') + '</div>';
   html += '</div>';
   }
@@ -3900,7 +3916,8 @@ function renderDashboard(body, d){
   if(!p.target_role_title) next.push({hot:true, t:'Find a direction', s:'Ten questions plus your resume. Three to five roles you could win, with the evidence.', fn:'dashShowDirections()'});
   var staleOpp = (d.opps || []).filter(oppStale).sort(function(a,b){ return new Date(a.updated_at) - new Date(b.updated_at); })[0];
   if(staleOpp && !locked) next.push({hot:!next.length, t:'Any news from ' + (staleOpp.company || staleOpp.role_title) + '?', s:(OPP_STAGE_LABEL[staleOpp.stage] || staleOpp.stage) + ' since ' + dashDate(staleOpp.updated_at) + ', nothing logged after. Record what happened, even if it is nothing yet.', fn:'dashShowOpportunity(\'' + staleOpp.id + '\')'});
-  if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s:'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
+  var recurring = lowNames.filter(function(n){ var t = dimTrend(n); return t && t.key === 'recurring'; });
+  if(lowNames.length === 2) next.push({hot:!next.length, t:'Practice: ' + lowNames[0].toLowerCase() + ' and ' + lowNames[1].toLowerCase(), s: recurring.length ? recurring.map(function(n){ return n.charAt(0).toUpperCase() + n.slice(1).toLowerCase(); }).join(' and ') + (recurring.length === 1 ? ' has' : ' have') + ' been low more than once. Fixed means three good sets in a row.' : 'Five questions aimed at your two lowest marks.', fn:'dashPractice()'});
   else if(!latest) next.push({hot:!next.length, t:'Run your first Practice set', s:'Five questions, feedback on each, then a scorecard.', fn:'dashPractice()'});
   if(rsLow && d.resumeScore.overall != null && d.resumeScore.overall < 8) next.push({t:'Resume: ' + rsLow.dimension.toLowerCase() + ' scored ' + rsLow.score + '/5', s:(rsLow.improvement || 'Fix it, then run the review again to see the score move.').slice(0,120), fn:'dashResume()'});
   if(!d.opps.length && !locked) next.push({t:'Paste a real posting', s:'Get a requirement-by-requirement match, not a guess.', fn:'dashPostingEntry()'});
@@ -4277,9 +4294,17 @@ function wantTerms(field){
   var w = (DASH_PROFILE && DASH_PROFILE.wants && DASH_PROFILE.wants[field]) || '';
   return String(w).split(/[,;\n]/).map(function(t){ return t.trim().toLowerCase(); }).filter(function(t){ return t.length >= 3; });
 }
+// A post date well after Ezzy first saw the role means the company
+// refreshed it: a repost, often an evergreen or hard-to-fill req.
+function roleRepostChip(l){
+  if(!l.posted_at || !l.first_seen_at) return '';
+  var gap = Math.floor((new Date(l.posted_at) - new Date(l.first_seen_at)) / 86400000);
+  if(isNaN(gap) || gap < 21) return '';
+  return '<span class="dash-chip" style="background:#FFF3DA;color:#966B0A" title="Ezzy first saw this role ' + gap + ' days before its current post date">Reposted</span>';
+}
 function roleWantChips(l){
   var hay = [l.title, l.company, l.department].filter(Boolean).join(' ').toLowerCase();
-  var out = [];
+  var out = [roleRepostChip(l)].filter(Boolean);
   wantTerms('cold').forEach(function(t){ if(hay.indexOf(t) !== -1) out.push('<span class="dash-chip" style="background:#FCEAE6;color:#8F3229">You said \u201c' + escapeHtml(t) + '\u201d leaves you cold</span>'); });
   wantTerms('pull').forEach(function(t){ if(hay.indexOf(t) !== -1) out.push('<span class="dash-chip" style="background:#E6F4EA;color:#17602F">Pulls you in: \u201c' + escapeHtml(t) + '\u201d</span>'); });
   return out.join('');
