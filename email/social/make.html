@@ -14,25 +14,44 @@ canvas{display:none}
 </style></head><body>
 <h1>Make an Ezzy post</h1>
 <p>Type, tap Render, then long-press the picture and Save to Photos. Feed size, 1080 by 1350.</p>
-<div class="row"><div><label>Small line on top</label><input id="eb" value="Your career coach" maxlength="40"></div></div>
-<label>Headline</label><textarea id="h1">Meet Ezzy.</textarea>
-<label>Body</label><textarea id="sub">Built by recruiters and hiring managers. It reads your resume, shows you where you fit, and gets you ready for the interview. Nothing it says is a guess.</textarea>
-<div class="row"><div><label>Button text</label><input id="pill" value="Try it free" maxlength="24"></div><div><label>Colour</label><div class="sw"><button class="on" data-c="coral" onclick="setC(this)">Coral</button><button data-c="cream" onclick="setC(this)">Cream</button></div></div></div>
+<div class="row"><div><label>Small line on top</label><input id="eb" value="" maxlength="40" placeholder="Poster layout only"></div></div>
+<label>Headline</label><textarea id="h1">Ezzy.</textarea>
+<label>Body</label><textarea id="sub">Your career coach. Built by recruiters and hiring managers.</textarea>
+<div class="row"><div><label>Button text</label><input id="pill" value="" maxlength="24" placeholder="Leave empty for none"></div><div><label>Colour</label><div class="sw"><button class="on" data-c="blush" onclick="setC(this)">Blush</button><button data-c="coral" onclick="setC(this)">Coral</button></div></div></div>
+<label>Layout</label><div class="sw l"><button class="on" data-l="lockup" onclick="setL(this)">Lockup, face left</button><button data-l="poster" onclick="setL(this)">Poster, face top</button></div>
 <button onclick="render()">Render</button>
 <div class="out"><img id="out" alt=""></div><div class="hint" id="hint"></div>
 <canvas id="c" width="1080" height="1350"></canvas>
 <script>
-var COLOR='coral';
+var COLOR='blush', LAYOUT='lockup';
+function setL(b){ LAYOUT=b.getAttribute('data-l'); document.querySelectorAll('.sw.l button').forEach(function(x){ x.classList.toggle('on', x===b); }); }
 function setC(b){ COLOR=b.getAttribute('data-c'); document.querySelectorAll('.sw button').forEach(function(x){ x.classList.toggle('on', x===b); }); }
-var THEMES={ coral:{bg:'#F26B5E',ink:'#111111',face:'#FFF4F2',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#FFF4F2',logoInk:'#111111'},
-  cream:{bg:'#F7F6F3',ink:'#111111',face:'#F26B5E',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'} };
+var THEMES={ blush:{bg:'#F5EAE3',ink:'#111111',face:'#F26B5E',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111',url:'#E8705F'},
+  coral:{bg:'#F26B5E',ink:'#111111',face:'#FFF4F2',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#FFF4F2',logoInk:'#111111',url:'#111111'} };
 function face(ctx,cx,cy,r,fill,ink){ ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
   var s=r/14; ctx.fillStyle=ink; ctx.beginPath(); ctx.arc(cx-5*s,cy-2*s,1.8*s,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+5*s,cy-1*s,1.8*s,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle=ink; ctx.lineWidth=1.8*s; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-3.5*s,cy+5*s); ctx.quadraticCurveTo(cx,cy+7.8*s,cx+3.5*s,cy+5*s); ctx.stroke(); }
 function wrap(ctx,text,x,y,maxW,lh){ var words=text.split(/\s+/), line='', yy=y; for(var i=0;i<words.length;i++){ var t=line?line+' '+words[i]:words[i]; if(ctx.measureText(t).width>maxW&&line){ ctx.fillText(line,x,yy); line=words[i]; yy+=lh; } else line=t; } if(line){ ctx.fillText(line,x,yy); yy+=lh; } return yy; }
+function font(w,px){ return w+' '+px+'px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; }
+function lines(ctx,text,maxW){ var out=[], line=''; text.split(/\s+/).forEach(function(w){ var t=line?line+' '+w:w; if(ctx.measureText(t).width>maxW&&line){ out.push(line); line=w; } else line=t; }); if(line) out.push(line); return out; }
+// The house lockup: face on the left, wordmark and a line or two on the right, everything centred.
+function renderLockup(T,ctx,W,H,P){
+  var h=document.getElementById('h1').value.trim()||'Ezzy.', sub=document.getElementById('sub').value.trim(), pill=document.getElementById('pill').value.trim();
+  var r=84, gap=56, textX=P+2*r+gap, maxW=W-P-textX;
+  var hSize=h.length<=8?120:(h.length<=22?84:64); ctx.font=font('800',hSize); var hL=lines(ctx,h,maxW), hLH=hSize*1.0;
+  ctx.font=font('400',30); var sL=lines(ctx,sub,maxW), sLH=42;
+  var blockH=hL.length*hLH+(sL.length?14+sL.length*sLH:0)+(pill?22+56:0)+40;
+  var top=(H-blockH)/2;
+  face(ctx,P+r,top+Math.min(blockH,2*r)/2+ (blockH>2*r?0:0),r,T.face,T.faceInk);
+  var y=top+hSize*0.86; ctx.fillStyle=T.ink; ctx.font=font('800',hSize); hL.forEach(function(l,i){ ctx.fillText(l,textX,y+i*hLH); }); y+=hL.length*hLH-hSize*0.86;
+  if(sL.length){ y+=14; ctx.font=font('400',30); ctx.globalAlpha=.9; sL.forEach(function(l,i){ ctx.fillText(l,textX,y+30+i*sLH); }); ctx.globalAlpha=1; y+=sL.length*sLH; }
+  y+=16; ctx.fillStyle=T.url; ctx.font=font('600',26); ctx.fillText('meetezzy.com',textX,y+24); y+=36;
+  if(pill){ y+=22; ctx.font=font('700',26); var pw=ctx.measureText(pill).width+56; ctx.fillStyle=T.pillBg; ctx.beginPath(); ctx.roundRect(textX,y,pw,56,28); ctx.fill(); ctx.fillStyle=T.pillInk; ctx.textBaseline='middle'; ctx.fillText(pill,textX+28,y+28); ctx.textBaseline='alphabetic'; }
+}
 function render(){
   var T=THEMES[COLOR], c=document.getElementById('c'), ctx=c.getContext('2d'), W=1080, H=1350, P=84;
   ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+  if(LAYOUT==='lockup'){ renderLockup(T,ctx,W,H,P); var img0=document.getElementById('out'); img0.src=c.toDataURL('image/png'); document.getElementById('hint').textContent='Long-press the picture, then Save to Photos.'; return; }
   face(ctx,P+32,88+32,28,T.logo,T.logoInk); ctx.fillStyle=T.ink; ctx.font='700 40px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.textBaseline='middle'; ctx.fillText('Ezzy.',P+82,88+32);
   face(ctx,W/2,470,210,T.face,T.faceInk);
   ctx.textBaseline='alphabetic';
@@ -47,7 +66,7 @@ function render(){
   ctx.fillStyle=T.ink; ctx.globalAlpha=.75; ctx.font='700 22px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.fillText(eb.split('').join(String.fromCharCode(8202)),P,ebY); ctx.globalAlpha=1;
   ctx.font='800 '+hSize+'px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; hLines.forEach(function(l,i){ ctx.fillText(l,P,hTop+i*hLH); });
   ctx.globalAlpha=.88; ctx.font='400 34px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; subLines.forEach(function(l,i){ ctx.fillText(l,P,subTop+i*subLH+34); }); ctx.globalAlpha=1;
-  ctx.globalAlpha=.8; ctx.font='600 26px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.fillText('meetezzy.com',P,footY+8); ctx.globalAlpha=1;
+  ctx.fillStyle=T.url; ctx.font='600 26px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.fillText('meetezzy.com',P,footY+8); ctx.fillStyle=T.ink;
   if(pill){ ctx.font='700 26px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; var pw=ctx.measureText(pill).width+56, px=W-P-pw, py=footY-30; ctx.fillStyle=T.pillBg; ctx.beginPath(); ctx.roundRect(px,py,pw,60,30); ctx.fill(); ctx.fillStyle=T.pillInk; ctx.textBaseline='middle'; ctx.fillText(pill,px+28,py+30); ctx.textBaseline='alphabetic'; }
   var img=document.getElementById('out'); img.src=c.toDataURL('image/png'); document.getElementById('hint').textContent='Long-press the picture, then Save to Photos.';
 }
