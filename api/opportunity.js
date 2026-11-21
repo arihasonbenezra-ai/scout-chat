@@ -67,7 +67,8 @@ const GAP_SYSTEM = [
   '- "missing": no supporting evidence anywhere provided.',
   '',
   'A recruiter will check this against the resume. Calibrate like one: ten matched is a red flag, not a compliment. Ground every judgment in the material given. Do not guess, assume, or go easy to be encouraging.',
-  'Notes: under 20 words, and every number in a note must be copied from the evidence exactly (they are checked mechanically; a number not in the evidence downgrades the match).'
+  'Notes: under 20 words, and every number in a note must be copied from the evidence exactly (they are checked mechanically; a number not in the evidence downgrades the match).',
+  'For matched and partial, copy the one passage from the resume or a claim that supports it into evidence_quote, verbatim, 8 to 200 characters. It is checked mechanically: a quote that is not verbatim is dropped, and a matched with no verifiable quote becomes partial.'
 ].join('\n');
 
 const GAP_TOOL = {
@@ -83,7 +84,8 @@ const GAP_TOOL = {
           properties: {
             requirement: { type: 'string' },
             status: { type: 'string', enum: ['matched', 'partial', 'missing'] },
-            note: { type: 'string' }
+            note: { type: 'string' },
+            evidence_quote: { type: 'string', description: 'Verbatim passage from the resume or a claim that supports a matched or partial. Empty for missing.' }
           },
           required: ['requirement', 'status', 'note']
         }
@@ -313,18 +315,26 @@ export default async function handler(req, res) {
       var srcTokens = normT(srcText).split(' ');
       var cores = {};
       srcTokens.forEach(function (t) { var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, ''); if (c) cores[c] = true; });
+      var srcNorm = normT(srcText);
       gaps = gaps.filter(function (g) { return g && g.requirement && g.status; }).map(function (g) {
+        // The line that earned it, kept only when it is really there.
+        var quote = String(g.evidence_quote || '').trim();
+        var qn = normT(quote);
+        var evOk = g.status !== 'missing' && qn.length >= 8 && srcNorm.indexOf(qn) !== -1;
+        if (!evOk) quote = '';
+        if (g.status === 'matched' && !evOk) { g.status = 'partial'; g.note = String(g.note || '').slice(0, 200) + ' No resume line to point to for this.'; }
         var bad = normT(g.note).split(' ').filter(function (t) {
           if (!/\d/.test(t) || srcTokens.indexOf(t) !== -1) return false;
           var c = t.replace(/[^0-9.]/g, '').replace(/\.$/, '');
           return c && !cores[c];
         });
-        if (!bad.length) return { requirement: g.requirement, status: g.status, note: String(g.note || '').slice(0, 240) };
+        if (!bad.length) return { requirement: g.requirement, status: g.status, note: String(g.note || '').slice(0, 240), evidence_quote: quote.slice(0, 240) };
         unverified++;
         return {
           requirement: g.requirement,
           status: g.status === 'matched' ? 'partial' : g.status,
-          note: 'Evidence not verified against your profile (' + bad.join(', ') + ' not found). Treat as partial.'
+          note: 'Evidence not verified against your profile (' + bad.join(', ') + ' not found). Treat as partial.',
+          evidence_quote: quote.slice(0, 240)
         };
       });
       if (unverified) console.log('[opp-guard] unverified notes', unverified);

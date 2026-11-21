@@ -530,6 +530,8 @@ select.dash-field,select.dash-select,.brain-field select{-webkit-appearance:none
 .dash-gaps .gap-req{font-size:16px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .dash-gaps .gap-note{font-size:14.5px;color:#6B6B6B;margin-top:3px}
 .dash-gaps .gap-icon{width:24px;height:24px;font-size:13px;margin-top:2px}
+.gap-ev{font-size:14px;color:#333;line-height:1.5;margin-top:6px;padding-left:10px;border-left:3px solid #EEECE7}
+.gap-ev span{color:#8A8A8A}
 .gap-unscored .gap-icon{background:#F3F1EC;color:#9A9A9A}
 a.dash-chip{text-decoration:none;color:#C2493C}
 .dash-card .brain-target{margin:0;padding:16px}
@@ -4822,7 +4824,8 @@ async function dashShowOpportunity(id, row){
       var g = byReq[rq.requirement];
       var stt = g ? g.status : 'unscored';
       return '<div class="gap-row gap-' + stt + '"><span class="gap-icon">' + (icon[stt] || '·') + '</span><div><div class="gap-req">' + escapeHtml(rq.requirement) + (rq.importance === 'required' ? ' <span class="dash-tag">Required</span>' : '') + '</div>'
-        + (g && g.note ? '<div class="gap-note">' + escapeHtml(g.note) + '</div>' : '') + '</div></div>';
+        + (g && g.note ? '<div class="gap-note">' + escapeHtml(g.note) + '</div>' : '')
+        + (g && g.evidence_quote ? '<div class="gap-ev">\u201c' + escapeHtml(g.evidence_quote) + '\u201d <span>from your resume</span></div>' : '') + '</div></div>';
     }).join('') + '</div>';
   }
 
