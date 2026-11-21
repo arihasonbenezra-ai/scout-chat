@@ -315,7 +315,12 @@ function prepProgress(messages, mode) {
 // show. One question per item, in order, before anything general; the
 // feedback names what would have convinced the hiring manager; and no
 // experience is ever invented for them.
-function focusInstruction(f) {
+function focusInstruction(f, mode) {
+  if (mode === 'star') {
+    return '\n\nBuild the stories. The candidate is working toward ' + (f.role || 'this role') + (f.company ? ' at ' + f.company : '') + '. These are the gaps to show or close:\n'
+      + f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + (it.note ? ' (' + it.note + ')' : ''); }).join('\n')
+      + '\nAsk behavioral questions that draw out one real story for each, in this order, and shape each into STAR. Never invent experience: when there is no story for a gap, say so and move to the nearest real thing they have done.';
+  }
   return '\n\nDefend your resume. The candidate is preparing for ' + (f.role || 'this role') + (f.company ? ' at ' + f.company : '') + '. Their resume only partly shows, or does not show, these requirements from the posting:\n'
     + f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + ' (' + it.status + (it.note ? ': ' + it.note : '') + ')'; }).join('\n')
     + '\nBuild the set so each of these gets a question that makes them show it or explain it honestly, in this order, before any general question. In the feedback, say plainly what would have convinced the hiring manager on that requirement. Never invent experience for them: when they do not have it, help them say so well and point to the nearest real thing they do have.';
@@ -1491,6 +1496,72 @@ function profileToText(p) {
   return lines.length ? lines.join('\n') : null;
 }
 
+// --- Story bank -----------------------------------------------------------
+// A STAR answer becomes a saved story: the model names it and picks the
+// sentences that are the situation, task, action and result, each copied
+// verbatim from the answer and checked; a field that is not verbatim is
+// dropped, and nothing is saved without a situation and an action. Mock
+// reads the bank and asks about what is in it.
+var STORY_COMPETENCIES = ['leadership', 'conflict', 'ambiguity', 'ownership', 'influence', 'failure', 'prioritization', 'customer', 'data', 'delivery', 'collaboration', 'change'];
+var STORY_TOOL = {
+  name: 'record_story',
+  description: 'Record the STAR story in the candidate\'s last answer, if there is one.',
+  input_schema: { type: 'object', properties: {
+    found: { type: 'boolean' },
+    title: { type: 'string', description: 'A short name for the story, under 10 words, specific (the company, the thing).' },
+    situation: { type: 'string', description: 'The sentence(s) from the answer that set the scene, copied verbatim.' },
+    task: { type: 'string', description: 'Verbatim: what they had to do.' },
+    action: { type: 'string', description: 'Verbatim: what they did.' },
+    result: { type: 'string', description: 'Verbatim: what happened. Empty if the answer has no result.' },
+    competencies: { type: 'array', items: { type: 'string', enum: STORY_COMPETENCIES } }
+  }, required: ['found'] }
+};
+async function fetchStories(token, userId) {
+  try {
+    var res = await fetch(SUPABASE_URL + '/rest/v1/career_stories?user_id=eq.' + userId + '&status=neq.archived&select=id,title,situation,task,action,result,competencies,status&order=updated_at.desc&limit=12',
+      { headers: { apikey: SUPABASE_ANON_KEY, Authorization: 'Bearer ' + token } });
+    return res.ok ? await res.json() : [];
+  } catch (e) { return []; }
+}
+function storiesToText(stories) {
+  if (!stories || !stories.length) return null;
+  return 'Stories the candidate has already prepared, in their own words. Ask about at least two of them during the interview and push on the result:\n' + stories.map(function (st) {
+    return '- ' + st.title + (st.competencies && st.competencies.length ? ' [' + st.competencies.join(', ') + ']' : '') + (st.result ? ' Result: "' + String(st.result).slice(0, 160) + '"' : ' (no result stated yet)');
+  }).join('\n');
+}
+async function saveStoryFromAnswer(messages, userId, conversationId) {
+  var last = messages[messages.length - 1];
+  var answer = typeof last.content === 'string' ? last.content : sessionText([last]);
+  if (answer.trim().length < 150) return null;
+  var prev = messages.length >= 2 ? messages[messages.length - 2] : null;
+  var question = prev && prev.role === 'assistant' ? (typeof prev.content === 'string' ? prev.content : sessionText([prev])).slice(-600) : '';
+  var r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST', headers: anthropicHeaders('claude-haiku-5-5'),
+    body: JSON.stringify({ model: 'claude-haiku-5-5', max_tokens: 900, system: 'A candidate is answering a behavioral interview question. If the answer tells a real story about something they did, record it. Copy each STAR part verbatim from the answer, whole sentences, nothing paraphrased; they are checked mechanically and dropped when not verbatim. Leave a part empty rather than invent it. If the answer is not a story (a question, a clarification, small talk), found is false.',
+      messages: [{ role: 'user', content: (question ? 'The question:\n' + question + '\n\n' : '') + 'Their answer:\n' + answer.slice(0, 6000) }], tools: [STORY_TOOL], tool_choice: { type: 'tool', name: STORY_TOOL.name } })
+  });
+  var data = await r.json();
+  var tu = r.ok && (data.content || []).find(function (b) { return b.type === 'tool_use'; });
+  var inp = tu && tu.input;
+  if (!inp || !inp.found || !inp.title) return null;
+  var an = normText(answer);
+  var pick = function (v) { v = String(v || '').trim(); var n = normText(v); return n.length >= 12 && an.indexOf(n) !== -1 ? v.slice(0, 900) : ''; };
+  var story = { situation: pick(inp.situation), task: pick(inp.task), action: pick(inp.action), result: pick(inp.result) };
+  if (!story.situation || !story.action) return null;
+  var comps = (Array.isArray(inp.competencies) ? inp.competencies : []).filter(function (c) { return STORY_COMPETENCIES.indexOf(c) !== -1; }).slice(0, 4);
+  var H = { 'Content-Type': 'application/json', apikey: process.env.SUPABASE_SERVICE_ROLE_KEY, Authorization: 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY };
+  try {
+    // The same story told again updates the one on file instead of doubling it.
+    var ex = await fetch(SUPABASE_URL + '/rest/v1/career_stories?user_id=eq.' + userId + '&status=neq.archived&select=id,title,action', { headers: H });
+    var rows = ex.ok ? await ex.json() : [];
+    var same = rows.find(function (st) { return normText(st.title) === normText(inp.title) || (st.action && normText(st.action) === normText(story.action)); });
+    var row = { title: String(inp.title).slice(0, 120), situation: story.situation, task: story.task || null, action: story.action, result: story.result || null, competencies: comps, source: 'star', source_conversation_id: conversationId || null, updated_at: new Date().toISOString() };
+    if (same) await fetch(SUPABASE_URL + '/rest/v1/career_stories?id=eq.' + same.id, { method: 'PATCH', headers: Object.assign({ Prefer: 'return=minimal' }, H), body: JSON.stringify(row) });
+    else await fetch(SUPABASE_URL + '/rest/v1/career_stories', { method: 'POST', headers: Object.assign({ Prefer: 'return=minimal' }, H), body: JSON.stringify([Object.assign({ user_id: userId, status: 'draft' }, row)]) });
+    return { title: row.title, complete: !!story.result };
+  } catch (e) { console.error('[story] save failed', e && e.message); return null; }
+}
+
 function memoryToText(profile, claims) {
   var parts = [];
   var pt = profileToText(profile);
@@ -1662,6 +1733,10 @@ export default async function handler(req, res) {
     }
 
     var knowledgeText = null;
+    if (mode === 'mock' && user) {
+      var storyText = storiesToText(await fetchStories(token, user.id));
+      if (storyText) knownClaimsText = (knownClaimsText ? knownClaimsText + '\n\n' : '') + storyText;
+    }
     if (mode === 'practice' || mode === 'star' || mode === 'mock') {
       var factsText = knowledgeToText(await fetchKnowledgeItems('interview', role));
       var archetypesText = archetypesToText(await fetchQuestionArchetypes(role, INTERVIEW_TYPE_BY_MODE[mode]));
@@ -1712,7 +1787,7 @@ export default async function handler(req, res) {
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode), avoid);
     }
-    if (focus && (mode === 'practice' || mode === 'star')) anthropicBody.system += focusInstruction(focus);
+    if (focus && (mode === 'practice' || mode === 'star')) anthropicBody.system += focusInstruction(focus, mode);
     if (PREP_MODES[mode] && voice && isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += voiceDeliveryNote(voice);
     }
@@ -1760,9 +1835,12 @@ export default async function handler(req, res) {
       var scorecardPromise = (progressNow && progressNow.asked >= progressNow.size && !progressNow.wrapped)
         ? buildScorecard(messages, role, mode).catch(function (e) { console.error('[scorecard]', e && e.message); return null; })
         : Promise.resolve(null);
+      var storyPromise = (mode === 'star' && user) ? saveStoryFromAnswer(messages, user.id, body.conversationId || null).catch(function (e) { console.error('[story]', e && e.message); return null; }) : Promise.resolve(null);
       var gp = await groundedPrepReply(anthropicBody, messages, mode);
       if (!gp.ok) return res.status(gp.status || 502).json(gp.data || { error: 'Prep reply failed' });
       var card = await scorecardPromise;
+      var savedStory = await storyPromise;
+      if (savedStory) gp.guard = Object.assign({}, gp.guard || {}, { story: savedStory });
       if (card) {
         gp.text = gp.text.trim() + '\n' + card.markdown;
         await saveScorecard(user.id, body.conversationId || null, mode, role, card);

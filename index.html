@@ -1683,6 +1683,11 @@ function streamBotReply(messages,afterDone){
 var LEARN_LABEL = { pull:'what pulls you in', cold:'what leaves you cold', musts:'your non-negotiables', optimizing:'what this move is for' };
 function maybeOfferLearned(){
   var g = window._lastGuard; window._lastGuard = null;
+  if(g && g.story && g.story.title && currentModeKey() === 'star'){
+    var sEl = document.createElement('div'); sEl.className = 'learn-card';
+    sEl.innerHTML = '<span>Saved to your story bank as \u201c' + escapeHtml(g.story.title) + '\u201d' + (g.story.complete ? '.' : ', without a result yet.') + ' Mock Interview will ask about it.</span>';
+    msgEl.appendChild(sEl); msgEl.scrollTop = msgEl.scrollHeight;
+  }
   if(!g || !g.learned || !g.learned.words || currentModeKey() !== 'decide') return;
   var L = g.learned;
   var el = document.createElement('div'); el.className = 'learn-card';
@@ -3437,7 +3442,7 @@ function dashShowDirections(edit){
           + '<div class="dir-ev"><div class="opp-sub">From your resume</div>' + d.resume_quotes.map(function(q){ return '<div class="dir-quote">\u201c' + escapeHtml(q) + '\u201d</div>'; }).join('') + '</div>'
           + '<div class="dir-ev"><div class="opp-sub">In your words</div>' + d.answer_quotes.map(function(q){ return '<div class="dir-quote">\u201c' + escapeHtml(q) + '\u201d</div>'; }).join('') + '</div>'
           + (d.gap ? '<div class="dash-text"><strong>To close:</strong> ' + escapeHtml(d.gap) + '</div>' : '')
-          + '<div class="opp-fix-actions"><button class="dash-btn primary" onclick="dashSetDirection(' + i + ')">Set as my target</button></div></div>';
+          + '<div class="opp-fix-actions"><button class="dash-btn primary" onclick="dashSetDirection(' + i + ')">Set as my target</button>' + (d.gap && isCareerPlan() ? '<button class="dash-link" onclick="dashDirectionStory(' + i + ')">Build the story for this gap</button>' : '') + '</div></div>';
       }).join('') + '</div>'
       + '<div class="dash-muted">' + (D.dropped ? D.dropped + (D.dropped === 1 ? ' direction was' : ' directions were') + ' dropped because Ezzy could not quote your resume or your answers for them. ' : '') + 'Set one as your target and roles, prep and scores all point at it.</div>'
       + '<div class="opp-fix-actions" style="margin-top:4px"><button class="dash-link" onclick="dashShowDirections(true)">Change my answers</button><button class="dash-link" onclick="dashRunDirections()">Run again</button></div>';
@@ -3468,6 +3473,14 @@ async function dashRunDirections(){
     if(st) st.textContent = String(e && e.message || e); else dashShowDirections(true);
   }
 }
+// A direction's gap becomes a STAR session aimed at it; the story it
+// produces lands in the bank, and Mock asks about it.
+function dashDirectionStory(i){
+  var p = DASH_PROFILE || {}; var D = p.wants && p.wants.directions; var d = D && D.items[i]; if(!d || !d.gap) return;
+  window._practiceFocus = { role: d.title, company: '', items: [{ requirement: d.gap, status: 'missing', note: 'to close for ' + d.title }] };
+  window._practiceOpportunityId = null;
+  dashStartMode(d.title, 'star', 'STAR Coaching');
+}
 async function dashSetDirection(i){
   var p = DASH_PROFILE || {}; var D = p.wants && p.wants.directions; var d = D && D.items[i]; if(!d) return;
   var sr = await window.supabaseClient.auth.getSession(); var uid = sr.data && sr.data.session && sr.data.session.user.id; if(!uid) return;
@@ -3491,7 +3504,7 @@ function dashShowHelp(){
     + part('My Career', 'Home. Your target, what Ezzy knows about you, your latest scorecard, open roles that fit, and the opportunities you\u2019re chasing. Start here, and come back here.')
     + part('Resume Review', 'Drop your resume, and a posting if you have one. You get a recruiter-style review with a scorecard and rewrites built only from what your resume already says. Ezzy keeps what it learns about you. Dropping a new resume replaces the old one.')
     + part('Practice Q&amp;A', 'Five interview questions for your target role. Feedback on each one quotes your own words. After the fifth you get a scorecard, every mark tied to something you said.')
-    + part('STAR Coaching', 'Build one story at a time: situation, task, action, result. Stories you work through are saved for the real interview.')
+    + part('STAR Coaching', 'Build one story at a time: situation, task, action, result. Each story you tell is saved to your story bank in your own words, and Mock Interview asks about them. From a Direction or an opportunity, STAR aims at the gaps that need a story.')
     + part('Mock Interview', 'The full thing, in character, with a skeptical hiring manager: vague answers get pushed back on, outcomes get asked for their baseline. No feedback until the debrief.')
     + part('Company Research', 'A dated brief on a company with real, linked sources, including what employees say on the review sites. Nothing without a source.')
     + part('Roles for you', 'Open roles from the companies\u2019 own job boards, matched to your target, newest first. Check my fit reads the whole posting and gives a verdict with the reasons.')
@@ -3971,6 +3984,7 @@ function renderDashboard(body, d){
   html += '<div class="dash-card' + lastCls + '"><div class="dash-card-head"><div class="dash-label">Opportunities</div><button class="dash-link" onclick="dashShowOpportunities()">All</button></div>';
   html += d.opps.slice(0,3).map(dashOppRow).join('');
   html += '<button class="dash-link" style="align-self:flex-start" onclick="dashAddOpportunity()">+ Add a posting</button>';
+  html += oppCalibrationHtml(d.opps);
   html += '</div>';
   }
 
@@ -4636,6 +4650,22 @@ function oppFitLabel(o){
 var OPP_ACTIVE = { applied:1, screening:1, interviewing:1, offer:1 };
 function oppDaysQuiet(o){ return Math.floor((Date.now() - new Date(o.updated_at).getTime()) / 86400000); }
 function oppStale(o){ return !!(o && OPP_ACTIVE[o.stage] && oppDaysQuiet(o) >= 7); }
+// Fit scores against what actually happened. Counted, not modelled, and
+// only shown once there are enough logged outcomes to mean anything.
+var CAL_MIN = 10;
+function oppCalibrationHtml(opps){
+  var logged = (opps || []).filter(function(o){ return o.fit_score != null && o.stage && o.stage !== 'considering'; });
+  if(!logged.length) return '';
+  if(logged.length < CAL_MIN) return '<div class="dash-muted">How your fit scores line up with what happens shows here after ' + CAL_MIN + ' logged outcomes. ' + logged.length + ' so far.</div>';
+  var heard = { screening:1, interviewing:1, offer:1, accepted:1, hired:1 };
+  var band = function(lo, hi, label){
+    var rows = logged.filter(function(o){ return o.fit_score >= lo && o.fit_score < hi; });
+    if(!rows.length) return '';
+    var h = rows.filter(function(o){ return heard[o.stage]; }).length;
+    return '<div>' + label + ': ' + h + ' of ' + rows.length + ' got a screen or further</div>';
+  };
+  return '<div class="opp-vs" style="border-top:1px solid #EEECE7;padding-top:12px"><span class="opp-sub">Your fit scores, against what happened</span>' + band(70, 101, 'Fit 70 and up') + band(50, 70, 'Fit 50 to 69') + band(0, 50, 'Fit under 50') + '</div>';
+}
 function dashOppRow(o){
   var bits = [OPP_STAGE_LABEL[o.stage] || o.stage].concat(oppFacts(o).slice(0,2));
   bits.push(dashDate(o.updated_at));
@@ -4889,6 +4919,7 @@ async function dashShowOpportunity(id, row){
     + (focusNow ? '<div class="dash-text">Defend your resume: five questions aimed at the ' + focusNow.items.length + (focusNow.items.length === 1 ? ' requirement' : ' requirements') + ' it only partly shows, so you can explain them honestly before a recruiter asks.</div>' : '')
     + '<div class="dash-actions">'
     + '<button class="dash-btn primary" onclick="dashOppPractice()">' + (focusNow ? 'Defend your resume' : 'Practice for this role') + '</button>'
+    + (focusNow ? '<button class="dash-btn" onclick="dashOppStar()">Build stories for the gaps</button>' : '')
     + (row.company ? '<button class="dash-btn" onclick="' + (OPP_BRIEF ? 'dashOppOpenBrief()' : 'dashOppResearch()') + '">' + (OPP_BRIEF ? 'Open your ' + escapeHtml(row.company) + ' brief' : 'Research ' + escapeHtml(row.company)) + '</button>' : '')
     + '<button class="dash-btn" onclick="dashOppResume()">Review my resume against it</button></div>';
   if(canEdit) html += '<div class="onb-foot" style="margin-top:8px"><button class="dash-link" style="color:#8A8A8A" onclick="dashRemoveOpportunity(\'' + row.id + '\')">Remove this opportunity</button></div>';
@@ -5068,6 +5099,18 @@ function dashOppOpenBrief(){
   if(!OPP_BRIEF){ dashOppResearch(); return; }
   if(OPP_BRIEF.archived_at) dashShowSession(OPP_BRIEF.id, 'Company Research', (OPP_CURRENT.company || 'the') + ' opportunity', 'dashShowOpportunity(\'' + OPP_CURRENT.id + '\')');
   else dashOppResearch();
+}
+async function dashOppStar(){
+  if(!OPP_CURRENT) return;
+  var o = OPP_CURRENT; var focus = oppFocus(o); if(!focus){ dashOppPractice(); return; }
+  oppReturnHere();
+  window._practiceFocus = focus; window._practiceOpportunityId = o.id;
+  try{
+    var sr = await window.supabaseClient.auth.getSession(); var uid = sr.data && sr.data.session && sr.data.session.user.id;
+    if(uid) await window.supabaseClient.from('conversations').update({ archived_at: new Date().toISOString() })
+      .eq('user_id', uid).eq('mode', 'star').eq('role', o.role_title).is('archived_at', null).or('opportunity_id.is.null,opportunity_id.neq.' + o.id);
+  }catch(e){ console.error('archive general star', e); }
+  dashStartMode(o.role_title, 'star', 'STAR Coaching');
 }
 async function dashOppPractice(){
   if(!OPP_CURRENT) return;
