@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Make an Ezzy post</title>
+<style>
+body{margin:0;background:#F7F6F3;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;color:#111;padding:18px 16px 40px}
+h1{font-size:22px;margin:6px 0 4px} p{color:#555;font-size:15px;line-height:1.5;margin:0 0 16px}
+label{display:block;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#777;margin:14px 0 6px}
+input,textarea{width:100%;box-sizing:border-box;border:1px solid #D5D2CB;border-radius:12px;padding:12px 14px;font-size:16px;font-family:inherit;background:#fff;color:#111;outline:none}
+input:focus,textarea:focus{border-color:#F26B5E} textarea{min-height:84px;resize:vertical}
+.row{display:flex;gap:10px} .row>div{flex:1}
+button{margin-top:18px;width:100%;height:50px;border:none;border-radius:999px;background:#111;color:#fff;font-size:17px;font-weight:700;font-family:inherit}
+.out{margin-top:18px} .out img{width:100%;height:auto;border-radius:14px;display:block;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+.hint{font-size:14px;color:#777;margin-top:10px;text-align:center}
+.sw{display:flex;gap:8px;margin-top:8px} .sw button{margin:0;height:38px;font-size:14px;flex:1;background:#fff;color:#111;border:1px solid #D5D2CB} .sw button.on{background:#111;color:#fff;border-color:#111}
+canvas{display:none}
+</style></head><body>
+<h1>Make an Ezzy post</h1>
+<p>Type, tap Render, then long-press the picture and Save to Photos. Feed size, 1080 by 1350.</p>
+<div class="row"><div><label>Small line on top</label><input id="eb" value="Your career coach" maxlength="40"></div></div>
+<label>Headline</label><textarea id="h1">Meet Ezzy.</textarea>
+<label>Body</label><textarea id="sub">Built by recruiters and hiring managers. It reads your resume, shows you where you fit, and gets you ready for the interview. Nothing it says is a guess.</textarea>
+<div class="row"><div><label>Button text</label><input id="pill" value="Try it free" maxlength="24"></div><div><label>Colour</label><div class="sw"><button class="on" data-c="coral" onclick="setC(this)">Coral</button><button data-c="cream" onclick="setC(this)">Cream</button><button data-c="black" onclick="setC(this)">Black</button></div></div></div>
+<button onclick="render()">Render</button>
+<div class="out"><img id="out" alt=""></div><div class="hint" id="hint"></div>
+<canvas id="c" width="1080" height="1350"></canvas>
+<script>
+var COLOR='coral';
+function setC(b){ COLOR=b.getAttribute('data-c'); document.querySelectorAll('.sw button').forEach(function(x){ x.classList.toggle('on', x===b); }); }
+var THEMES={ coral:{bg:'#F26B5E',ink:'#111111',face:'#FFF4F2',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#111111',logoInk:'#F26B5E'},
+  cream:{bg:'#F7F6F3',ink:'#111111',face:'#F26B5E',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'},
+  black:{bg:'#111111',ink:'#FFFFFF',face:'#F26B5E',faceInk:'#111111',pillBg:'#F26B5E',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'} };
+function face(ctx,cx,cy,r,fill,ink){ ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  var s=r/14; ctx.fillStyle=ink; ctx.beginPath(); ctx.arc(cx-5*s,cy-2*s,1.8*s,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+5*s,cy-1*s,1.8*s,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=ink; ctx.lineWidth=1.8*s; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-3.5*s,cy+5*s); ctx.quadraticCurveTo(cx,cy+7.8*s,cx+3.5*s,cy+5*s); ctx.stroke(); }
+function wrap(ctx,text,x,y,maxW,lh){ var words=text.split(/\s+/), line='', yy=y; for(var i=0;i<words.length;i++){ var t=line?line+' '+words[i]:words[i]; if(ctx.measureText(t).width>maxW&&line){ ctx.fillText(line,x,yy); line=words[i]; yy+=lh; } else line=t; } if(line){ ctx.fillText(line,x,yy); yy+=lh; } return yy; }
+function render(){
+  var T=THEMES[COLOR], c=document.getElementById('c'), ctx=c.getContext('2d'), W=1080, H=1350, P=84;
+  ctx.fillStyle=T.bg; ctx.fillRect(0,0,W,H);
+  face(ctx,P+32,88+32,28,T.logo,T.logoInk); ctx.fillStyle=T.ink; ctx.font='700 40px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.textBaseline='middle'; ctx.fillText('Ezzy.',P+82,88+32);
+  face(ctx,W/2,470,210,T.face,T.faceInk);
+  ctx.textBaseline='alphabetic';
+  var eb=document.getElementById('eb').value.trim().toUpperCase(), h=document.getElementById('h1').value.trim(), sub=document.getElementById('sub').value.trim(), pill=document.getElementById('pill').value.trim();
+  // headline block sits above the footer; measure up from the bottom
+  ctx.font='400 34px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';
+  var subLines=[]; (function(){ var words=sub.split(/\s+/), line=''; words.forEach(function(w){ var t=line?line+' '+w:w; if(ctx.measureText(t).width>W-2*P-120&&line){ subLines.push(line); line=w; } else line=t; }); if(line) subLines.push(line); })();
+  var hSize=h.length>26?88:104; ctx.font='800 '+hSize+'px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif';
+  var hLines=[]; (function(){ var words=h.split(/\s+/), line=''; words.forEach(function(w){ var t=line?line+' '+w:w; if(ctx.measureText(t).width>W-2*P&&line){ hLines.push(line); line=w; } else line=t; }); if(line) hLines.push(line); })();
+  var footY=H-P-26, subLH=46, hLH=hSize*0.98;
+  var subTop=footY-70-subLines.length*subLH; var hTop=subTop-28-(hLines.length-1)*hLH; var ebY=hTop-hSize*0.9-18;
+  ctx.fillStyle=T.ink; ctx.globalAlpha=.75; ctx.font='700 22px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.fillText(eb.split('').join(String.fromCharCode(8202)),P,ebY); ctx.globalAlpha=1;
+  ctx.font='800 '+hSize+'px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; hLines.forEach(function(l,i){ ctx.fillText(l,P,hTop+i*hLH); });
+  ctx.globalAlpha=.88; ctx.font='400 34px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; subLines.forEach(function(l,i){ ctx.fillText(l,P,subTop+i*subLH+34); }); ctx.globalAlpha=1;
+  ctx.globalAlpha=.8; ctx.font='600 26px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; ctx.fillText('meetezzy.com',P,footY+8); ctx.globalAlpha=1;
+  if(pill){ ctx.font='700 26px -apple-system,BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif'; var pw=ctx.measureText(pill).width+56, px=W-P-pw, py=footY-30; ctx.fillStyle=T.pillBg; ctx.beginPath(); ctx.roundRect(px,py,pw,60,30); ctx.fill(); ctx.fillStyle=T.pillInk; ctx.textBaseline='middle'; ctx.fillText(pill,px+28,py+30); ctx.textBaseline='alphabetic'; }
+  var img=document.getElementById('out'); img.src=c.toDataURL('image/png'); document.getElementById('hint').textContent='Long-press the picture, then Save to Photos.';
+}
+render();
+</script></body></html>
