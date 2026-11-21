@@ -100,8 +100,13 @@ export default async function handler(req, res) {
     if (body.action === 'delete_session') {
       var cid = typeof body.conversationId === 'string' && /^[0-9a-f-]{16,}$/i.test(body.conversationId) ? body.conversationId : '';
       if (!cid) return res.status(400).json({ error: 'conversationId required' });
-      var own = await restRows('conversations?id=eq.' + cid + '&user_id=eq.' + user.id + '&select=id');
-      if (!own.length) return res.status(404).json({ error: 'session_not_found' });
+      var ownRes = await fetch(SUPABASE_URL + '/rest/v1/conversations?id=eq.' + cid + '&user_id=eq.' + user.id + '&select=id,user_id', { headers: svc() });
+      var ownBody = await ownRes.text();
+      var own = []; try { own = JSON.parse(ownBody); } catch (e) {}
+      if (!Array.isArray(own) || !own.length) {
+        console.error('[account] delete_session lookup', ownRes.status, ownBody.slice(0, 200));
+        return res.status(404).json({ error: 'session_not_found', detail: 'lookup ' + ownRes.status + ': ' + ownBody.slice(0, 160) });
+      }
       await rest('DELETE', 'messages?conversation_id=eq.' + cid);
       var okDel = await rest('DELETE', 'conversations?id=eq.' + cid + '&user_id=eq.' + user.id);
       if (!okDel) return res.status(502).json({ error: 'Could not remove the session' });

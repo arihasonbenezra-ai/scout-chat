@@ -4172,7 +4172,7 @@ async function dashDeleteSession(id, btn){
     var token = await getAuthTokenIfSignedIn(); if(!token) throw new Error('Sign in first.');
     var res = await fetch('/api/account', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action:'delete_session', conversationId: id }) });
     var data = await res.json().catch(function(){ return {}; });
-    if(!res.ok) throw new Error(data.error || 'Could not remove it');
+    if(!res.ok) throw new Error((data.error || 'Could not remove it') + (data.detail ? ' (' + data.detail + ')' : ''));
     if(window._currentConversationId === id){ window._currentConversationId = null; }
     dashShowSessions();
   }catch(e){ btn.disabled = false; btn.textContent = String(e && e.message || e); }
