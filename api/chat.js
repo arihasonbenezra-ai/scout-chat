@@ -311,6 +311,16 @@ function prepProgress(messages, mode) {
   return { asked: Math.min(asked, size), size: size, wrapped: wrapped };
 }
 
+// The set is built around the requirements the resume does not fully
+// show. One question per item, in order, before anything general; the
+// feedback names what would have convinced the hiring manager; and no
+// experience is ever invented for them.
+function focusInstruction(f) {
+  return '\n\nDefend your resume. The candidate is preparing for ' + (f.role || 'this role') + (f.company ? ' at ' + f.company : '') + '. Their resume only partly shows, or does not show, these requirements from the posting:\n'
+    + f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + ' (' + it.status + (it.note ? ': ' + it.note : '') + ')'; }).join('\n')
+    + '\nBuild the set so each of these gets a question that makes them show it or explain it honestly, in this order, before any general question. In the feedback, say plainly what would have convinced the hiring manager on that requirement. Never invent experience for them: when they do not have it, help them say so well and point to the nearest real thing they do have.';
+}
+
 function prepProgressInstruction(p, avoid) {
   if (!p) return '';
   if (p.wrapped) return '\n\nSession state: the set of ' + p.size + ' questions is complete and the summary and scorecard were already given. Do not ask new questions. Answer briefly if the candidate asks something; otherwise say they can start a new set from the restart icon.';
@@ -1506,6 +1516,20 @@ export default async function handler(req, res) {
     var role = typeof body.role === 'string' ? body.role.slice(0, 120) : null;
     var company = typeof body.company === 'string' ? body.company.slice(0, 120) : null;
     var avoid = typeof body.avoid === 'string' ? body.avoid.slice(0, 500).trim() : '';
+    // Defend your resume: a Practice set aimed at the requirements of one
+    // posting the resume only partly meets. The client sends them from the
+    // opportunity's verdict; nothing here is taken on trust beyond shape.
+    var focus = null;
+    if (body.focus && Array.isArray(body.focus.items) && body.focus.items.length) {
+      focus = {
+        role: String(body.focus.role || '').slice(0, 120),
+        company: String(body.focus.company || '').slice(0, 120),
+        items: body.focus.items.slice(0, 6).map(function (it) {
+          return { requirement: String(it && it.requirement || '').slice(0, 200), status: it && it.status === 'missing' ? 'missing' : 'partial', note: String(it && it.note || '').slice(0, 240) };
+        }).filter(function (it) { return it.requirement; })
+      };
+      if (!focus.items.length) focus = null;
+    }
     var voice = voiceStats(body.voice);
     var messages = Array.isArray(body.messages) ? body.messages : null;
     var isStreaming = body.stream === true;
@@ -1651,6 +1675,7 @@ export default async function handler(req, res) {
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode), avoid);
     }
+    if (focus && (mode === 'practice' || mode === 'star')) anthropicBody.system += focusInstruction(focus);
     if (PREP_MODES[mode] && voice && isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += voiceDeliveryNote(voice);
     }
