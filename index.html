@@ -4172,10 +4172,10 @@ async function dashDeleteSession(id, btn){
     var token = await getAuthTokenIfSignedIn(); if(!token) throw new Error('Sign in first.');
     var res = await fetch('/api/account', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action:'delete_session', conversationId: id }) });
     var data = await res.json().catch(function(){ return {}; });
-    if(!res.ok) throw new Error((data.error || 'Could not remove it') + (data.detail ? ' (' + data.detail + ')' : ''));
+    if(!res.ok){ console.error('remove session', data); throw new Error(data.error === 'session_not_found' ? 'Could not find it' : 'Could not remove it'); }
     if(window._currentConversationId === id){ window._currentConversationId = null; }
     dashShowSessions();
-  }catch(e){ btn.disabled = false; btn.textContent = String(e && e.message || e); }
+  }catch(e){ btn.disabled = false; btn.removeAttribute('data-armed'); btn.style.color = '#8F3229'; btn.textContent = String(e && e.message || e); setTimeout(function(){ if(btn.isConnected){ btn.textContent = 'Remove'; btn.style.color = ''; } }, 4000); }
 }
 
 async function dashShowSession(id, label, backLabel, backFn){
