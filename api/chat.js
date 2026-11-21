@@ -1629,6 +1629,33 @@ async function anonHitCount(key, windowHours) {
   }
 }
 
+// --- Interviewer voice -------------------------------------------------------
+// One sentence of the Mock interviewer at a time, as it streams, through
+// Google's text-to-speech. HD voice first, a Neural2 voice if the HD name
+// is not available on the account. Paid feature, like Mock itself.
+var TTS_VOICES = ['en-US-Chirp3-HD-Charon', 'en-US-Neural2-D'];
+async function handleTts(req, res, token) {
+  var user = token ? await getAuthedUser(token) : null;
+  if (!user) return res.status(401).json({ error: 'signup_required' });
+  var sub = await fetchSubscription(token, user.id);
+  if (!hasActiveAccess(sub)) return res.status(403).json({ error: 'prep_mode_requires_job_search', mode: 'mock' });
+  if (!process.env.GOOGLE_TTS_API_KEY) return res.status(503).json({ error: 'voice_not_configured' });
+  var text = String((req.body && req.body.text) || '').replace(/\*\*?|__|`|#+\s/g, '').trim().slice(0, 800);
+  if (!text) return res.status(400).json({ error: 'text required' });
+  var lastErr = null;
+  for (var i = 0; i < TTS_VOICES.length; i++) {
+    var r = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key=' + encodeURIComponent(process.env.GOOGLE_TTS_API_KEY), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: { text: text }, voice: { languageCode: 'en-US', name: TTS_VOICES[i] }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0 } })
+    });
+    var data = await r.json().catch(function () { return {}; });
+    if (r.ok && data.audioContent) return res.status(200).json({ audio: data.audioContent, voice: TTS_VOICES[i] });
+    lastErr = data && data.error && data.error.message;
+    if (r.status !== 400 && r.status !== 404) break;
+  }
+  return res.status(502).json({ error: 'voice_failed', detail: String(lastErr || '').slice(0, 200) });
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', corsOrigin(req));
   res.setHeader('Vary', 'Origin');
@@ -1639,6 +1666,11 @@ export default async function handler(req, res) {
 
   try {
     var body = req.body || {};
+    // The interviewer's voice rides on this function (function cap).
+    if (body.action === 'tts') {
+      var ttsAuth = req.headers && (req.headers.authorization || req.headers.Authorization);
+      return handleTts(req, res, ttsAuth && ttsAuth.indexOf('Bearer ') === 0 ? ttsAuth.slice(7) : null);
+    }
     var mode = body.mode;
     var role = typeof body.role === 'string' ? body.role.slice(0, 120) : null;
     var company = typeof body.company === 'string' ? body.company.slice(0, 120) : null;

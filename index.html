@@ -136,6 +136,9 @@ button,input,textarea{font-family:inherit}
 .send-btn:disabled{background:var(--coral-mid);cursor:not-allowed}
 .mic-btn{display:none;width:42px;height:42px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;color:var(--dim);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s,border-color .15s}
 .mic-btn.on{display:flex}
+.speak-btn{display:none;height:42px;padding:0 14px;background:var(--white);border:0.5px solid var(--border-strong);border-radius:12px;color:var(--dim);cursor:pointer;font-family:inherit;font-size:13px;font-weight:600;white-space:nowrap;align-items:center;flex-shrink:0}
+.speak-btn.on{display:flex}
+.speak-btn.active{background:#111;border-color:#111;color:#fff}
 .mic-btn:hover{color:var(--black);border-color:var(--black)}
 .mic-btn.listening{background:var(--coral);border-color:var(--coral);color:var(--white);animation:micPulse 1.4s ease-in-out infinite}
 .mic-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -754,6 +757,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
   <div class="input-area">
     <div class="input-inner">
       <textarea id="input" placeholder="Pick a role to begin..." disabled rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleSend();}"></textarea>
+      <button class="speak-btn" id="speakBtn" type="button" title="Interviewer voice" aria-pressed="false" onclick="speakToggle()">Voice off</button>
       <button class="mic-btn" id="micBtn" type="button" title="Speak your answer" aria-label="Speak your answer" aria-pressed="false" onclick="voiceToggle()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4M8 22h8"/></svg>
       </button>
@@ -865,6 +869,7 @@ function shapeChunk(text){
 }
 function voiceSupported(){ return !!SpeechRec && (location.protocol === 'https:' || location.hostname === 'localhost'); }
 function syncMicBtn(){
+  syncSpeakBtn();
   if(!micBtn) return;
   var show = voiceSupported() && MODE === 'trainer';
   micBtn.classList.toggle('on', show);
@@ -1364,6 +1369,7 @@ function researchAskAgain(){
 }
 
 function handleSendText(text){
+  speakStop();
   text=text.trim();if(!text)return;
   if(VOICE.listening) voiceStop();
   var spoken = (MODE==='trainer' && VOICE_META && VOICE_META.words > 0) ? VOICE_META : null;
@@ -1653,12 +1659,63 @@ async function callClaudeWithSearch(messages,cb){
 // requiring them to resend their resume/answer a second time.
 var pendingGatedRetry=null;
 
+// Interviewer voice for Mock: Google's HD voice through the chat function,
+// one sentence at a time as the reply streams in, so nothing waits for the
+// whole answer. Off by default, remembered per browser.
+var SPEAK = { on: (function(){ try{ return localStorage.getItem('ezzyMockVoice') === '1'; }catch(e){ return false; } })(), spoken: 0, queue: [], playing: false, audio: null, gen: 0, warned: false };
+function speakEnabled(){ return SPEAK.on && currentModeKey() === 'mock'; }
+function syncSpeakBtn(){
+  var b = document.getElementById('speakBtn'); if(!b) return;
+  var show = MODE === 'trainer' && TRAINER_MODE === 'mock';
+  b.classList.toggle('on', show); b.classList.toggle('active', SPEAK.on);
+  b.textContent = SPEAK.on ? 'Voice on' : 'Voice off'; b.setAttribute('aria-pressed', SPEAK.on ? 'true' : 'false');
+}
+function speakToggle(){ SPEAK.on = !SPEAK.on; try{ localStorage.setItem('ezzyMockVoice', SPEAK.on ? '1' : '0'); }catch(e){} if(!SPEAK.on) speakStop(); syncSpeakBtn(); }
+function speakStop(){ SPEAK.gen++; SPEAK.queue = []; SPEAK.playing = false; if(SPEAK.audio){ try{ SPEAK.audio.pause(); }catch(e){} SPEAK.audio = null; } }
+function speakFeed(full){
+  if(!speakEnabled()) return;
+  for(;;){
+    var rest = full.slice(SPEAK.spoken);
+    var m = rest.match(/^[\s\S]*?[.!?](?=["\u201d']?\s)/);
+    if(!m) return;
+    SPEAK.spoken += m[0].length;
+    var sent = m[0].trim(); if(sent.length > 1) speakEnqueue(sent);
+  }
+}
+function speakFlush(full){ if(!speakEnabled()) return; var rest = full.slice(SPEAK.spoken).trim(); SPEAK.spoken = full.length; if(rest) speakEnqueue(rest); }
+function speakEnqueue(text){
+  var gen = SPEAK.gen;
+  var item = { audio: (async function(){
+    try{
+      var token = await getAuthTokenIfSignedIn(); if(!token) return null;
+      var res = await fetch(PROXY_URL, { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action:'tts', text: text }) });
+      if(!res.ok){ if(res.status === 503 && !SPEAK.warned){ SPEAK.warned = true; showSimpleToast('The interviewer voice isn\u2019t set up yet.'); } return null; }
+      var data = await res.json(); return data.audio || null;
+    }catch(e){ return null; }
+  })() };
+  if(gen !== SPEAK.gen) return;
+  SPEAK.queue.push(item); speakPump();
+}
+async function speakPump(){
+  if(SPEAK.playing || !SPEAK.queue.length) return;
+  SPEAK.playing = true;
+  var gen = SPEAK.gen, item = SPEAK.queue.shift();
+  var b64 = await item.audio;
+  if(gen !== SPEAK.gen) return;
+  if(!b64){ SPEAK.playing = false; speakPump(); return; }
+  var a = new Audio('data:audio/mp3;base64,' + b64); SPEAK.audio = a;
+  a.onended = a.onerror = function(){ if(gen !== SPEAK.gen) return; SPEAK.playing = false; SPEAK.audio = null; speakPump(); };
+  try{ await a.play(); }catch(e){ if(gen !== SPEAK.gen) return; SPEAK.playing = false; speakPump(); }
+}
+
 function streamBotReply(messages,afterDone){
   var bubbleNode=null;var fullText='';
+  speakStop(); SPEAK.spoken = 0;
   callClaudeStream(messages,function(deltaText,fullSoFar){
     if(!bubbleNode){hideTyping();bubbleNode=addMsg('bot','');}
     fullText=fullSoFar;
     setBubbleText(bubbleNode,fullSoFar);
+    speakFeed(fullSoFar);
   },function(gatedBySignup){
     isSending=false;updateSendBtnState();
     hideTyping();
@@ -1673,6 +1730,7 @@ function streamBotReply(messages,afterDone){
     // an empty reply to afterDone - callers push it into convoHistory, and
     // an empty assistant turn makes every later send fail too.
     if(!fullText) return;
+    speakFlush(fullText);
     if(afterDone)afterDone(fullText);
     maybeOfferLearned();
   });
@@ -3505,7 +3563,7 @@ function dashShowHelp(){
     + part('Resume Review', 'Drop your resume, and a posting if you have one. You get a recruiter-style review with a scorecard and rewrites built only from what your resume already says. Ezzy keeps what it learns about you. Dropping a new resume replaces the old one.')
     + part('Practice Q&amp;A', 'Five interview questions for your target role. Feedback on each one quotes your own words. After the fifth you get a scorecard, every mark tied to something you said.')
     + part('STAR Coaching', 'Build one story at a time: situation, task, action, result. Each story you tell is saved to your story bank in your own words, and Mock Interview asks about them. From a Direction or an opportunity, STAR aims at the gaps that need a story.')
-    + part('Mock Interview', 'The full thing, in character, with a skeptical hiring manager: vague answers get pushed back on, outcomes get asked for their baseline. No feedback until the debrief.')
+    + part('Mock Interview', 'The full thing, in character, with a skeptical hiring manager: vague answers get pushed back on, outcomes get asked for their baseline. No feedback until the debrief. Turn on Voice next to the mic and the interviewer speaks.')
     + part('Company Research', 'A dated brief on a company with real, linked sources, including what employees say on the review sites. Nothing without a source.')
     + part('Roles for you', 'Open roles from the companies\u2019 own job boards, matched to your target, newest first. Check my fit reads the whole posting and gives a verdict with the reasons.')
     + part('Directions', 'No target in mind? Ten questions in your own words, read against your resume. Three to five roles you could win, each with the resume lines and the answers that back it, the one thing to close, and how many are open right now. One tap makes it your target.')
