@@ -17,16 +17,15 @@ canvas{display:none}
 <div class="row"><div><label>Small line on top</label><input id="eb" value="Your career coach" maxlength="40"></div></div>
 <label>Headline</label><textarea id="h1">Meet Ezzy.</textarea>
 <label>Body</label><textarea id="sub">Built by recruiters and hiring managers. It reads your resume, shows you where you fit, and gets you ready for the interview. Nothing it says is a guess.</textarea>
-<div class="row"><div><label>Button text</label><input id="pill" value="Try it free" maxlength="24"></div><div><label>Colour</label><div class="sw"><button class="on" data-c="coral" onclick="setC(this)">Coral</button><button data-c="cream" onclick="setC(this)">Cream</button><button data-c="black" onclick="setC(this)">Black</button></div></div></div>
+<div class="row"><div><label>Button text</label><input id="pill" value="Try it free" maxlength="24"></div><div><label>Colour</label><div class="sw"><button class="on" data-c="coral" onclick="setC(this)">Coral</button><button data-c="cream" onclick="setC(this)">Cream</button></div></div></div>
 <button onclick="render()">Render</button>
 <div class="out"><img id="out" alt=""></div><div class="hint" id="hint"></div>
 <canvas id="c" width="1080" height="1350"></canvas>
 <script>
 var COLOR='coral';
 function setC(b){ COLOR=b.getAttribute('data-c'); document.querySelectorAll('.sw button').forEach(function(x){ x.classList.toggle('on', x===b); }); }
-var THEMES={ coral:{bg:'#F26B5E',ink:'#111111',face:'#FFF4F2',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#111111',logoInk:'#F26B5E'},
-  cream:{bg:'#F7F6F3',ink:'#111111',face:'#F26B5E',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'},
-  black:{bg:'#111111',ink:'#FFFFFF',face:'#F26B5E',faceInk:'#111111',pillBg:'#F26B5E',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'} };
+var THEMES={ coral:{bg:'#F26B5E',ink:'#111111',face:'#FFF4F2',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#FFF4F2',logoInk:'#111111'},
+  cream:{bg:'#F7F6F3',ink:'#111111',face:'#F26B5E',faceInk:'#111111',pillBg:'#111111',pillInk:'#ffffff',logo:'#F26B5E',logoInk:'#111111'} };
 function face(ctx,cx,cy,r,fill,ink){ ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
   var s=r/14; ctx.fillStyle=ink; ctx.beginPath(); ctx.arc(cx-5*s,cy-2*s,1.8*s,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx+5*s,cy-1*s,1.8*s,0,Math.PI*2); ctx.fill();
   ctx.strokeStyle=ink; ctx.lineWidth=1.8*s; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx-3.5*s,cy+5*s); ctx.quadraticCurveTo(cx,cy+7.8*s,cx+3.5*s,cy+5*s); ctx.stroke(); }
