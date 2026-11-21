@@ -868,6 +868,8 @@ function shapeChunk(text){
   return t;
 }
 function voiceSupported(){ return !!SpeechRec && (location.protocol === 'https:' || location.hostname === 'localhost'); }
+// Interviewer-voice state, declared before anything at load reads it.
+var SPEAK = { on: (function(){ try{ return localStorage.getItem('ezzyMockVoice') === '1'; }catch(e){ return false; } })(), spoken: 0, queue: [], playing: false, audio: null, gen: 0, warned: false };
 function syncMicBtn(){
   syncSpeakBtn();
   if(!micBtn) return;
@@ -1662,7 +1664,6 @@ var pendingGatedRetry=null;
 // Interviewer voice for Mock: Google's HD voice through the chat function,
 // one sentence at a time as the reply streams in, so nothing waits for the
 // whole answer. Off by default, remembered per browser.
-var SPEAK = { on: (function(){ try{ return localStorage.getItem('ezzyMockVoice') === '1'; }catch(e){ return false; } })(), spoken: 0, queue: [], playing: false, audio: null, gen: 0, warned: false };
 function speakEnabled(){ return SPEAK.on && currentModeKey() === 'mock'; }
 function syncSpeakBtn(){
   var b = document.getElementById('speakBtn'); if(!b) return;
