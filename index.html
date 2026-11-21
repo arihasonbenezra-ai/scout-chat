@@ -373,6 +373,8 @@ button,input,textarea{font-family:inherit}
 .role-err{font-size:12.5px;color:#8F3229;line-height:1.4;max-width:260px;text-align:right;margin-top:6px}
 .learn-card{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px 38px;padding:10px 14px;border:1px dashed #D5D2CB;border-radius:12px;font-size:14.5px;color:#333;background:#FAF9F6;max-width:560px}
 .learn-card .dash-btn{padding:7px 14px;font-size:14px}
+.learn-input{flex:1;min-width:160px;height:34px;border:1px solid #D5D2CB;border-radius:10px;padding:0 10px;font-size:14.5px;font-family:inherit;background:#fff;color:#111;outline:none}
+.learn-input:focus{border-color:#F26B5E}
 .role-filters{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
 .role-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border-radius:999px;border:1px solid #D5D2CB;background:#fff;color:#333;font-size:14.5px;font-weight:600;font-family:inherit;cursor:pointer}
 .role-chip span{font-weight:500;color:#8A8A8A;font-size:13px}
@@ -1749,15 +1751,20 @@ function maybeOfferLearned(){
   }
   if(!g || !g.learned || !g.learned.words || currentModeKey() !== 'decide') return;
   var L = g.learned;
+  // The words are theirs, but the exact phrase from a conversation is not
+  // always the one they want on their profile ("ship catheters to people").
+  // They get to tidy it before it is saved.
   var el = document.createElement('div'); el.className = 'learn-card';
-  el.setAttribute('data-words', L.words);
-  el.innerHTML = '<span>Add \u201c' + escapeHtml(L.words) + '\u201d to ' + escapeHtml(LEARN_LABEL[L.field] || 'what you want') + '?</span>'
+  el.innerHTML = '<span>Add to ' + escapeHtml(LEARN_LABEL[L.field] || 'what you want') + '?</span>'
+    + '<input class="learn-input" type="text" maxlength="80" value="' + escapeHtml(L.words) + '"/>'
     + '<button class="dash-btn" onclick="saveLearned(this,\'' + (LEARN_LABEL[L.field] ? L.field : 'pull') + '\')">Add</button>'
     + '<button class="dash-link" onclick="this.parentNode.remove()">No</button>';
   msgEl.appendChild(el); msgEl.scrollTop = msgEl.scrollHeight;
 }
 async function saveLearned(btn, field){
-  var card = btn.parentNode; var words = card.getAttribute('data-words');
+  var card = btn.parentNode; var inp = card.querySelector('.learn-input');
+  var words = (inp ? inp.value : '').trim().slice(0, 80);
+  if(!words){ if(inp) inp.focus(); return; }
   btn.disabled = true;
   try{
     var sr = await window.supabaseClient.auth.getSession(); var uid = sr.data && sr.data.session && sr.data.session.user.id;
