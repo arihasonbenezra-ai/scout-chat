@@ -437,6 +437,10 @@ button,input,textarea{font-family:inherit}
 .dash-row:hover{border-color:#F26B5E}
 .dash-row-t{font-size:16.5px;font-weight:600}
 .dash-row-s{font-size:14px;color:#6B6B6B;margin-top:2px}
+.sess-wrap{display:flex;align-items:center;gap:14px}
+.sess-wrap .dash-row{flex:1;min-width:0}
+.sess-x{flex:none;font-size:14px;color:#8A8A8A}
+.sess-x:hover{color:#8F3229}
 .opp-rating{font-size:13.5px;color:#8A8A8A;margin-top:3px}
 .opp-rating:empty{display:none}
 .dash-score{font-size:14px;font-weight:700;color:#1E7A3D;background:#E6F4EA;padding:3px 8px;border-radius:6px;flex:none}
@@ -4155,9 +4159,23 @@ async function dashShowSessions(){
   var inner;
   if(res.error) inner = '<div class="dash-loading">Could not load sessions. Try again shortly.</div>';
   else if(!res.data || !res.data.length) inner = '<div class="dash-empty"><div class="dash-empty-t">None yet</div><div class="dash-empty-s">Finished and restarted sessions land here with their score.</div></div>';
-  else inner = res.data.map(dashSessionRow).join('');
-  body.innerHTML = dashView('Sessions', sub, 'My Career', 'loadDashboard()', inner);
+  else inner = res.data.map(function(r){ return '<div class="sess-wrap">' + dashSessionRow(r) + '<button class="dash-link sess-x" onclick="dashDeleteSession(\'' + r.id + '\', this)">Remove</button></div>'; }).join('');
+  body.innerHTML = dashView('Sessions', sub + ' Remove takes the session and its score with it.', 'My Career', 'loadDashboard()', inner);
   body.parentNode.scrollTop = 0;
+}
+// Two clicks: the first arms it, the second removes. The server deletes
+// the messages and the conversation; the scorecard cascades.
+async function dashDeleteSession(id, btn){
+  if(!btn.getAttribute('data-armed')){ btn.setAttribute('data-armed', '1'); btn.textContent = 'Remove for good?'; btn.style.color = '#8F3229'; setTimeout(function(){ if(btn.isConnected){ btn.removeAttribute('data-armed'); btn.textContent = 'Remove'; btn.style.color = ''; } }, 6000); return; }
+  btn.disabled = true; btn.textContent = 'Removing...';
+  try{
+    var token = await getAuthTokenIfSignedIn(); if(!token) throw new Error('Sign in first.');
+    var res = await fetch('/api/account', { method:'POST', headers:{ 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }, body: JSON.stringify({ action:'delete_session', conversationId: id }) });
+    var data = await res.json().catch(function(){ return {}; });
+    if(!res.ok) throw new Error(data.error || 'Could not remove it');
+    if(window._currentConversationId === id){ window._currentConversationId = null; }
+    dashShowSessions();
+  }catch(e){ btn.disabled = false; btn.textContent = String(e && e.message || e); }
 }
 
 async function dashShowSession(id, label, backLabel, backFn){
