@@ -1634,18 +1634,45 @@ async function anonHitCount(key, windowHours) {
 // Google's text-to-speech. HD voice first, a Neural2 voice if the HD name
 // is not available on the account. Paid feature, like Mock itself.
 var TTS_VOICES = ['en-US-Chirp3-HD-Charon', 'en-US-Neural2-D'];
+// Google auth, two ways: an API key (GOOGLE_TTS_API_KEY), or a service
+// account's JSON (GOOGLE_TTS_SA_JSON) when the organization blocks API
+// keys. The service account path signs a JWT with Node's crypto and
+// trades it for an access token, kept for most of its hour.
+var GOOGLE_TOKEN = { value: null, exp: 0 };
+function b64url(buf) { return Buffer.from(buf).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_'); }
+async function googleAccessToken() {
+  if (GOOGLE_TOKEN.value && Date.now() < GOOGLE_TOKEN.exp - 60000) return GOOGLE_TOKEN.value;
+  var sa = JSON.parse(process.env.GOOGLE_TTS_SA_JSON);
+  var crypto = await import('crypto');
+  var now = Math.floor(Date.now() / 1000);
+  var header = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  var claims = b64url(JSON.stringify({ iss: sa.client_email, scope: 'https://www.googleapis.com/auth/cloud-platform', aud: 'https://oauth2.googleapis.com/token', iat: now, exp: now + 3600 }));
+  var sig = crypto.sign('RSA-SHA256', Buffer.from(header + '.' + claims), sa.private_key);
+  var jwt = header + '.' + claims + '.' + b64url(sig);
+  var r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=' + encodeURIComponent(jwt) });
+  var data = await r.json();
+  if (!r.ok || !data.access_token) throw new Error('google token: ' + (data.error_description || data.error || r.status));
+  GOOGLE_TOKEN = { value: data.access_token, exp: Date.now() + (data.expires_in || 3600) * 1000 };
+  return GOOGLE_TOKEN.value;
+}
 async function handleTts(req, res, token) {
   var user = token ? await getAuthedUser(token) : null;
   if (!user) return res.status(401).json({ error: 'signup_required' });
   var sub = await fetchSubscription(token, user.id);
   if (!hasActiveAccess(sub)) return res.status(403).json({ error: 'prep_mode_requires_job_search', mode: 'mock' });
-  if (!process.env.GOOGLE_TTS_API_KEY) return res.status(503).json({ error: 'voice_not_configured' });
+  if (!process.env.GOOGLE_TTS_API_KEY && !process.env.GOOGLE_TTS_SA_JSON) return res.status(503).json({ error: 'voice_not_configured' });
   var text = String((req.body && req.body.text) || '').replace(/\*\*?|__|`|#+\s/g, '').trim().slice(0, 800);
   if (!text) return res.status(400).json({ error: 'text required' });
+  var url = 'https://texttospeech.googleapis.com/v1/text:synthesize', headers = { 'Content-Type': 'application/json' };
+  if (process.env.GOOGLE_TTS_API_KEY) url += '?key=' + encodeURIComponent(process.env.GOOGLE_TTS_API_KEY);
+  else {
+    try { headers.Authorization = 'Bearer ' + await googleAccessToken(); }
+    catch (e) { return res.status(502).json({ error: 'voice_failed', detail: String(e && e.message || e).slice(0, 200) }); }
+  }
   var lastErr = null;
   for (var i = 0; i < TTS_VOICES.length; i++) {
-    var r = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key=' + encodeURIComponent(process.env.GOOGLE_TTS_API_KEY), {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    var r = await fetch(url, {
+      method: 'POST', headers: headers,
       body: JSON.stringify({ input: { text: text }, voice: { languageCode: 'en-US', name: TTS_VOICES[i] }, audioConfig: { audioEncoding: 'MP3', speakingRate: 1.0 } })
     });
     var data = await r.json().catch(function () { return {}; });
