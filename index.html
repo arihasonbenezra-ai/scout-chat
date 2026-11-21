@@ -672,7 +672,7 @@ a.dash-chip{text-decoration:none;color:#C2493C}
           <span class="mode-option-sub">Paste resume + JD for feedback</span>
         </div>
         <div class="mode-option" data-mode="research" onclick="requestModeSwitch('research','Company Research')">
-          <span class="mode-option-title">Company Research <span class="beta-tag">Beta</span></span>
+          <span class="mode-option-title">Company Research</span>
           <span class="mode-option-sub">Get a brief on any company</span>
         </div>
         <div class="mode-option" data-mode="decide" onclick="requestModeSwitch('decide','Talk through an opportunity')">
@@ -2007,12 +2007,11 @@ var PREP_SET_SIZE = { practice: 5, star: 5, mock: 6 };
 window._prepMeta = { restart_count: 0, answer_count: 0 };
 function startOverAvailable(){
   var modeId = TRAINER_MODE || window.TRAINER_MODE;
-  if(!(modeId==='practice'||modeId==='star'||modeId==='mock')) return false;
-  var m = window._prepMeta || {};
-  // Free until the first answer: restarting on question 1 is someone
-  // looking for a different opener, not dodging a hard question.
-  if ((m.answer_count || 0) === 0) return true;
-  return (m.restart_count || 0) === 0 || (m.answer_count || 0) >= (PREP_SET_SIZE[modeId] || 5);
+  // Always available in a prep mode. Restarts are counted on the
+  // conversation, not prevented: nobody gets trapped in a session, and a
+  // pattern of restarting past hard questions is visible rather than
+  // blocked (Ari, 2026-11-21).
+  return modeId==='practice'||modeId==='star'||modeId==='mock';
 }
 function refreshStartOverRow(){
   var btn=document.getElementById('startOverBtn');
