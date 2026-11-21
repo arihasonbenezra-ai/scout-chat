@@ -471,15 +471,15 @@ function mirrorCheck(resume, jd) {
   var rt = normText(resume).split(' ').filter(Boolean), jt = normText(jd).split(' ').filter(Boolean);
   var rtext = ' ' + rt.join(' ') + ' ';
   // Matching windows that overlap are one phrase, not four.
-  var hit = [];
+  var hit = [], dense = [];
   for (var i = 0; i + 4 <= jt.length; i++) {
     var g = jt.slice(i, i + 4);
-    if (g.filter(function (t) { return !MIRROR_STOP[t] && t.length > 2; }).length < 3) { hit.push(false); continue; }
+    dense.push(g.filter(function (t) { return !MIRROR_STOP[t] && t.length > 2; }).length >= 3);
     hit.push(rtext.indexOf(' ' + g.join(' ') + ' ') !== -1);
   }
   var shared = [], seen = {};
   for (var k = 0; k < hit.length; k++) {
-    if (!hit[k]) continue;
+    if (!hit[k] || !dense[k]) continue; // a phrase starts on real words, then runs through the small ones
     var end = k; while (end + 1 < hit.length && hit[end + 1]) end++;
     var phrase = jt.slice(k, end + 4).join(' ');
     if (!seen[phrase]) { seen[phrase] = true; shared.push(phrase); }
