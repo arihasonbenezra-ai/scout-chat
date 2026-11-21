@@ -315,15 +315,34 @@ function prepProgress(messages, mode) {
 // show. One question per item, in order, before anything general; the
 // feedback names what would have convinced the hiring manager; and no
 // experience is ever invented for them.
+// What each round is really testing, so the prep shapes itself to it.
+function roundGuidance(round) {
+  var r = String(round || '').toLowerCase();
+  if (!r) return '';
+  if (/screen|recruiter|phone/.test(r)) return 'A recruiter screen tests narrative clarity: why this role, why now, what they want in compensation, and whether the two biggest gaps have an honest answer. Keep it at that altitude.';
+  if (/final|panel|exec|leadership|vp|director|cross/.test(r)) return 'A final or executive round is not about whether they can do the tasks. It tests trade-offs, ambiguity, how they handle stakeholders who disagree, and judgment. Shift the questions there.';
+  if (/technical|design|case|take-home|coding/.test(r)) return 'A technical round tests depth: how they did it, what broke, what they would do differently. Ask for the mechanism, not the summary.';
+  return 'A hiring-manager round pushes on the stories behind the claims: ask for baselines, timeframes and their own part in the result.';
+}
+function debriefText(d) {
+  if (!d || !(d.off_guard || d.worried || d.learned)) return '';
+  var parts = [];
+  if (d.off_guard) parts.push('what caught them off guard or felt flat: "' + d.off_guard + '"');
+  if (d.worried) parts.push('what the interviewer seemed most worried about: "' + d.worried + '"');
+  if (d.learned) parts.push('what they learned about the team\'s real problem: "' + d.learned + '"');
+  return ' Right after the last round they wrote down ' + parts.join('; ') + '. Open with the thing that caught them off guard, and make sure the worry gets a real answer before the end.';
+}
 function focusInstruction(f, mode) {
+  var items = f.items.length ? f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + ' (' + it.status + (it.note ? ': ' + it.note : '') + ')'; }).join('\n') : '';
+  var where = (f.role || 'this role') + (f.company ? ' at ' + f.company : '');
+  var round = f.round ? ' Their next round is: ' + f.round + '. ' + roundGuidance(f.round) : '';
   if (mode === 'star') {
-    return '\n\nBuild the stories. The candidate is working toward ' + (f.role || 'this role') + (f.company ? ' at ' + f.company : '') + '. These are the gaps to show or close:\n'
-      + f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + (it.note ? ' (' + it.note + ')' : ''); }).join('\n')
-      + '\nAsk behavioral questions that draw out one real story for each, in this order, and shape each into STAR. Never invent experience: when there is no story for a gap, say so and move to the nearest real thing they have done.';
+    return '\n\nBuild the stories. The candidate is working toward ' + where + '.' + (items ? ' These are the gaps to show or close:\n' + items + '\nAsk behavioral questions that draw out one real story for each, in this order, and shape each into STAR.' : '') + round + debriefText(f.debrief) + ' Never invent experience: when there is no story for a gap, say so and move to the nearest real thing they have done.';
   }
-  return '\n\nDefend your resume. The candidate is preparing for ' + (f.role || 'this role') + (f.company ? ' at ' + f.company : '') + '. Their resume only partly shows, or does not show, these requirements from the posting:\n'
-    + f.items.map(function (it, i) { return (i + 1) + '. ' + it.requirement + ' (' + it.status + (it.note ? ': ' + it.note : '') + ')'; }).join('\n')
-    + '\nBuild the set so each of these gets a question that makes them show it or explain it honestly, in this order, before any general question. In the feedback, say plainly what would have convinced the hiring manager on that requirement. Never invent experience for them: when they do not have it, help them say so well and point to the nearest real thing they do have.';
+  if (mode === 'mock') {
+    return '\n\nThis interview is for ' + where + '.' + round + (items ? ' Their resume only partly shows, or does not show, these requirements from the posting; probe each at least once, as the interviewer would:\n' + items : '') + debriefText(f.debrief);
+  }
+  return '\n\nDefend your resume. The candidate is preparing for ' + where + '.' + (items ? ' Their resume only partly shows, or does not show, these requirements from the posting:\n' + items + '\nBuild the set so each of these gets a question that makes them show it or explain it honestly, in this order, before any general question.' : '') + round + debriefText(f.debrief) + ' In the feedback, say plainly what would have convinced the hiring manager. Never invent experience for them: when they do not have it, help them say so well and point to the nearest real thing they do have.';
 }
 
 function prepProgressInstruction(p, avoid) {
@@ -1634,9 +1653,16 @@ export default async function handler(req, res) {
         company: String(body.focus.company || '').slice(0, 120),
         items: body.focus.items.slice(0, 6).map(function (it) {
           return { requirement: String(it && it.requirement || '').slice(0, 200), status: it && it.status === 'missing' ? 'missing' : 'partial', note: String(it && it.note || '').slice(0, 240) };
-        }).filter(function (it) { return it.requirement; })
+        }).filter(function (it) { return it.requirement; }),
+        // The round they are in, and what they said right after the last one.
+        round: String(body.focus.round || '').slice(0, 60),
+        debrief: body.focus.debrief && typeof body.focus.debrief === 'object' ? {
+          off_guard: String(body.focus.debrief.off_guard || '').slice(0, 300),
+          worried: String(body.focus.debrief.worried || '').slice(0, 300),
+          learned: String(body.focus.debrief.learned || '').slice(0, 300)
+        } : null
       };
-      if (!focus.items.length) focus = null;
+      if (!focus.items.length && !focus.round && !focus.debrief) focus = null;
     }
     var voice = voiceStats(body.voice);
     var messages = Array.isArray(body.messages) ? body.messages : null;
@@ -1787,7 +1813,7 @@ export default async function handler(req, res) {
     if (PREP_MODES[mode] && !isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += prepProgressInstruction(prepProgress(messages, mode), avoid);
     }
-    if (focus && (mode === 'practice' || mode === 'star')) anthropicBody.system += focusInstruction(focus, mode);
+    if (focus && (mode === 'practice' || mode === 'star' || mode === 'mock')) anthropicBody.system += focusInstruction(focus, mode);
     if (PREP_MODES[mode] && voice && isPrepAnswerTurn(mode, messages)) {
       anthropicBody.system += voiceDeliveryNote(voice);
     }
